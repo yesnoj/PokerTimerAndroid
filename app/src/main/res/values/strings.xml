@@ -63,10 +63,14 @@
     <string name="stop">Stop</string>
     <string name="start_pause_auto_instruction">START: Avvia il timer o lo mette in pausa</string>
     <string name="start_pause_manual_instruction">START: Avvia il timer o lo mette in pausa</string>
-    <string name="stop_instruction">STOP: Ferma il timer</string>
     <string name="reset_instruction">RESET: Reimposta il timer</string>
-    <string name="switch_instruction">SWITCH: Passa tra T1 e T2</string>
 
 
-
+    <string name="start_instruction">Click: Avvia il timer</string>
+    <string name="pause_instruction">Click lungo: Metti in pausa il timer</string>
+    <string name="resume_instruction">Click: Riprendi il timer</string>
+    <string name="stop_instruction">Stop: Ferma e ripristina il timer</string>
+    <string name="reset_auto_instruction">Reset: Ripristina e avvia subito il timer</string>
+    <string name="reset_manual_instruction">Reset: Ripristina e ferma il timer</string>
+    <string name="switch_instruction">Doppio click: Passa all\'altro timer</string>
 </resources>

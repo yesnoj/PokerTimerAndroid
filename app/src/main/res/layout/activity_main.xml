@@ -8,6 +8,20 @@
     android:keepScreenOn="true"
     tools:context=".MainActivity">
 
+   <ImageView
+        android:id="@+id/backToModeSelectionButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="12dp"
+        android:src="@android:drawable/ic_menu_revert"
+        android:tint="@color/white"
+        android:contentDescription="Torna alla selezione modalità"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Intestazione con titolo e pulsante impostazioni -->
     <LinearLayout
         android:id="@+id/header_layout"

@@ -14,6 +14,9 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.pokertimer.databinding.ActivityMainBinding
 import com.example.pokertimer.databinding.DialogSettingsBinding
 import android.widget.Toast
+import android.content.Intent
+import android.widget.ImageView
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -21,12 +24,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: PokerTimerViewModel
 
     // Gestione dei tap e pressioni lunghe
-    private val handler = Handler(Looper.getMainLooper())
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     // Flag per la gestione multi-tocco
     private var isLongPressActive = false
     private val longPressDelay = 500L // ms
-    private var doubleTapTimeWindow = 300L // ms
+    private val doubleTapTimeWindow = 300L // ms
     private var lastTapTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,13 +38,22 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         // Inizializza il ViewModel
-        viewModel = ViewModelProvider(this)[PokerTimerViewModel::class.java]
+        viewModel = androidx.lifecycle.ViewModelProvider(this)[PokerTimerViewModel::class.java]
 
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
 
         // Configura i listener per i pulsanti
         setupButtonListeners()
+
+        // Imposta listener per il pulsante Back (nuovo)
+        val backButton = findViewById<ImageView>(R.id.backToModeSelectionButton)
+        backButton?.setOnClickListener {
+            // Torna alla schermata di selezione modalità
+            val intent = Intent(this, ModeSelectionActivity::class.java)
+            startActivity(intent)
+            finish() // Opzionale, chiude l'activity corrente
+        }
     }
 
     private fun observeTimerState() {
@@ -146,16 +158,31 @@ class MainActivity : AppCompatActivity() {
     private fun updateModeIndicators(state: PokerTimerState) {
         val instructionLines = mutableListOf<String>()
 
-        // Istruzioni per i pulsanti basate sulla modalità
-        if (state.isAutoStartMode) {
-            instructionLines.add(getString(R.string.start_pause_auto_instruction))
+        // Istruzioni per i pulsanti Start/Pause
+        if (state.isRunning && !state.isPaused) {
+            // Timer in esecuzione
+            instructionLines.add(getString(R.string.pause_instruction))
+        } else if (state.isPaused) {
+            // Timer in pausa
+            instructionLines.add(getString(R.string.resume_instruction))
         } else {
-            instructionLines.add(getString(R.string.start_pause_manual_instruction))
+            // Timer fermo
+            instructionLines.add(getString(R.string.start_instruction))
         }
 
+        // Istruzioni per il pulsante Stop
         instructionLines.add(getString(R.string.stop_instruction))
-        instructionLines.add(getString(R.string.reset_instruction))
 
+        // Istruzioni specifiche per il pulsante Reset in base alla modalità
+        if (state.isAutoStartMode) {
+            // Modalità 1 o 3
+            instructionLines.add(getString(R.string.reset_auto_instruction))
+        } else {
+            // Modalità 2 o 4
+            instructionLines.add(getString(R.string.reset_manual_instruction))
+        }
+
+        // Istruzioni per il pulsante Switch se disponibile
         if (!state.isT1OnlyMode) {
             instructionLines.add(getString(R.string.switch_instruction))
         }
@@ -165,7 +192,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
-        val dialogBinding = DialogSettingsBinding.inflate(LayoutInflater.from(this))
+        val dialogBinding = com.example.pokertimer.databinding.DialogSettingsBinding.inflate(layoutInflater)
         val currentState = viewModel.timerState.value ?: return
         var tableNumber = currentState.tableNumber
         dialogBinding.tvTableNumber.text = tableNumber.toString()
@@ -262,16 +289,16 @@ class MainActivity : AppCompatActivity() {
 
                         // Mostra il risultato del test
                         val message = if (success) R.string.connection_success else R.string.connection_failed
-                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
-                Toast.makeText(this, R.string.enter_server_url, Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(this, R.string.enter_server_url, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
 
         // Costruzione del dialog
-        AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.save) { _, _ ->
                 // Determina la modalità selezionata
@@ -296,7 +323,8 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
-    private fun updateT2Visibility(dialogBinding: DialogSettingsBinding, isVisible: Boolean) {
+
+    private fun updateT2Visibility(dialogBinding: com.example.pokertimer.databinding.DialogSettingsBinding, isVisible: Boolean) {
         dialogBinding.tvTimerT2Label.visibility = if (isVisible) View.VISIBLE else View.GONE
         dialogBinding.layoutTimerT2.visibility = if (isVisible) View.VISIBLE else View.GONE
     }
