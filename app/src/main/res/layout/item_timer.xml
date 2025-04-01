@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tableNumberText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Tavolo 1" />
+
+        <TextView
+            android:id="@+id/timerStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_status_running"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="In esecuzione"
+            tools:background="@color/colorRunning" />
+
+        <TextView
+            android:id="@+id/timerValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="64sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_color"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tableNumberText"
+            tools:text="30s" />
+
+        <TextView
+            android:id="@+id/activeTimerText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="16dp"
+            android:textSize="14sp"
+            app:layout_constraintStart_toEndOf="@id/timerValueText"
+            app:layout_constraintBottom_toBottomOf="@id/timerValueText"
+            tools:text="T1" />
+
+        <LinearLayout
+            android:id="@+id/infoContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/timerValueText">
+
+            <TextView
+                android:id="@+id/modeInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_mode"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="Modo: 1" />
+
+            <TextView
+                android:id="@+id/t1InfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_timer_1"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="T1: 20s" />
+
+            <TextView
+                android:id="@+id/t2InfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_timer_2"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="T2: 30s" />
+
+            <TextView
+                android:id="@+id/buzzerInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_buzzer"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="Buzzer: On" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/statusInfoContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/infoContainer">
+
+            <TextView
+                android:id="@+id/batteryInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_battery"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="85%" />
+
+            <TextView
+                android:id="@+id/voltageInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_voltage"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="3.8V" />
+
+            <TextView
+                android:id="@+id/wifiInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_wifi"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="-65 dBm" />
+
+            <TextView
+                android:id="@+id/lastUpdateInfoText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawablePadding="4dp"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_clock"
+                app:drawableTint="@color/colorPrimary"
+                tools:text="2s fa" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/controlsContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/statusInfoContainer">
+
+            <Button
+                android:id="@+id/startButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Start"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <Button
+                android:id="@+id/pauseButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Pausa"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/controlsContainer">
+
+            <Button
+                android:id="@+id/resetButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="Reset"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <Button
+                android:id="@+id/settingsButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Impostazioni"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

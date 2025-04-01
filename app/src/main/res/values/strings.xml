@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Poker Timer</string>
+    <string name="settings">Settings</string>
+    <string name="seconds">seconds</string>
+    <string name="switch_timer">Switch</string>
+
+    <!-- Timer status -->
+    <string name="status_running">Running</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_stopped">Ready</string>
+    <string name="status_expired">Time\'s up!</string>
+
+    <!-- Active timer -->
+    <string name="timer_t1">Timer T1</string>
+    <string name="timer_t2">Timer T2</string>
+
+    <!-- Button labels -->
+    <string name="start">Start</string>
+    <string name="pause">Pause</string>
+    <string name="reset">Reset</string>
+    <string name="resume">Resume</string>
+
+    <!-- Settings -->
+    <string name="operation_mode">Operation Mode</string>
+    <string name="mode_1_desc">Mode 1: T1/T2 with automatic start</string>
+    <string name="mode_2_desc">Mode 2: T1/T2 with manual start</string>
+    <string name="mode_3_desc">Mode 3: T1 only with automatic start</string>
+    <string name="mode_4_desc">Mode 4: T1 only with manual start</string>
+    <string name="buzzer_sounds">Sound effects</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Instructions -->
+    <string name="tap_instruction">Tap to start/reset</string>
+    <string name="double_tap_instruction">Double-tap to switch T1/T2</string>
+    <string name="long_press_instruction">Long-press to pause</string>
+    <string name="tap_start_instruction">Tap to start</string>
+    <string name="tap_reset_auto_instruction">Tap to reset and start</string>
+    <string name="tap_reset_manual_instruction">Tap to reset</string>
+
+    <!-- Other -->
+    <string name="buzzer_on">Buzzer: ON</string>
+    <string name="buzzer_off">Buzzer: OFF</string>
+    <string name="mode_format">Mode %d</string>
+
+
+    <string name="table_number">Numero Tavolo</string>
+
+    <string name="server_config">Configurazione Server</string>
+    <string name="server_url_hint">http://192.168.4.1</string>
+    <string name="test_connection">Test Connessione</string>
+    <string name="testing">Testando...</string>
+    <string name="connection_success">Connessione riuscita</string>
+    <string name="connection_failed">Connessione fallita</string>
+    <string name="enter_server_url">Inserisci URL del server</string>
+    <string name="server_connected">Server: Connesso</string>
+    <string name="server_disconnected">Server: Disconnesso</string>
+
+    <string name="table_format">Tavolo %d</string>
+
+
+    <string name="stop">Stop</string>
+    <string name="start_pause_auto_instruction">START: Avvia il timer o lo mette in pausa</string>
+    <string name="start_pause_manual_instruction">START: Avvia il timer o lo mette in pausa</string>
+    <string name="stop_instruction">STOP: Ferma il timer</string>
+    <string name="reset_instruction">RESET: Reimposta il timer</string>
+    <string name="switch_instruction">SWITCH: Passa tra T1 e T2</string>
+
+
+
+</resources>

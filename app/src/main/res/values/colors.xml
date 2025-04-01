@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colori originali già presenti -->
+    <color name="primary_color">#2196F3</color>
+    <color name="primary_dark_color">#1976D2</color>
+    <color name="secondary_color">#FFA000</color>
+    <color name="background_color">#121212</color>
+    <color name="status_color">#4CAF50</color>
+    <color name="error_color">#F44336</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="white_70">#B3FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <!-- Colori originali del template -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+
+    <!-- Mappatura ai nomi nuovi per compatibilità -->
+    <color name="colorPrimary">@color/primary_color</color>
+    <color name="colorPrimaryDark">@color/primary_dark_color</color>
+    <color name="colorAccent">@color/secondary_color</color>
+
+    <!-- Nuovi colori per la dashboard -->
+    <color name="colorRunning">@color/status_color</color>
+    <color name="colorPaused">#FFC107</color>
+    <color name="colorStopped">#9E9E9E</color>
+    <color name="colorExpired">@color/error_color</color>
+    <color name="colorSuccess">#43A047</color>
+    <color name="colorWarning">#FFB300</color>
+
+    <!-- Colori per batteria -->
+    <color name="batteryHigh">#43A047</color>
+    <color name="batteryMedium">#FFB300</color>
+    <color name="batteryLow">@color/error_color</color>
+
+    <color name="colorError">@color/error_color</color>
+
+</resources>
