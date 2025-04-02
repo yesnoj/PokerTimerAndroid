@@ -82,8 +82,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:textSize="18sp"
-            android:text="20s" />
+            android:text="20s"
+            android:textSize="18sp" />
 
         <Button
             android:id="@+id/btn_increase_t1"
@@ -124,8 +124,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:textSize="18sp"
-            android:text="30s" />
+            android:text="30s"
+            android:textSize="18sp" />
 
         <Button
             android:id="@+id/btn_increase_t2"
@@ -186,8 +186,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:textSize="18sp"
-            android:text="1" />
+            android:text="1"
+            android:textSize="18sp" />
 
         <Button
             android:id="@+id/btn_increase_table"

@@ -3,10 +3,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     
     <item
-        android:id="@+id/action_change_server"
-        android:icon="@drawable/ic_server"
-        android:title="Cambia server"
-        app:showAsAction="never" />
+        android:id="@+id/action_filter"
+        android:icon="@drawable/ic_filter"
+        android:title="Filtra timer"
+        app:showAsAction="ifRoom" />
     
     <item
         android:id="@+id/action_refresh"
@@ -15,7 +15,13 @@
         app:showAsAction="ifRoom" />
     
     <item
-        android:id="@+id/action_switch_to_timer"
-        android:title="Passa a modalità Timer"
+        android:id="@+id/action_change_server"
+        android:icon="@drawable/ic_server"
+        android:title="Cambia server"
+        app:showAsAction="never" />
+    
+    <item
+        android:id="@+id/action_clear_timers"
+        android:title="Cancella tutti i timer"
         app:showAsAction="never" />
 </menu>

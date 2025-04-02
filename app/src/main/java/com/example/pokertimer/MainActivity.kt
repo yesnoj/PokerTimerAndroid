@@ -1,44 +1,45 @@
 package com.example.pokertimer
 
 import android.app.AlertDialog
-import android.content.Context
+import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.GestureDetector
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.Switch
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.example.pokertimer.databinding.ActivityMainBinding
-import com.example.pokertimer.databinding.DialogSettingsBinding
-import android.widget.Toast
-import android.content.Intent
-import android.widget.ImageView
-
+import android.util.Log
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: MainActivityBinding
     private lateinit var viewModel: PokerTimerViewModel
-
-    // Gestione dei tap e pressioni lunghe
-    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-
-    // Flag per la gestione multi-tocco
-    private var isLongPressActive = false
-    private val longPressDelay = 500L // ms
-    private val doubleTapTimeWindow = 300L // ms
-    private var lastTapTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+
+        // Determina l'orientamento attuale e carica il layout appropriato
+        val orientation = resources.configuration.orientation
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            setContentView(R.layout.activity_main_landscape)
+        } else {
+            setContentView(R.layout.activity_main_portrait)
+        }
+
+        // Inizializza il binding personalizzato
+        binding = MainActivityBinding.bind(this)
 
         // Inizializza il ViewModel
-        viewModel = androidx.lifecycle.ViewModelProvider(this)[PokerTimerViewModel::class.java]
+        viewModel = ViewModelProvider(this)[PokerTimerViewModel::class.java]
 
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
@@ -46,13 +47,39 @@ class MainActivity : AppCompatActivity() {
         // Configura i listener per i pulsanti
         setupButtonListeners()
 
-        // Imposta listener per il pulsante Back (nuovo)
+        // Imposta listener per il pulsante Back
         val backButton = findViewById<ImageView>(R.id.backToModeSelectionButton)
         backButton?.setOnClickListener {
             // Torna alla schermata di selezione modalità
             val intent = Intent(this, ModeSelectionActivity::class.java)
             startActivity(intent)
             finish() // Opzionale, chiude l'activity corrente
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // Cambia il layout in base al nuovo orientamento
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            Log.d("MainActivity", "Switching to landscape layout")
+            setContentView(R.layout.activity_main_landscape)
+        } else {
+            Log.d("MainActivity", "Switching to portrait layout")
+            setContentView(R.layout.activity_main_portrait)
+        }
+
+        // Re-inizializza il binding
+        binding = MainActivityBinding.bind(this)
+
+        // Ricollega i listener e aggiorna lo stato
+        setupButtonListeners()
+
+        // Se il viewModel e lo stato sono già inizializzati, aggiorna la UI
+        viewModel.timerState.value?.let {
+            updateTimerDisplay(it)
+            updateButtonsState(it)
+            updateModeIndicators(it)
         }
     }
 
@@ -192,121 +219,121 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSettingsDialog() {
-        val dialogBinding = com.example.pokertimer.databinding.DialogSettingsBinding.inflate(layoutInflater)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
         var tableNumber = currentState.tableNumber
-        dialogBinding.tvTableNumber.text = tableNumber.toString()
+        dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
 
-        dialogBinding.btnDecreaseTable.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_decrease_table).setOnClickListener {
             if (tableNumber > 0) {
                 tableNumber--
-                dialogBinding.tvTableNumber.text = tableNumber.toString()
+                dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
             }
         }
 
-        dialogBinding.btnIncreaseTable.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_increase_table).setOnClickListener {
             if (tableNumber < 99) {
                 tableNumber++
-                dialogBinding.tvTableNumber.text = tableNumber.toString()
+                dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
             }
         }
 
         // Imposta lo stato attuale nel dialogo
         when (currentState.operationMode) {
-            PokerTimerState.MODE_1 -> dialogBinding.radioMode1.isChecked = true
-            PokerTimerState.MODE_2 -> dialogBinding.radioMode2.isChecked = true
-            PokerTimerState.MODE_3 -> dialogBinding.radioMode3.isChecked = true
-            PokerTimerState.MODE_4 -> dialogBinding.radioMode4.isChecked = true
+            PokerTimerState.MODE_1 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked = true
+            PokerTimerState.MODE_2 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked = true
+            PokerTimerState.MODE_3 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_3).isChecked = true
+            PokerTimerState.MODE_4 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_4).isChecked = true
         }
 
         // Valori T1 e T2
-        dialogBinding.tvT1Value.text = "${currentState.timerT1}s"
-        dialogBinding.tvT2Value.text = "${currentState.timerT2}s"
+        dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${currentState.timerT1}s"
+        dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${currentState.timerT2}s"
 
         // Stato buzzer
-        dialogBinding.switchBuzzer.isChecked = currentState.buzzerEnabled
+        dialogView.findViewById<Switch>(R.id.switch_buzzer).isChecked = currentState.buzzerEnabled
 
         // Imposta l'URL del server nel campo di testo
-        dialogBinding.etServerUrl.setText(currentState.serverUrl)
+        dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).setText(currentState.serverUrl)
 
         // Visibilità delle impostazioni T2
         updateT2Visibility(
-            dialogBinding,
-            dialogBinding.radioMode1.isChecked || dialogBinding.radioMode2.isChecked
+            dialogView,
+            dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked || dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked
         )
 
         // Listener per i radio button della modalità
-        dialogBinding.radioGroupMode.setOnCheckedChangeListener { _, checkedId ->
+        dialogView.findViewById<RadioGroup>(R.id.radio_group_mode).setOnCheckedChangeListener { _, checkedId ->
             val isT1T2Mode = checkedId == R.id.radio_mode_1 || checkedId == R.id.radio_mode_2
-            updateT2Visibility(dialogBinding, isT1T2Mode)
+            updateT2Visibility(dialogView, isT1T2Mode)
         }
 
         // Listener per i pulsanti di incremento/decremento di T1
         var t1Value = currentState.timerT1
-        dialogBinding.btnDecreaseT1.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_decrease_t1).setOnClickListener {
             if (t1Value > 5) {
                 t1Value -= 5
-                dialogBinding.tvT1Value.text = "${t1Value}s"
+                dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${t1Value}s"
             }
         }
 
-        dialogBinding.btnIncreaseT1.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_increase_t1).setOnClickListener {
             if (t1Value < 95) {
                 t1Value += 5
-                dialogBinding.tvT1Value.text = "${t1Value}s"
+                dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${t1Value}s"
             }
         }
 
         // Listener per i pulsanti di incremento/decremento di T2
         var t2Value = currentState.timerT2
-        dialogBinding.btnDecreaseT2.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_decrease_t2).setOnClickListener {
             if (t2Value > 5) {
                 t2Value -= 5
-                dialogBinding.tvT2Value.text = "${t2Value}s"
+                dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${t2Value}s"
             }
         }
 
-        dialogBinding.btnIncreaseT2.setOnClickListener {
+        dialogView.findViewById<Button>(R.id.btn_increase_t2).setOnClickListener {
             if (t2Value < 95) {
                 t2Value += 5
-                dialogBinding.tvT2Value.text = "${t2Value}s"
+                dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${t2Value}s"
             }
         }
 
         // Gestione del test di connessione al server
-        dialogBinding.btnTestConnection.setOnClickListener {
-            val serverUrl = dialogBinding.etServerUrl.text.toString()
+        dialogView.findViewById<Button>(R.id.btn_test_connection).setOnClickListener {
+            val serverUrl = dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).text.toString()
             if (serverUrl.isNotEmpty()) {
                 // Mostra un indicatore di caricamento
-                dialogBinding.btnTestConnection.isEnabled = false
-                dialogBinding.btnTestConnection.text = getString(R.string.testing)
+                dialogView.findViewById<Button>(R.id.btn_test_connection).isEnabled = false
+                dialogView.findViewById<Button>(R.id.btn_test_connection).text = getString(R.string.testing)
 
                 viewModel.testServerConnection(serverUrl) { success ->
                     // Torna al thread principale
                     runOnUiThread {
-                        dialogBinding.btnTestConnection.isEnabled = true
-                        dialogBinding.btnTestConnection.text = getString(R.string.test_connection)
+                        dialogView.findViewById<Button>(R.id.btn_test_connection).isEnabled = true
+                        dialogView.findViewById<Button>(R.id.btn_test_connection).text = getString(R.string.test_connection)
 
                         // Mostra il risultato del test
                         val message = if (success) R.string.connection_success else R.string.connection_failed
-                        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
-                android.widget.Toast.makeText(this, R.string.enter_server_url, android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.enter_server_url, Toast.LENGTH_SHORT).show()
             }
         }
 
         // Costruzione del dialog
-        android.app.AlertDialog.Builder(this)
-            .setView(dialogBinding.root)
+        AlertDialog.Builder(this)
+            .setView(dialogView)
             .setPositiveButton(R.string.save) { _, _ ->
                 // Determina la modalità selezionata
                 val mode = when {
-                    dialogBinding.radioMode1.isChecked -> PokerTimerState.MODE_1
-                    dialogBinding.radioMode2.isChecked -> PokerTimerState.MODE_2
-                    dialogBinding.radioMode3.isChecked -> PokerTimerState.MODE_3
-                    dialogBinding.radioMode4.isChecked -> PokerTimerState.MODE_4
+                    dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked -> PokerTimerState.MODE_1
+                    dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked -> PokerTimerState.MODE_2
+                    dialogView.findViewById<RadioButton>(R.id.radio_mode_3).isChecked -> PokerTimerState.MODE_3
+                    dialogView.findViewById<RadioButton>(R.id.radio_mode_4).isChecked -> PokerTimerState.MODE_4
                     else -> PokerTimerState.MODE_1 // Default
                 }
 
@@ -315,17 +342,17 @@ class MainActivity : AppCompatActivity() {
                     timerT1 = t1Value,
                     timerT2 = t2Value,
                     operationMode = mode,
-                    buzzerEnabled = dialogBinding.switchBuzzer.isChecked,
+                    buzzerEnabled = dialogView.findViewById<Switch>(R.id.switch_buzzer).isChecked,
                     tableNumber = tableNumber,
-                    serverUrl = dialogBinding.etServerUrl.text.toString()
+                    serverUrl = dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).text.toString()
                 )
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
-    private fun updateT2Visibility(dialogBinding: com.example.pokertimer.databinding.DialogSettingsBinding, isVisible: Boolean) {
-        dialogBinding.tvTimerT2Label.visibility = if (isVisible) View.VISIBLE else View.GONE
-        dialogBinding.layoutTimerT2.visibility = if (isVisible) View.VISIBLE else View.GONE
+    private fun updateT2Visibility(dialogView: View, isVisible: Boolean) {
+        dialogView.findViewById<View>(R.id.tv_timer_t2_label).visibility = if (isVisible) View.VISIBLE else View.GONE
+        dialogView.findViewById<View>(R.id.layout_timer_t2).visibility = if (isVisible) View.VISIBLE else View.GONE
     }
 }

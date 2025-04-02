@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/dialogTitleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Impostazioni Timer - Tavolo X"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Sezione Numero Tavolo -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Numero Tavolo"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/decreaseTableButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="-" />
+
+        <TextView
+            android:id="@+id/tableNumberText"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="1"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/increaseTableButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="+" />
+    </LinearLayout>
+
+    <!-- Sezione Modalità Operativa -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Modalità operativa"
+        android:textStyle="bold" />
+
+    <RadioGroup
+        android:id="@+id/modeRadioGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+
+        <RadioButton
+            android:id="@+id/modeRadio1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità 1: T1/T2 con avvio automatico" />
+
+        <RadioButton
+            android:id="@+id/modeRadio2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità 2: T1/T2 con avvio manuale" />
+
+        <RadioButton
+            android:id="@+id/modeRadio3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità 3: Solo T1 con avvio automatico" />
+
+        <RadioButton
+            android:id="@+id/modeRadio4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità 4: Solo T1 con avvio manuale" />
+
+    </RadioGroup>
+
+    <!-- Sezione Timer T1 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Timer T1 (secondi)"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/decreaseT1Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="-" />
+
+        <TextView
+            android:id="@+id/t1ValueText"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="20"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/increaseT1Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="+" />
+    </LinearLayout>
+
+    <!-- Sezione Timer T2 -->
+    <LinearLayout
+        android:id="@+id/t2Container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Timer T2 (secondi)"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/decreaseT2Button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="-" />
+
+            <TextView
+                android:id="@+id/t2ValueText"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="30"
+                android:textSize="18sp" />
+
+            <Button
+                android:id="@+id/increaseT2Button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="+" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Sezione Buzzer -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Buzzer"
+            android:textStyle="bold" />
+
+        <Switch
+            android:id="@+id/buzzerSwitch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true" />
+    </LinearLayout>
+
+    <!-- Sezione pulsanti azione -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/resetDefaultsButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:backgroundTint="#F44336"
+            android:text="FACTORY RESET" />
+
+        <Button
+            android:id="@+id/saveSettingsButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Salva" />
+    </LinearLayout>
+</LinearLayout>

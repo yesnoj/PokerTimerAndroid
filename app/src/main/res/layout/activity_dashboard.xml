@@ -33,6 +33,19 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <!-- Contatore di timer filtrati -->
+            <TextView
+                android:id="@+id/filteredCountText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:background="#F5F5F5"
+                android:text="Visualizzazione di tutti i timer (0)"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/timersRecyclerView"
                 android:layout_width="0dp"
@@ -42,7 +55,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toBottomOf="@id/filteredCountText" />
 
             <!-- Empty state view -->
             <LinearLayout
@@ -162,13 +175,6 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/refreshFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:src="@drawable/ic_refresh"
-        android:contentDescription="Aggiorna timer" />
+    <!-- Il FAB è stato rimosso -->
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
