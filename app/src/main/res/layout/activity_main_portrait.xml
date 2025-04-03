@@ -82,7 +82,7 @@
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
             android:background="@drawable/bg_circular_button"
-            android:contentDescription="Seleziona giocatori"
+            android:contentDescription="Seleziona posti liberi"
             android:padding="12dp"
             android:src="@drawable/ic_players"
             app:tint="@color/white" />
