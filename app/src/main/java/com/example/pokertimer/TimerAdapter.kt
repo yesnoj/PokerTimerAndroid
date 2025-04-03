@@ -143,9 +143,40 @@ class TimerAdapter(
             pauseButton.setOnClickListener { listener.onPauseClicked(timer) }
             settingsButton.setOnClickListener { listener.onSettingsClicked(timer) }
 
-            // Abilita/disabilita bottoni in base allo stato
-            startButton.isEnabled = !timer.isRunning || timer.isPaused
-            pauseButton.isEnabled = timer.isRunning && !timer.isPaused
+            // Determina se il timer è online in base all'ultimo aggiornamento
+            val isTimerOnline = try {
+                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+                sdf.timeZone = TimeZone.getTimeZone("UTC")
+                val lastUpdateTime = sdf.parse(timer.lastUpdateTimestamp)
+                val now = Date()
+
+                // Calcola la differenza in minuti
+                val diffInMs = now.time - (lastUpdateTime?.time ?: 0)
+                val diffInMinutes = diffInMs / (1000 * 60)
+
+                // Un timer è considerato online se l'ultimo aggiornamento è avvenuto
+                // negli ultimi 5 minuti (stesso valore usato in DashboardActivity)
+                diffInMinutes < 5
+            } catch (e: Exception) {
+                // In caso di errore, considera il timer offline
+                false
+            }
+
+            // Abilita/disabilita i pulsanti in base allo stato online e del timer
+            startButton.isEnabled = isTimerOnline && (!timer.isRunning || timer.isPaused)
+            pauseButton.isEnabled = isTimerOnline && timer.isRunning && !timer.isPaused
+            settingsButton.isEnabled = isTimerOnline
+
+            // Aggiorna anche lo stile visivo per indicare che i pulsanti sono disabilitati
+            if (!isTimerOnline) {
+                startButton.alpha = 0.5f
+                pauseButton.alpha = 0.5f
+                settingsButton.alpha = 0.5f
+            } else {
+                startButton.alpha = 1.0f
+                pauseButton.alpha = 1.0f
+                settingsButton.alpha = 1.0f
+            }
 
             // Gestione delle informazioni sui posti liberi
             if (timer.seatInfo != null && timer.seatInfo.openSeats.isNotEmpty()) {

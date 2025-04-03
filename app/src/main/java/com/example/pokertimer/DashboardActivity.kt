@@ -624,7 +624,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             return false
         }
     }
-
     /**
      * Mostra il dialogo per modificare le impostazioni di un timer specifico
      */
@@ -1006,7 +1005,7 @@ private fun clearAllTimers() {
     }
 }
 
-    
+
 
     /**
      * Invia le impostazioni al server
@@ -1038,18 +1037,34 @@ private fun clearAllTimers() {
     // Implementazione dei metodi dell'interfaccia TimerActionListener
 
     override fun onStartClicked(timer: TimerItem) {
-        sendCommandToTimer(timer.deviceId, "start")
+        if (isTimerOnline(timer)) {
+            sendCommandToTimer(timer.deviceId, "start")
+        } else {
+            Toast.makeText(this, "Timer offline. Impossibile inviare comandi.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onPauseClicked(timer: TimerItem) {
-        sendCommandToTimer(timer.deviceId, "pause")
+        if (isTimerOnline(timer)) {
+            sendCommandToTimer(timer.deviceId, "pause")
+        } else {
+            Toast.makeText(this, "Timer offline. Impossibile inviare comandi.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onResetClicked(timer: TimerItem) {
-        sendCommandToTimer(timer.deviceId, "reset")
+        if (isTimerOnline(timer)) {
+            sendCommandToTimer(timer.deviceId, "reset")
+        } else {
+            Toast.makeText(this, "Timer offline. Impossibile inviare comandi.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onSettingsClicked(timer: TimerItem) {
-        showTimerSettingsDialog(timer)
+        if (isTimerOnline(timer)) {
+            showTimerSettingsDialog(timer)
+        } else {
+            Toast.makeText(this, "Timer offline. Impossibile modificare le impostazioni.", Toast.LENGTH_SHORT).show()
+        }
     }
 }

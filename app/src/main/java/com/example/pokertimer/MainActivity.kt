@@ -235,15 +235,11 @@ class MainActivity : AppCompatActivity() {
         if (selectedPlayerSeats.contains(playerNumber)) {
             // Deseleziona
             selectedPlayerSeats.remove(playerNumber)
-            button.background = ContextCompat.getDrawable(this,
-                R.drawable.btn_outlined_background)
-            button.setTextColor(ContextCompat.getColor(this, R.color.primary_color))
+            button.isSelected = false
         } else {
             // Seleziona
             selectedPlayerSeats.add(playerNumber)
-            button.background = ContextCompat.getDrawable(this,
-                R.drawable.btn_filled_background)
-            button.setTextColor(Color.WHITE)
+            button.isSelected = true
         }
     }
 
