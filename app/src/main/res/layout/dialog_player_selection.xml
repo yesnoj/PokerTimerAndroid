@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:padding="24dp">
@@ -18,29 +19,34 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Icona centrale del tavolo -->
-    <ImageView
-        android:id="@+id/tableImage"
-        android:layout_width="120dp"
-        android:layout_height="120dp"
-        android:src="@drawable/ic_poker_table"
+    <!-- Container per il tavolo e i giocatori -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/tableContainer"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/dialogTitle"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/playerButtonsContainer" />
-
-    <!-- Container dei bottoni giocatore -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/playerButtonsContainer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/tableImage"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Prima riga di bottoni -->
+        <!-- Icona centrale del tavolo -->
+
+        <!-- Posizione dei giocatori - Disposti in circolo intorno al tavolo -->
+        
+        <!-- Giocatore 1 - in alto -->
+
+        <ImageView
+            android:id="@+id/tableImage"
+            android:layout_width="232dp"
+            android:layout_height="221dp"
+            android:layout_marginBottom="10dp"
+            android:src="@drawable/ic_poker_table"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.506" />
+
         <Button
             android:id="@+id/playerButton1"
             style="@style/PlayerCircleButton"
@@ -54,22 +60,48 @@
             app:strokeWidth="2dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/playerButton2" />
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Giocatore 2 - in alto a destra -->
+
+        <!-- Giocatore 3 - a destra -->
+
+        <!-- Giocatore 4 - in basso a destra -->
+
+        <!-- Giocatore 5 - in basso -->
 
         <Button
-            android:id="@+id/playerButton2"
+            android:id="@+id/playerButton8"
             style="@style/PlayerCircleButton"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:text="2"
-            android:textSize="18sp"
+            android:layout_marginTop="32dp"
+            android:text="8"
             android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
             app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
+            app:layout_constraintBottom_toTopOf="@id/playerButton7"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/playerButton1"
-            app:layout_constraintEnd_toStartOf="@id/playerButton3" />
+            app:layout_constraintVertical_bias="0.723"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
+
+        <Button
+            android:id="@+id/playerButton7"
+            style="@style/PlayerCircleButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:text="7"
+            android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
+            app:backgroundTint="@color/bg_player_button_color"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.627"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
 
         <Button
             android:id="@+id/playerButton3"
@@ -77,32 +109,72 @@
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:text="3"
-            android:textSize="18sp"
             android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
             app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/playerButton2"
-            app:layout_constraintEnd_toStartOf="@id/playerButton4"/>
+            app:layout_constraintVertical_bias="0.627"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
+
+        <Button
+            android:id="@+id/playerButton2"
+            style="@style/PlayerCircleButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="32dp"
+            android:text="2"
+            android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
+            app:backgroundTint="@color/bg_player_button_color"
+            app:layout_constraintBottom_toTopOf="@id/playerButton3"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.723"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
 
         <Button
             android:id="@+id/playerButton4"
+            style="@style/PlayerCircleButton"
             android:layout_width="56dp"
             android:layout_height="56dp"
+            android:layout_marginEnd="56dp"
+            android:layout_marginBottom="25dp"
             android:text="4"
-            android:textSize="18sp"
             android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
             app:backgroundTint="@color/bg_player_button_color"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/playerButton3"
+            app:layout_constraintVertical_bias="1.0"
             app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/playerButton3"
-            app:layout_constraintEnd_toStartOf="@id/playerButton5"
-            style="@style/PlayerCircleButton" />
+            app:strokeWidth="2dp" />
+
+        <Button
+            android:id="@+id/playerButton6"
+            style="@style/PlayerCircleButton"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="56dp"
+            android:layout_marginBottom="25dp"
+            android:text="6"
+            android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
+            app:backgroundTint="@color/bg_player_button_color"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/playerButton7"
+            app:layout_constraintVertical_bias="1.0"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
 
         <Button
             android:id="@+id/playerButton5"
+            style="@style/PlayerCircleButton"
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:text="5"
@@ -111,91 +183,54 @@
             app:backgroundTint="@color/bg_player_button_color"
             app:strokeColor="@color/player_button_stroke_color"
             app:strokeWidth="2dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/playerButton4"
-            app:layout_constraintEnd_toEndOf="parent"
-            style="@style/PlayerCircleButton" />
-
-        <!-- Seconda riga di bottoni -->
-        <Button
-            android:id="@+id/playerButton6"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:text="6"
-            android:textSize="18sp"
-            android:textColor="@color/selector_player_button_text"
-            app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/playerButton1"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/playerButton7"
-            style="@style/PlayerCircleButton" />
+            app:layout_constraintEnd_toEndOf="parent" />
 
-        <Button
-            android:id="@+id/playerButton7"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:text="7"
-            android:textSize="18sp"
-            android:textColor="@color/selector_player_button_text"
-            app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/playerButton2"
-            app:layout_constraintStart_toEndOf="@id/playerButton6"
-            app:layout_constraintEnd_toStartOf="@id/playerButton8"
-            style="@style/PlayerCircleButton" />
+        <!-- Giocatore 6 - in basso a sinistra -->
 
-        <Button
-            android:id="@+id/playerButton8"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:text="8"
-            android:textSize="18sp"
-            android:textColor="@color/selector_player_button_text"
-            app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/playerButton3"
-            app:layout_constraintStart_toEndOf="@id/playerButton7"
-            app:layout_constraintEnd_toStartOf="@id/playerButton9"
-            style="@style/PlayerCircleButton" />
+        <!-- Giocatore 7 - a sinistra -->
+
+        <!-- Giocatore 8 - in alto a sinistra -->
+
+        <!-- Giocatore 9 - tra 8 e 1 -->
+
+        <!-- Giocatore 10 - tra 1 e 2 -->
 
         <Button
             android:id="@+id/playerButton9"
+            style="@style/PlayerCircleButton"
             android:layout_width="56dp"
             android:layout_height="56dp"
+            android:layout_marginTop="16dp"
             android:text="9"
-            android:textSize="18sp"
             android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
             app:backgroundTint="@color/bg_player_button_color"
-            app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/playerButton4"
+            app:layout_constraintEnd_toStartOf="@id/playerButton1"
+            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toEndOf="@id/playerButton8"
-            app:layout_constraintEnd_toStartOf="@id/playerButton10"
-            style="@style/PlayerCircleButton" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeColor="@color/player_button_stroke_color"
+            app:strokeWidth="2dp" />
 
         <Button
             android:id="@+id/playerButton10"
+            style="@style/PlayerCircleButton"
             android:layout_width="56dp"
             android:layout_height="56dp"
+            android:layout_marginTop="16dp"
             android:text="10"
-            android:textSize="18sp"
             android:textColor="@color/selector_player_button_text"
+            android:textSize="18sp"
             app:backgroundTint="@color/bg_player_button_color"
+            app:layout_constraintEnd_toStartOf="@id/playerButton2"
+            app:layout_constraintHorizontal_bias="1.0"
+            app:layout_constraintStart_toEndOf="@id/playerButton1"
+            app:layout_constraintTop_toTopOf="parent"
             app:strokeColor="@color/player_button_stroke_color"
-            app:strokeWidth="2dp"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@id/playerButton5"
-            app:layout_constraintStart_toEndOf="@id/playerButton9"
-            app:layout_constraintEnd_toEndOf="parent"
-            style="@style/PlayerCircleButton" />
+            app:strokeWidth="2dp" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Bottoni azione -->
@@ -205,7 +240,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/playerButtonsContainer"
+        app:layout_constraintTop_toBottomOf="@id/tableContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
