@@ -14,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
+import androidx.appcompat.app.AlertDialog
 
 class TimerAdapter(
     private val context: Context,
@@ -27,6 +28,7 @@ class TimerAdapter(
         fun onSettingsClicked(timer: TimerItem)
         // Manteniamo onResetClicked nell'interfaccia ma non lo useremo nel layout
         fun onResetClicked(timer: TimerItem)
+        fun onResetSeatInfo(timer: TimerItem)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TimerViewHolder {
@@ -65,6 +67,7 @@ class TimerAdapter(
         private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
         // Il resetButton non viene più usato, ma lo manteniamo nella dichiarazione
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
+        private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
@@ -143,6 +146,37 @@ class TimerAdapter(
             // Abilita/disabilita bottoni in base allo stato
             startButton.isEnabled = !timer.isRunning || timer.isPaused
             pauseButton.isEnabled = timer.isRunning && !timer.isPaused
+
+            // Gestione delle informazioni sui posti liberi
+            if (timer.seatInfo != null && timer.seatInfo.openSeats.isNotEmpty()) {
+                // Formatta i posti liberi in una stringa
+                val formattedSeats = timer.seatInfo.openSeats.joinToString(", ")
+                seatInfoText.text = "SEAT OPEN: $formattedSeats"
+                seatInfoText.visibility = View.VISIBLE
+
+                // Rendi cliccabile il testo
+                seatInfoText.setOnClickListener {
+                    // Mostra dialog con opzioni CANCEL e RESET
+                    AlertDialog.Builder(context)
+                        .setTitle("Gestione posti liberi")
+                        .setMessage("Vuoi cancellare questa notifica di posti liberi?")
+                        .setNegativeButton("CANCEL") { dialog, _ -> dialog.dismiss() }
+                        .setPositiveButton("RESET") { dialog, _ ->
+                            dialog.dismiss()
+                            listener.onResetSeatInfo(timer)
+                        }
+                        .show()
+                }
+
+                // Ancora da gestire le notifiche come prima
+                if (timer.seatInfo.needsNotification) {
+                    (context as? DashboardActivity)?.checkAndShowNotification(timer)
+                }
+            } else {
+                seatInfoText.visibility = View.GONE
+                // Rimuovi il listener se non ci sono informazioni sui posti
+                seatInfoText.setOnClickListener(null)
+            }
         }
 
         private fun formatTimerValue(seconds: Int): String {

@@ -22,10 +22,13 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     private val preferences = PokerTimerPreferences(application)
     private val networkManager = NetworkManager(application)
 
-
     // Stato del timer osservabile
     private val _timerState = MutableLiveData<PokerTimerState>()
     val timerState: LiveData<PokerTimerState> = _timerState
+
+    // Evento per le richieste di posti
+    private val _seatRequestEvent = MutableLiveData<NetworkManager.SeatRequest?>()
+    val seatRequestEvent: LiveData<NetworkManager.SeatRequest?> = _seatRequestEvent
 
     // Gestione dei suoni
     private val soundPool: SoundPool
@@ -276,6 +279,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Avvia immediatamente il timer
         timerRunnable?.run()
     }
+
     /**
      * Invia lo stato del timer al server
      */
@@ -285,7 +289,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         if (currentState.serverUrl.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 try {
-                    val (success, command) = networkManager.sendTimerStatus(currentState.serverUrl, currentState)
+                    val (success, command, seatRequest) = networkManager.sendTimerStatus(currentState.serverUrl, currentState)
 
                     // Aggiorna lo stato di connessione
                     _timerState.value = currentState.copy(isConnectedToServer = success)
@@ -319,6 +323,12 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                             }
                         }
                     }
+
+                    // Gestisci le richieste di posti
+                    if (success && seatRequest != null) {
+                        // Notifica l'activity della richiesta di posti
+                        _seatRequestEvent.postValue(seatRequest)
+                    }
                 } catch (e: Exception) {
                     _timerState.value = currentState.copy(isConnectedToServer = false)
                 }
@@ -343,9 +353,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Gestione del pulsante Stop
      */
-    /**
-     * Gestione del pulsante Stop
-     */
     fun onStopPressed() {
         timerHandler?.removeCallbacks(timerRunnable ?: return)
 
@@ -365,12 +372,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         sendTimerStatusToServer()
     }
 
-    /**
-     * Salva le impostazioni del timer
-     */
-    /**
-     * Salva le impostazioni del timer
-     */
     /**
      * Salva le impostazioni del timer
      */
@@ -421,6 +422,32 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Invia una richiesta di posti liberi al server
+     */
+    fun sendSeatRequest(seatRequest: PlayerSeatRequest) {
+        val currentState = _timerState.value ?: return
+
+        if (currentState.serverUrl.isNotEmpty()) {
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    val success = networkManager.sendSeatRequest(currentState.serverUrl, seatRequest)
+
+                    // Aggiorna lo stato di connessione
+                    _timerState.value = currentState.copy(isConnectedToServer = success)
+
+                    if (success) {
+                        android.util.Log.d("PokerTimerViewModel", "Seat request sent successfully")
+                    } else {
+                        android.util.Log.e("PokerTimerViewModel", "Failed to send seat request")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PokerTimerViewModel", "Error sending seat request: ${e.message}", e)
+                    _timerState.value = currentState.copy(isConnectedToServer = false)
+                }
+            }
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()
@@ -456,5 +483,3 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         serverPollingJob = null
     }
 }
-
-

@@ -66,6 +66,54 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     // Costante per il timeout online (in minuti)
     private val ONLINE_TIMEOUT_MINUTES = 5
 
+    private val acknowledgedDevices = HashSet<String>()
+
+    private val shownNotifications = HashSet<String>()
+
+    // Metodo pubblico da chiamare dall'adapter
+    fun checkAndShowNotification(timer: TimerItem) {
+        if (timer.seatInfo?.needsNotification == true) {
+            // Usa solo l'ID del dispositivo
+            if (!acknowledgedDevices.contains(timer.deviceId)) {
+                // Segna questo dispositivo come notificato
+                acknowledgedDevices.add(timer.deviceId)
+
+                // Log per debug
+                android.util.Log.d("DashboardActivity", "Showing notification for device: ${timer.deviceId}")
+
+                val formattedSeats = timer.seatInfo.openSeats.joinToString(", ")
+
+                runOnUiThread {
+                    AlertDialog.Builder(this)
+                        .setTitle("Richiesta Posti Liberi")
+                        .setMessage("Tavolo ${timer.tableNumber} - SEAT OPEN\nPosti: $formattedSeats")
+                        .setPositiveButton("OK") { dialog, _ ->
+                            dialog.dismiss()
+                            acknowledgeNotification(timer.deviceId)
+                        }
+                        .setCancelable(false)
+                        .show()
+                }
+            } else {
+                // Se il dispositivo è già stato notificato, invia comunque la conferma
+                // per assicurarsi che il server abbia aggiornato lo stato
+                acknowledgeNotification(timer.deviceId)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as PokerTimerApplication).setCurrentActivity(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if ((application as PokerTimerApplication).getCurrentActivity() == this) {
+            (application as PokerTimerApplication).setCurrentActivity(null)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
@@ -135,18 +183,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         refreshTimerData(true)
     }
 
-    override fun onResume() {
-        super.onResume()
-        // Avvia l'aggiornamento automatico quando l'activity è visibile
-        startAutoRefresh()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        // Ferma l'aggiornamento automatico quando l'activity non è visibile
-        stopAutoRefresh()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         // Assicurati di rimuovere il runnable quando l'activity viene distrutta
@@ -154,6 +190,121 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         timerRefreshHandler = null
         refreshRunnable = null
     }
+
+    // Implementa il metodo dell'interfaccia TimerActionListener
+    override fun onResetSeatInfo(timer: TimerItem) {
+        // Verifica che l'aggiornamento locale funzioni correttamente
+        val index = allTimerList.indexOf(timer)
+        if (index >= 0) {
+            // Crea una copia del timer senza le informazioni sui posti
+            val updatedTimer = timer.copy(seatInfo = null)
+            allTimerList[index] = updatedTimer
+
+            // Aggiorna immediatamente la UI
+            filteredTimerList.clear()
+            updateFilteredList()
+            timerAdapter.notifyDataSetChanged()
+
+            // Log per debug
+            android.util.Log.d("DashboardActivity", "Removed seat info locally for device: ${timer.deviceId}")
+
+            // Invia la richiesta al server per resettare (verifica che l'URL sia corretto)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val jsonPayload = """
+                    {
+                        "command": "reset_seat_info"
+                    }
+                """.trimIndent()
+
+                    val connection = URL("$serverUrl/api/command/${timer.deviceId}")
+                        .openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                    // Invia i dati
+                    val outputStream = connection.outputStream
+                    outputStream.write(jsonPayload.toByteArray())
+                    outputStream.close()
+
+                    val responseCode = connection.responseCode
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        android.util.Log.d("DashboardActivity", "Reset seat info successful")
+
+                        // Leggi la risposta per debug
+                        val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                        val response = StringBuilder()
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            response.append(line)
+                        }
+                        android.util.Log.d("DashboardActivity", "Server response: $response")
+                    } else {
+                        android.util.Log.e("DashboardActivity", "Failed to reset seat info: $responseCode")
+                    }
+
+                    connection.disconnect()
+                } catch (e: Exception) {
+                    android.util.Log.e("DashboardActivity", "Error resetting seat info", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Invia una conferma al server che la notifica è stata vista
+     */
+    private fun acknowledgeNotification(deviceId: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val connection = URL("$serverUrl/api/acknowledge_seat_notification/$deviceId")
+                    .openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    android.util.Log.d("DashboardActivity", "Notification acknowledged successfully")
+                } else {
+                    android.util.Log.e("DashboardActivity", "Failed to acknowledge notification: $responseCode")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DashboardActivity", "Error acknowledging notification", e)
+            }
+        }
+    }
+
+    // Nel metodo che elabora i timer o nell'adapter, quando si verifica se mostrare una notifica:
+    private fun showNotificationIfNeeded(timer: TimerItem) {
+        if (timer.seatInfo != null && timer.seatInfo.needsNotification) {
+            // Crea un ID univoco per questa notifica
+            val notificationId = "${timer.deviceId}_${timer.lastUpdateTimestamp}"
+
+            // Controlla se questa notifica è già stata mostrata
+            if (!shownNotifications.contains(notificationId)) {
+                // Segna questa notifica come mostrata
+                shownNotifications.add(notificationId)
+
+                // Mostra la notifica
+                val formattedSeats = timer.seatInfo.openSeats.joinToString(", ")
+
+                AlertDialog.Builder(this)
+                    .setTitle("Richiesta Posti Liberi")
+                    .setMessage("Tavolo ${timer.tableNumber} - SEAT OPEN\nPosti: $formattedSeats")
+                    .setPositiveButton("OK") { dialog, _ ->
+                        dialog.dismiss()
+
+                        // Invia la conferma al server che la notifica è stata vista
+                        acknowledgeNotification(timer.deviceId)
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
+        }
+    }
+
 
     /**
      * Avvia l'aggiornamento automatico dei timer
@@ -798,21 +949,64 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     /**
      * Cancella tutti i timer dalla lista locale
      */
-    private fun clearAllTimers() {
-        allTimerList.clear()
-        filteredTimerList.clear()
-        timerAdapter.updateTimers(filteredTimerList)
-        showEmptyState()
-        Toast.makeText(this, "Tutti i timer sono stati rimossi dalla dashboard", Toast.LENGTH_SHORT).show()
+/**
+ * Cancella tutti i timer dalla lista locale e dal server
+ */
+private fun clearAllTimers() {
+    // Invia la richiesta di cancellazione al server
+    CoroutineScope(Dispatchers.Main).launch {
+        try {
+            // Usa una coroutine per fare la richiesta HTTP
+            val result = withContext(Dispatchers.IO) {
+                // Prepara la richiesta DELETE
+                val connection = URL("$serverUrl/api/timers").openConnection() as HttpURLConnection
+                connection.requestMethod = "DELETE"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
 
-        // Interrompi temporaneamente l'aggiornamento automatico per evitare che i timer riappaiano subito
-        stopAutoRefresh()
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    // Leggi la risposta
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val response = StringBuilder()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        response.append(line)
+                    }
+                    reader.close()
+                    response.toString()
+                } else {
+                    "ERROR:Errore del server: $responseCode"
+                }
+            }
 
-        // Riavvia l'aggiornamento automatico dopo 5 secondi
-        Handler(Looper.getMainLooper()).postDelayed({
-            startAutoRefresh()
-        }, 5000)
+            // Dopo aver cancellato dal server, aggiorna la UI
+            if (result.startsWith("ERROR:")) {
+                Toast.makeText(this@DashboardActivity, result.substring(6), Toast.LENGTH_SHORT).show()
+            } else {
+                // Pulisci le liste locali
+                allTimerList.clear()
+                filteredTimerList.clear()
+                timerAdapter.updateTimers(filteredTimerList)
+                showEmptyState()
+                Toast.makeText(this@DashboardActivity, "Tutti i timer sono stati rimossi dal server", Toast.LENGTH_SHORT).show()
+                
+                // Interrompi temporaneamente l'aggiornamento automatico per evitare che i timer riappaiano subito
+                stopAutoRefresh()
+
+                // Riavvia l'aggiornamento automatico dopo 5 secondi
+                Handler(Looper.getMainLooper()).postDelayed({
+                    startAutoRefresh()
+                }, 5000)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this@DashboardActivity, "Errore durante la cancellazione dei timer: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
+        }
     }
+}
+
+    
 
     /**
      * Invia le impostazioni al server

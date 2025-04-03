@@ -1,13 +1,16 @@
 package com.example.pokertimer
 
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.RadioButton
@@ -16,13 +19,18 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: MainActivityBinding
     private lateinit var viewModel: PokerTimerViewModel
+    private val selectedPlayerSeats = mutableListOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +52,9 @@ class MainActivity : AppCompatActivity() {
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
 
+        // Osserva le richieste di posti
+        observeSeatRequests()
+
         // Configura i listener per i pulsanti
         setupButtonListeners()
 
@@ -54,6 +65,18 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, ModeSelectionActivity::class.java)
             startActivity(intent)
             finish() // Opzionale, chiude l'activity corrente
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as PokerTimerApplication).setCurrentActivity(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if ((application as PokerTimerApplication).getCurrentActivity() == this) {
+            (application as PokerTimerApplication).setCurrentActivity(null)
         }
     }
 
@@ -91,6 +114,33 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun observeSeatRequests() {
+        viewModel.seatRequestEvent.observe(this) { seatRequest ->
+            seatRequest?.let {
+                when (it) {
+                    is NetworkManager.SeatRequest.OpenSeats -> {
+                        // Mostra un dialogo per notificare la richiesta di posti liberi
+                        showSeatRequestAlert(it.tableNumber, it.seats)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Mostra un alert di richiesta di posti liberi
+     */
+    private fun showSeatRequestAlert(tableNumber: Int, seats: List<Int>) {
+        val formattedSeats = seats.joinToString(", ")
+
+        AlertDialog.Builder(this)
+            .setTitle("Richiesta Posti Liberi")
+            .setMessage("Tavolo $tableNumber - SEAT OPEN\nPosti: $formattedSeats")
+            .setPositiveButton("OK", null)
+            .setCancelable(false)
+            .show()
+    }
+
     private fun setupButtonListeners() {
         // Pulsante Start/Pause
         binding.btnStartPause.setOnClickListener {
@@ -115,6 +165,114 @@ class MainActivity : AppCompatActivity() {
         // Pulsante impostazioni
         binding.btnSettings.setOnClickListener {
             showSettingsDialog()
+        }
+
+        // Pulsante selezione giocatori
+        binding.btnPlayersSelection.setOnClickListener {
+            showPlayerSelectionDialog()
+        }
+    }
+
+    /**
+     * Mostra il dialogo di selezione dei giocatori
+     */
+    private fun showPlayerSelectionDialog() {
+        // Resetta le selezioni precedenti
+        selectedPlayerSeats.clear()
+
+        // Crea il dialogo
+        val dialog = Dialog(this)
+        dialog.setContentView(R.layout.dialog_player_selection)
+
+        // Imposta la larghezza del dialogo
+        val window = dialog.window
+        window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+
+        // Lista dei bottoni dei giocatori
+        val playerButtons = listOf(
+            dialog.findViewById<Button>(R.id.playerButton1),
+            dialog.findViewById<Button>(R.id.playerButton2),
+            dialog.findViewById<Button>(R.id.playerButton3),
+            dialog.findViewById<Button>(R.id.playerButton4),
+            dialog.findViewById<Button>(R.id.playerButton5),
+            dialog.findViewById<Button>(R.id.playerButton6),
+            dialog.findViewById<Button>(R.id.playerButton7),
+            dialog.findViewById<Button>(R.id.playerButton8),
+            dialog.findViewById<Button>(R.id.playerButton9),
+            dialog.findViewById<Button>(R.id.playerButton10)
+        )
+
+        // Configura i listener per i bottoni dei giocatori
+        playerButtons.forEachIndexed { index, button ->
+            val playerNumber = index + 1
+            button.setOnClickListener {
+                togglePlayerSelection(playerNumber, button)
+            }
+        }
+
+        // Configura il pulsante di cancellazione
+        dialog.findViewById<Button>(R.id.cancelButton).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Configura il pulsante di invio
+        dialog.findViewById<Button>(R.id.sendButton).setOnClickListener {
+            if (selectedPlayerSeats.isNotEmpty()) {
+                sendPlayerSeatRequest()
+                dialog.dismiss()
+            } else {
+                Toast.makeText(this, "Seleziona almeno un posto", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        dialog.show()
+    }
+
+    /**
+     * Seleziona/deseleziona un posto giocatore
+     */
+    private fun togglePlayerSelection(playerNumber: Int, button: Button) {
+        if (selectedPlayerSeats.contains(playerNumber)) {
+            // Deseleziona
+            selectedPlayerSeats.remove(playerNumber)
+            button.background = ContextCompat.getDrawable(this,
+                R.drawable.btn_outlined_background)
+            button.setTextColor(ContextCompat.getColor(this, R.color.primary_color))
+        } else {
+            // Seleziona
+            selectedPlayerSeats.add(playerNumber)
+            button.background = ContextCompat.getDrawable(this,
+                R.drawable.btn_filled_background)
+            button.setTextColor(Color.WHITE)
+        }
+    }
+
+    /**
+     * Invia la richiesta di posti liberi al server
+     */
+    private fun sendPlayerSeatRequest() {
+        val currentState = viewModel.timerState.value ?: return
+        val tableNumber = currentState.tableNumber
+
+        // Crea la richiesta di posti
+        val seatRequest = PlayerSeatRequest(
+            tableNumber = tableNumber,
+            selectedSeats = selectedPlayerSeats.sorted() // Ordina i posti
+        )
+
+        // Mostra un messaggio di conferma
+        Toast.makeText(
+            this,
+            "Invio richiesta: Tavolo ${seatRequest.tableNumber}, Posti ${seatRequest.getFormattedSeats()}",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        // Se è configurato un URL del server, invia la richiesta
+        if (currentState.serverUrl.isNotEmpty()) {
+            CoroutineScope(Dispatchers.Main).launch {
+                // Invia la richiesta al server
+                viewModel.sendSeatRequest(seatRequest)
+            }
         }
     }
 

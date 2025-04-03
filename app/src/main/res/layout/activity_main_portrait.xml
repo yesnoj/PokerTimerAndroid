@@ -8,7 +8,7 @@
     android:keepScreenOn="true"
     tools:context=".MainActivity">
 
-    <!-- Header riorganizzato con freccia indietro allineata con il titolo -->
+    <!-- Header -->
     <LinearLayout
         android:id="@+id/header_layout"
         android:layout_width="match_parent"
@@ -74,6 +74,18 @@
             android:textColor="@color/white"
             android:textSize="16sp"
             tools:text="Tavolo 1" />
+            
+        <!-- Bottone per selezionare i giocatori -->
+        <ImageButton
+            android:id="@+id/btn_players_selection"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_circular_button"
+            android:contentDescription="Seleziona giocatori"
+            android:padding="12dp"
+            android:src="@drawable/ic_players"
+            app:tint="@color/white" />
     </LinearLayout>
 
     <!-- Display principale del timer -->

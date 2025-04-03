@@ -13,6 +13,7 @@ class MainActivityBinding {
     lateinit var btnSwitch: Button
     lateinit var btnStop: Button
     lateinit var btnSettings: ImageButton
+    lateinit var btnPlayersSelection: ImageButton
     lateinit var tvTimer: TextView
     lateinit var tvActiveTimer: TextView
     lateinit var tvTableNumber: TextView
@@ -33,6 +34,7 @@ class MainActivityBinding {
             binding.btnSwitch = activity.findViewById(R.id.btn_switch)
             binding.btnStop = activity.findViewById(R.id.btn_stop)
             binding.btnSettings = activity.findViewById(R.id.btn_settings)
+            binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
             binding.tvTimer = activity.findViewById(R.id.tv_timer)
             binding.tvActiveTimer = activity.findViewById(R.id.tv_active_timer)
             binding.tvTableNumber = activity.findViewById(R.id.tv_table_number)

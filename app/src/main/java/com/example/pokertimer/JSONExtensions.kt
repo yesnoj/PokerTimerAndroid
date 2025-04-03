@@ -76,6 +76,34 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 null
             }
 
+            // Estrai informazioni sui posti liberi, se presenti
+            val seatInfo = if (timerJson.has("seat_info") && !timerJson.isNull("seat_info")) {
+                val seatInfoJson = timerJson.getJSONObject("seat_info")
+
+                // Estrai la lista dei posti aperti
+                val openSeatsArray = seatInfoJson.optJSONArray("open_seats")
+                val openSeats = if (openSeatsArray != null) {
+                    val seatList = mutableListOf<Int>()
+                    for (i in 0 until openSeatsArray.length()) {
+                        seatList.add(openSeatsArray.optInt(i))
+                    }
+                    seatList
+                } else {
+                    emptyList()
+                }
+
+                // Crea l'oggetto SeatInfo
+                if (openSeats.isNotEmpty()) {
+                    // Imposta needsNotification true solo se è una nuova notifica
+                    val needsNotification = seatInfoJson.optBoolean("needs_web_notification", false)
+                    SeatInfo(openSeats, needsNotification)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+
             // Crea un oggetto TimerItem e aggiungilo alla lista
             val timerItem = TimerItem(
                 deviceId = deviceId,
@@ -93,7 +121,8 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 lastUpdateTimestamp = lastUpdateTimestamp,
                 ipAddress = ipAddress,
                 buzzerEnabled = buzzerEnabled,
-                pendingCommand = pendingCommand
+                pendingCommand = pendingCommand,
+                seatInfo = seatInfo
             )
 
             timerList.add(timerItem)
