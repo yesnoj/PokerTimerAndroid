@@ -15,6 +15,7 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
 import androidx.appcompat.app.AlertDialog
+import android.widget.Toast
 
 class TimerAdapter(
     private val context: Context,
@@ -185,21 +186,50 @@ class TimerAdapter(
                 seatInfoText.text = "SEAT OPEN: $formattedSeats"
                 seatInfoText.visibility = View.VISIBLE
 
-                // Rendi cliccabile il testo
-                seatInfoText.setOnClickListener {
-                    // Mostra dialog con opzioni CANCEL e RESET
-                    AlertDialog.Builder(context)
-                        .setTitle("Gestione posti liberi")
-                        .setMessage("Vuoi cancellare questa notifica di posti liberi?")
-                        .setNegativeButton("CANCEL") { dialog, _ -> dialog.dismiss() }
-                        .setPositiveButton("RESET") { dialog, _ ->
-                            dialog.dismiss()
-                            listener.onResetSeatInfo(timer)
-                        }
-                        .show()
+                // Assicurati che sia cliccabile
+                seatInfoText.isClickable = true
+                seatInfoText.isFocusable = true
+
+                // Aggiungi log di debug
+                android.util.Log.d(
+                    "TimerAdapter",
+                    "Setting click listener for SEAT OPEN on timer ${timer.deviceId}"
+                )
+
+                // Rendi cliccabile il testo con log di debug aggiuntivi
+                /*
+                seatInfoText.setOnClickListener { view ->
+                    android.util.Log.e("TimerAdapter", "SEAT OPEN clicked for timer ${timer.deviceId}")
+
+                    try {
+                        // Mostra dialog con opzioni CANCEL e RESET
+                        AlertDialog.Builder(view.context)
+                            .setTitle("Gestione posti liberi")
+                            .setMessage("Vuoi cancellare questa notifica di posti liberi?")
+                            .setNegativeButton("CANCEL") { dialog, _ ->
+                                android.util.Log.d("TimerAdapter", "CANCEL clicked")
+                                dialog.dismiss()
+                            }
+                            .setPositiveButton("RESET") { dialog, _ ->
+                                android.util.Log.d("TimerAdapter", "RESET clicked, calling onResetSeatInfo")
+                                dialog.dismiss()
+                                try {
+                                    listener.onResetSeatInfo(timer)
+                                    android.util.Log.d("TimerAdapter", "onResetSeatInfo completed")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("TimerAdapter", "Error in onResetSeatInfo: ${e.message}", e)
+                                }
+                            }
+                            .setOnDismissListener {
+                                android.util.Log.d("TimerAdapter", "Dialog dismissed")
+                            }
+                            .show()
+                    } catch (e: Exception) {
+                        android.util.Log.e("TimerAdapter", "Error showing dialog: ${e.message}", e)
+                    }
                 }
 
-                // Ancora da gestire le notifiche come prima
+                // Notifica potenzialmente da mostrare
                 if (timer.seatInfo.needsNotification) {
                     (context as? DashboardActivity)?.checkAndShowNotification(timer)
                 }
@@ -209,6 +239,33 @@ class TimerAdapter(
                 seatInfoText.setOnClickListener(null)
             }
         }
+        */
+                seatInfoText.setOnClickListener { view ->
+                    // Log con tag più visibile e messaggio semplice
+                    Toast.makeText(context, "SEAT OPEN clicked", Toast.LENGTH_SHORT).show()
+
+                    android.util.Log.e("SEAT_CLICK_DEBUG", "SEAT OPEN CLICKED")
+
+                    AlertDialog.Builder(view.context)
+                        .setTitle("Gestione posti liberi")
+                        .setMessage("Vuoi cancellare questa notifica di posti liberi?")
+                        .setNegativeButton("CANCEL", null)
+                        .setPositiveButton("RESET") { _, _ ->
+                            listener.onResetSeatInfo(timer)
+                        }
+                        .show()
+                }
+
+
+
+            }
+
+
+
+
+        }
+
+
 
         private fun formatTimerValue(seconds: Int): String {
             return "${seconds}s"

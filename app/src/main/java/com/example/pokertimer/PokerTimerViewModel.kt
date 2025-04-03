@@ -317,6 +317,23 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // In PokerTimerViewModel.kt
+    fun refreshFromServer() {
+        val currentState = _timerState.value ?: return
+        if (currentState.serverUrl.isNotEmpty()) {
+            CoroutineScope(Dispatchers.Main).launch {
+                // Invia una richiesta al server per ottenere lo stato aggiornato
+                sendTimerStatusToServer()
+
+                // Attendi un breve momento per dare tempo al server di elaborare
+                delay(500)
+
+                // Richiedi nuovamente lo stato per assicurarsi di avere le info più recenti
+                sendTimerStatusToServer()
+            }
+        }
+    }
+
     /**
      * Testa la connessione al server
      */
@@ -422,28 +439,30 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Invia una richiesta di posti liberi al server
      */
-    fun sendSeatRequest(seatRequest: PlayerSeatRequest) {
-        val currentState = _timerState.value ?: return
+    suspend fun sendSeatRequest(seatRequest: PlayerSeatRequest): Boolean {
+        val currentState = _timerState.value ?: return false
 
         if (currentState.serverUrl.isNotEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                try {
-                    val success = networkManager.sendSeatRequest(currentState.serverUrl, seatRequest)
+            try {
+                val success = networkManager.sendSeatRequest(currentState.serverUrl, seatRequest)
 
-                    // Aggiorna lo stato di connessione
-                    _timerState.value = currentState.copy(isConnectedToServer = success)
+                // Aggiorna lo stato di connessione
+                _timerState.postValue(currentState.copy(isConnectedToServer = success))
 
-                    if (success) {
-                        android.util.Log.d("PokerTimerViewModel", "Seat request sent successfully")
-                    } else {
-                        android.util.Log.e("PokerTimerViewModel", "Failed to send seat request")
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("PokerTimerViewModel", "Error sending seat request: ${e.message}", e)
-                    _timerState.value = currentState.copy(isConnectedToServer = false)
+                if (success) {
+                    android.util.Log.d("PokerTimerViewModel", "Seat request sent successfully")
+                } else {
+                    android.util.Log.e("PokerTimerViewModel", "Failed to send seat request")
                 }
+
+                return success
+            } catch (e: Exception) {
+                android.util.Log.e("PokerTimerViewModel", "Error sending seat request: ${e.message}", e)
+                _timerState.postValue(currentState.copy(isConnectedToServer = false))
+                return false
             }
         }
+        return false
     }
 
     override fun onCleared() {

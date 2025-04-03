@@ -37,7 +37,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import android.widget.LinearLayout
-
+import kotlinx.coroutines.delay
 
 class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener {
 
@@ -102,8 +102,17 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         }
     }
 
+    // All'inizio di onResume
     override fun onResume() {
         super.onResume()
+        android.util.Log.d("DashboardActivity", "onResume called")
+        // Stampa lo stato dell'implementazione dell'interfaccia
+        android.util.Log.d("DashboardActivity", "TimerAdapter listener implementation: $this")
+        // Verifica che onResetSeatInfo sia implementato correttamente
+        android.util.Log.d("DashboardActivity", "onResetSeatInfo is overridden: ${this is TimerAdapter.TimerActionListener}")
+        // Controlla quante volte timerAdapter è inizializzato
+        android.util.Log.d("DashboardActivity", "timerAdapter initialized: $::timerAdapter.isInitialized")
+
         (application as PokerTimerApplication).setCurrentActivity(this)
     }
 
@@ -208,13 +217,13 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             // Log per debug
             android.util.Log.d("DashboardActivity", "Removed seat info locally for device: ${timer.deviceId}")
 
-            // Invia la richiesta al server per resettare (verifica che l'URL sia corretto)
+            // Invia la richiesta al server per resettare
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val jsonPayload = """
-                    {
-                        "command": "reset_seat_info"
-                    }
+                {
+                    "command": "reset_seat_info"
+                }
                 """.trimIndent()
 
                     val connection = URL("$serverUrl/api/command/${timer.deviceId}")
@@ -230,18 +239,11 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
                     val responseCode = connection.responseCode
                     if (responseCode == HttpURLConnection.HTTP_OK) {
-                        android.util.Log.d("DashboardActivity", "Reset seat info successful")
-
-                        // Leggi la risposta per debug
-                        val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                        val response = StringBuilder()
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-                            response.append(line)
+                        // Dopo il reset, attendi brevemente e aggiorna ancora
+                        delay(500)
+                        withContext(Dispatchers.Main) {
+                            refreshTimerData(false)
                         }
-                        android.util.Log.d("DashboardActivity", "Server response: $response")
-                    } else {
-                        android.util.Log.e("DashboardActivity", "Failed to reset seat info: $responseCode")
                     }
 
                     connection.disconnect()
@@ -386,6 +388,11 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
                     // Applica il filtro corrente e aggiorna la UI
                     updateFilteredList()
+
+                    // Se l'operazione ha avuto successo, avvia il refresh automatico
+                    if (!filteredTimerList.isEmpty()) {
+                        startAutoRefresh()
+                    }
 
                 } catch (e: Exception) {
                     e.printStackTrace()

@@ -25,6 +25,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class MainActivity : AppCompatActivity() {
 
@@ -267,7 +268,23 @@ class MainActivity : AppCompatActivity() {
         if (currentState.serverUrl.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 // Invia la richiesta al server
-                viewModel.sendSeatRequest(seatRequest)
+                val success = viewModel.sendSeatRequest(seatRequest)
+
+                if (success) {
+                    // Dopo l'invio riuscito, forza un aggiornamento immediato dallo stato del server
+                    viewModel.refreshFromServer()
+
+                    // Chiudiamo la finestra di dialogo corrente
+                    (currentFocus?.parent as? Dialog)?.dismiss()
+                    // Oppure, se sei sicuro che questa funzione sia chiamata dentro il click listener del dialog:
+                    // (currentFocus?.context as? Dialog)?.dismiss()
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Errore nell'invio della richiesta. Riprova.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
