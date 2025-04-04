@@ -38,6 +38,8 @@ import java.util.Locale
 import java.util.TimeZone
 import android.widget.LinearLayout
 import kotlinx.coroutines.delay
+import android.view.MotionEvent
+
 
 class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener {
 
@@ -156,6 +158,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             setDisplayHomeAsUpEnabled(true)
         }
 
+
+
+
         // Inizializza le viste
         timersRecyclerView = findViewById(R.id.timersRecyclerView)
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout)
@@ -177,6 +182,14 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         timerAdapter = TimerAdapter(this, filteredTimerList, this)
         timersRecyclerView.layoutManager = LinearLayoutManager(this)
         timersRecyclerView.adapter = timerAdapter
+
+        timersRecyclerView.setOnTouchListener { _, _ -> false }
+        timersRecyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                return false // Non intercettare mai i touch
+            }
+        })
+
 
         // Mostra lo stato iniziale
         showEmptyState()
