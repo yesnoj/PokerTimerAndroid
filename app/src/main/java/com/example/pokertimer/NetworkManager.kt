@@ -32,22 +32,9 @@ class NetworkManager(private val context: Context) {
 
     /**
      * Invia lo stato del timer al server e riceve eventuali comandi
-     * @return Tripla (successo, comando, richiesta di posti)
+     * @return Coppia (successo, comando)
      */
-    /**
- * Invia lo stato del timer al server e riceve eventuali comandi
- * @param serverUrl URL del server
- * @param timerState Stato attuale del timer
- * @param isInDashboard Flag che indica se siamo nella Dashboard (dove mostrare le notifiche)
- * @return Tripla (successo, comando, richiesta di posti)
- */
-    /**
-     * Invia lo stato del timer al server e riceve eventuali comandi
-     * @param serverUrl URL del server
-     * @param timerState Stato attuale del timer
-     * @return Tripla (successo, comando, richiesta di posti)
-     */
-    suspend fun sendTimerStatus(serverUrl: String, timerState: PokerTimerState): Triple<Boolean, Command?, SeatRequest?> {
+    suspend fun sendTimerStatus(serverUrl: String, timerState: PokerTimerState): Pair<Boolean, Command?> {
         return withContext(Dispatchers.IO) {
             try {
                 val url = URL("$serverUrl/api/status")
@@ -63,20 +50,20 @@ class NetworkManager(private val context: Context) {
                 android.util.Log.d("NetworkManager", "Using device ID: $deviceId")
 
                 val jsonPayload = """
-            {
-                "device_id": "$deviceId",
-                "table_number": ${timerState.tableNumber},
-                "is_running": ${timerState.isRunning},
-                "is_paused": ${timerState.isPaused},
-                "current_timer": ${timerState.currentTimer},
-                "time_expired": ${timerState.isExpired},
-                "mode": ${timerState.operationMode},
-                "t1_value": ${timerState.timerT1},
-                "t2_value": ${timerState.timerT2},
-                "battery_level": 100,
-                "voltage": 5.0
-            }
-            """.trimIndent()
+                {
+                    "device_id": "$deviceId",
+                    "table_number": ${timerState.tableNumber},
+                    "is_running": ${timerState.isRunning},
+                    "is_paused": ${timerState.isPaused},
+                    "current_timer": ${timerState.currentTimer},
+                    "time_expired": ${timerState.isExpired},
+                    "mode": ${timerState.operationMode},
+                    "t1_value": ${timerState.timerT1},
+                    "t2_value": ${timerState.timerT2},
+                    "battery_level": 100,
+                    "voltage": 5.0
+                }
+                """.trimIndent()
 
                 android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
 
@@ -87,11 +74,6 @@ class NetworkManager(private val context: Context) {
 
                 val responseCode = connection.responseCode
                 android.util.Log.d("NetworkManager", "Response code: $responseCode")
-
-                // Verifica se siamo nella DashboardActivity
-                val application = context.applicationContext as PokerTimerApplication
-                val isInDashboard = application.getCurrentActivity() is DashboardActivity
-                android.util.Log.d("NetworkManager", "Is in Dashboard: $isInDashboard")
 
                 // Elabora la risposta del server per verificare eventuali comandi pendenti
                 if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -104,15 +86,14 @@ class NetworkManager(private val context: Context) {
                         val gson = Gson()
                         val response = gson.fromJson(responseBody, ServerResponse::class.java)
 
-                        // Gestisci i comandi
                         if (response.command != null) {
                             android.util.Log.d("NetworkManager", "Received command: ${response.command}")
 
                             // Gestisci i diversi comandi
                             when (response.command) {
-                                "start" -> return@withContext Triple(true, Command.START, null)
-                                "pause" -> return@withContext Triple(true, Command.PAUSE, null)
-                                "reset" -> return@withContext Triple(true, Command.RESET, null)
+                                "start" -> return@withContext Pair(true, Command.START)
+                                "pause" -> return@withContext Pair(true, Command.PAUSE)
+                                "reset" -> return@withContext Pair(true, Command.RESET)
                                 "settings", "apply_settings" -> {  // Aggiungi "apply_settings" qui
                                     // Elabora le nuove impostazioni
                                     if (response.settings != null) {
@@ -145,29 +126,11 @@ class NetworkManager(private val context: Context) {
 
                                         android.util.Log.d("NetworkManager", "Buzzer setting: ${settings.buzzer} (${settings.buzzer?.javaClass?.simpleName}), parsed as: $buzzerEnabled")
 
-                                        return@withContext Triple(true, Command.SETTINGS(
+                                        return@withContext Pair(true, Command.SETTINGS(
                                             t1, t2, mode, tableNumber, buzzerEnabled
-                                        ), null)
+                                        ))
                                     }
                                 }
-                            }
-                        }
-
-                        // Gestisci le richieste di posti solo se siamo nella dashboard
-                        if (isInDashboard && response.seat_request != null) {
-                            val seatInfo = response.seat_request
-
-                            if (seatInfo.action == "seat_open" && seatInfo.open_seats != null) {
-                                // Crea una notifica SeatRequest
-                                val openSeatsRequest = SeatRequest.OpenSeats(
-                                    tableNumber = timerState.tableNumber,
-                                    seats = seatInfo.open_seats
-                                )
-
-                                android.util.Log.d("NetworkManager", "Received open seats request: $openSeatsRequest")
-
-                                // Ritorna la notifica insieme all'esito dell'operazione
-                                return@withContext Triple(true, null, openSeatsRequest)
                             }
                         }
                     } catch (e: Exception) {
@@ -178,10 +141,10 @@ class NetworkManager(private val context: Context) {
                 connection.disconnect()
 
                 // Ritorna true e nessun comando se tutto è andato bene ma non ci sono comandi
-                return@withContext Triple(true, null, null)
+                return@withContext Pair(true, null)
             } catch (e: Exception) {
                 android.util.Log.e("NetworkManager", "Send status error: ${e.message}", e)
-                return@withContext Triple(false, null, null)
+                return@withContext Pair(false, null)
             }
         }
     }
@@ -190,14 +153,7 @@ class NetworkManager(private val context: Context) {
     data class ServerResponse(
         val status: String,
         val command: String? = null,
-        val settings: TimerSettings? = null,
-        val seat_request: SeatRequestInfo? = null
-    )
-
-    // Classe per rappresentare le informazioni di posti nella risposta del server
-    data class SeatRequestInfo(
-        val open_seats: List<Int>? = null,
-        val action: String? = null
+        val settings: TimerSettings? = null
     )
 
     // Classe per rappresentare le impostazioni del timer
@@ -221,37 +177,6 @@ class NetworkManager(private val context: Context) {
             val tableNumber: Int,
             val buzzerEnabled: Boolean
         ) : Command()
-    }
-
-    // Classe per rappresentare le richieste di posti
-    sealed class SeatRequest {
-        data class OpenSeats(val tableNumber: Int, val seats: List<Int>) : SeatRequest()
-    }
-
-    /**
-     * Testa la connessione al server
-     */
-    suspend fun testConnection(serverUrl: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            try {
-                // Prova prima con l'endpoint /api/timers
-                val url = URL("$serverUrl/api/timers")
-                android.util.Log.d("NetworkManager", "Testing connection to: $url")
-
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-
-                val responseCode = connection.responseCode
-                android.util.Log.d("NetworkManager", "Response code: $responseCode")
-                connection.disconnect()
-
-                return@withContext responseCode == HttpURLConnection.HTTP_OK
-            } catch (e: Exception) {
-                android.util.Log.e("NetworkManager", "Connection error: ${e.message}", e)
-                return@withContext false
-            }
-        }
     }
 
     /**
@@ -292,6 +217,32 @@ class NetworkManager(private val context: Context) {
                 return@withContext responseCode == HttpURLConnection.HTTP_OK
             } catch (e: Exception) {
                 android.util.Log.e("NetworkManager", "Send seat request error: ${e.message}", e)
+                return@withContext false
+            }
+        }
+    }
+
+    /**
+     * Testa la connessione al server
+     */
+    suspend fun testConnection(serverUrl: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Prova prima con l'endpoint /api/timers
+                val url = URL("$serverUrl/api/timers")
+                android.util.Log.d("NetworkManager", "Testing connection to: $url")
+
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+
+                val responseCode = connection.responseCode
+                android.util.Log.d("NetworkManager", "Response code: $responseCode")
+                connection.disconnect()
+
+                return@withContext responseCode == HttpURLConnection.HTTP_OK
+            } catch (e: Exception) {
+                android.util.Log.e("NetworkManager", "Connection error: ${e.message}", e)
                 return@withContext false
             }
         }

@@ -19,6 +19,5 @@ data class TimerItem(
     val lastUpdateTimestamp: String,
     val ipAddress: String? = null,
     val buzzerEnabled: Boolean = true,
-    val pendingCommand: String? = null,
-    val seatInfo: SeatInfo? = null
+    val pendingCommand: String? = null
 )

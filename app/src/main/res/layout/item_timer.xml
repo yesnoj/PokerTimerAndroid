@@ -7,9 +7,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
     app:cardCornerRadius="8dp"
-    app:cardElevation="0dp"
-    android:clickable="false"
-    android:focusable="false">
+    app:cardElevation="4dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -42,7 +40,6 @@
             tools:text="In esecuzione"
             tools:background="@color/colorRunning" />
 
-
         <TextView
             android:id="@+id/seatInfoText"
             android:layout_width="wrap_content"
@@ -63,15 +60,6 @@
             tools:text="SEAT OPEN: 1, 2, 3"
             app:layout_constraintTop_toBottomOf="@id/timerStatusText"
             app:layout_constraintEnd_toEndOf="@id/timerStatusText" />
-
-        <Button
-            android:id="@+id/seatResetButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Reset"
-            android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/seatInfoText"
-            app:layout_constraintEnd_toEndOf="@id/seatInfoText" />
 
         <TextView
             android:id="@+id/timerValueText"
@@ -95,7 +83,6 @@
             app:layout_constraintStart_toEndOf="@id/timerValueText"
             app:layout_constraintBottom_toBottomOf="@id/timerValueText"
             tools:text="T1" />
-
 
         <LinearLayout
             android:id="@+id/infoContainer"

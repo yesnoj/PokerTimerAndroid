@@ -22,13 +22,10 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     private val preferences = PokerTimerPreferences(application)
     private val networkManager = NetworkManager(application)
 
+
     // Stato del timer osservabile
     private val _timerState = MutableLiveData<PokerTimerState>()
     val timerState: LiveData<PokerTimerState> = _timerState
-
-    // Evento per le richieste di posti
-    private val _seatRequestEvent = MutableLiveData<NetworkManager.SeatRequest?>()
-    val seatRequestEvent: LiveData<NetworkManager.SeatRequest?> = _seatRequestEvent
 
     // Gestione dei suoni
     private val soundPool: SoundPool
@@ -100,6 +97,24 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         } else {
             // Nelle modalità 2 e 4, resetta e rimane fermo
             resetTimer(false)
+        }
+    }
+
+
+
+    fun refreshFromServer() {
+        val currentState = _timerState.value ?: return
+        if (currentState.serverUrl.isNotEmpty()) {
+            CoroutineScope(Dispatchers.Main).launch {
+                // Invia una richiesta al server per ottenere lo stato aggiornato
+                sendTimerStatusToServer()
+
+                // Attendi un breve momento per dare tempo al server di elaborare
+                delay(500)
+
+                // Richiedi nuovamente lo stato per assicurarsi di avere le info più recenti
+                sendTimerStatusToServer()
+            }
         }
     }
 
@@ -279,57 +294,52 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Avvia immediatamente il timer
         timerRunnable?.run()
     }
-
     /**
      * Invia lo stato del timer al server
      */
     private fun sendTimerStatusToServer() {
         val currentState = _timerState.value ?: return
-        val serverUrl = currentState.serverUrl.trim()
 
-        if (serverUrl.isNotEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                try {
-                    // Aggiungi log per tracciare l'URL
-                    android.util.Log.d("PokerTimerViewModel", "Sending status to server: $serverUrl")
-
-                    val (success, command, seatRequest) = networkManager.sendTimerStatus(serverUrl, currentState)
-
-                    // Aggiorna lo stato di connessione
-                    if (_timerState.value?.isConnectedToServer != success) {
-                        _timerState.postValue(currentState.copy(isConnectedToServer = success))
-
-                        // Log di debug per la connessione
-                        android.util.Log.d("PokerTimerViewModel", "Server connection status: ${if (success) "Connected" else "Disconnected"}")
-                    }
-
-                    // Resto del codice...
-                } catch (e: Exception) {
-                    _timerState.postValue(currentState.copy(isConnectedToServer = false))
-                    android.util.Log.e("PokerTimerViewModel", "Error sending status: ${e.message}", e)
-                }
-            }
-        } else {
-            // Se non c'è un URL del server, imposta direttamente disconnesso
-            if (_timerState.value?.isConnectedToServer == true) {
-                _timerState.postValue(currentState.copy(isConnectedToServer = false))
-            }
-        }
-    }
-
-    // In PokerTimerViewModel.kt
-    fun refreshFromServer() {
-        val currentState = _timerState.value ?: return
         if (currentState.serverUrl.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
-                // Invia una richiesta al server per ottenere lo stato aggiornato
-                sendTimerStatusToServer()
+                try {
+                    val (success, command) = networkManager.sendTimerStatus(currentState.serverUrl, currentState)
 
-                // Attendi un breve momento per dare tempo al server di elaborare
-                delay(500)
+                    // Aggiorna lo stato di connessione
+                    _timerState.value = currentState.copy(isConnectedToServer = success)
 
-                // Richiedi nuovamente lo stato per assicurarsi di avere le info più recenti
-                sendTimerStatusToServer()
+                    // Gestisci il comando ricevuto dal server
+                    if (success && command != null) {
+                        when (command) {
+                            is Command.START -> {
+                                if (!currentState.isRunning || currentState.isPaused) {
+                                    startTimer()
+                                }
+                            }
+                            is Command.PAUSE -> {
+                                if (currentState.isRunning && !currentState.isPaused) {
+                                    pauseTimer()
+                                }
+                            }
+                            is Command.RESET -> {
+                                resetTimer(currentState.isAutoStartMode)
+                            }
+                            is Command.SETTINGS -> {
+                                // Aggiorna le impostazioni
+                                saveSettings(
+                                    timerT1 = command.t1,
+                                    timerT2 = command.t2,
+                                    operationMode = command.mode,
+                                    buzzerEnabled = command.buzzerEnabled,
+                                    tableNumber = command.tableNumber,
+                                    serverUrl = currentState.serverUrl
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    _timerState.value = currentState.copy(isConnectedToServer = false)
+                }
             }
         }
     }
@@ -348,6 +358,9 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Gestione del pulsante Stop
+     */
     /**
      * Gestione del pulsante Stop
      */
@@ -373,97 +386,59 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Salva le impostazioni del timer
      */
-    // In PokerTimerViewModel.kt
+    /**
+     * Salva le impostazioni del timer
+     */
+    /**
+     * Salva le impostazioni del timer
+     */
     fun saveSettings(timerT1: Int, timerT2: Int, operationMode: Int, buzzerEnabled: Boolean,
                      tableNumber: Int, serverUrl: String) {
 
-        // Assicuriamoci che l'URL non sia vuoto e sia formattato correttamente
-        val formattedServerUrl = if (serverUrl.isNotEmpty()) {
-            var url = serverUrl.trim()
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                url = "http://$url"
-            }
-            url
-        } else {
-            serverUrl
-        }
-
-        // Salva le impostazioni nelle preferenze
         preferences.saveTimerSettings(
             timerT1,
             timerT2,
             operationMode,
             buzzerEnabled,
             tableNumber,
-            formattedServerUrl  // Usa l'URL formattato
+            serverUrl
         )
 
         val currentState = _timerState.value ?: return
 
         // Controlla se dobbiamo avviare o fermare il polling
-        if (formattedServerUrl.isNotEmpty() && (currentState.serverUrl.isEmpty() || currentState.serverUrl != formattedServerUrl)) {
+        if (serverUrl.isNotEmpty() && (currentState.serverUrl.isEmpty() || currentState.serverUrl != serverUrl)) {
             // Nuovo URL del server o URL cambiato, avvia il polling
             startServerPolling()
-        } else if (formattedServerUrl.isEmpty() && currentState.serverUrl.isNotEmpty()) {
+        } else if (serverUrl.isEmpty() && currentState.serverUrl.isNotEmpty()) {
             // URL del server rimosso, ferma il polling
             stopServerPolling()
         }
 
         // Aggiorna lo stato con le nuove impostazioni
-        _timerState.postValue(currentState.copy(
+        _timerState.value = currentState.copy(
             timerT1 = timerT1,
             timerT2 = timerT2,
             operationMode = operationMode,
             buzzerEnabled = buzzerEnabled,
             tableNumber = tableNumber,
-            serverUrl = formattedServerUrl,  // Usa l'URL formattato
+            serverUrl = serverUrl,
             // Aggiorna anche il timer corrente se necessario
             currentTimer = if (!currentState.isRunning && !currentState.isPaused) {
                 if (currentState.isT1Active) timerT1 else timerT2
             } else {
                 currentState.currentTimer
             }
-        ))
+        )
 
         // Invia IMMEDIATAMENTE il nuovo stato al server, indipendentemente dall'URL precedente
-        if (formattedServerUrl.isNotEmpty()) {
+        if (serverUrl.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 sendTimerStatusToServer()
             }
         }
-
-        // Log per debug
-        android.util.Log.d("PokerTimerViewModel", "Settings saved. Server URL: $formattedServerUrl")
     }
 
-    /**
-     * Invia una richiesta di posti liberi al server
-     */
-    suspend fun sendSeatRequest(seatRequest: PlayerSeatRequest): Boolean {
-        val currentState = _timerState.value ?: return false
-
-        if (currentState.serverUrl.isNotEmpty()) {
-            try {
-                val success = networkManager.sendSeatRequest(currentState.serverUrl, seatRequest)
-
-                // Aggiorna lo stato di connessione
-                _timerState.postValue(currentState.copy(isConnectedToServer = success))
-
-                if (success) {
-                    android.util.Log.d("PokerTimerViewModel", "Seat request sent successfully")
-                } else {
-                    android.util.Log.e("PokerTimerViewModel", "Failed to send seat request")
-                }
-
-                return success
-            } catch (e: Exception) {
-                android.util.Log.e("PokerTimerViewModel", "Error sending seat request: ${e.message}", e)
-                _timerState.postValue(currentState.copy(isConnectedToServer = false))
-                return false
-            }
-        }
-        return false
-    }
 
     override fun onCleared() {
         super.onCleared()
@@ -499,3 +474,5 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         serverPollingJob = null
     }
 }
+
+

@@ -13,7 +13,6 @@ class MainActivityBinding {
     lateinit var btnSwitch: Button
     lateinit var btnStop: Button
     lateinit var btnSettings: ImageButton
-    lateinit var btnPlayersSelection: ImageButton
     lateinit var tvTimer: TextView
     lateinit var tvActiveTimer: TextView
     lateinit var tvTableNumber: TextView
@@ -23,6 +22,7 @@ class MainActivityBinding {
     lateinit var tvBuzzerInfo: TextView
     lateinit var tvServerStatus: TextView
     lateinit var tvSecondsLabel: TextView
+    lateinit var btnPlayersSelection: ImageButton
 
     companion object {
         fun bind(activity: MainActivity): MainActivityBinding {
@@ -34,7 +34,6 @@ class MainActivityBinding {
             binding.btnSwitch = activity.findViewById(R.id.btn_switch)
             binding.btnStop = activity.findViewById(R.id.btn_stop)
             binding.btnSettings = activity.findViewById(R.id.btn_settings)
-            binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
             binding.tvTimer = activity.findViewById(R.id.tv_timer)
             binding.tvActiveTimer = activity.findViewById(R.id.tv_active_timer)
             binding.tvTableNumber = activity.findViewById(R.id.tv_table_number)
@@ -44,7 +43,7 @@ class MainActivityBinding {
             binding.tvBuzzerInfo = activity.findViewById(R.id.tv_buzzer_info)
             binding.tvServerStatus = activity.findViewById(R.id.tv_server_status)
             binding.tvSecondsLabel = activity.findViewById(R.id.tv_seconds_label)
-
+            binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
             return binding
         }
     }

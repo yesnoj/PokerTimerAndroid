@@ -1,12 +1,12 @@
 package com.example.pokertimer
 
 import android.content.Context
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
@@ -14,9 +14,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
-import androidx.appcompat.app.AlertDialog
-import android.graphics.Rect
-import android.view.MotionEvent
 
 class TimerAdapter(
     private val context: Context,
@@ -30,7 +27,6 @@ class TimerAdapter(
         fun onSettingsClicked(timer: TimerItem)
         // Manteniamo onResetClicked nell'interfaccia ma non lo useremo nel layout
         fun onResetClicked(timer: TimerItem)
-        fun onResetSeatInfo(timer: TimerItem)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TimerViewHolder {
@@ -39,12 +35,10 @@ class TimerAdapter(
         return TimerViewHolder(view)
     }
 
-
     override fun onBindViewHolder(holder: TimerViewHolder, position: Int) {
         val timer = timers[position]
         holder.bind(timer, context, listener)
     }
-
 
     override fun getItemCount(): Int = timers.size
 
@@ -71,22 +65,6 @@ class TimerAdapter(
         private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
         // Il resetButton non viene più usato, ma lo manteniamo nella dichiarazione
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
-        private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
-
-        init {
-            // Debug per tutti i click
-            itemView.findViewById<Button>(R.id.startButton).setOnClickListener {
-                Toast.makeText(itemView.context, "Start button clicked", Toast.LENGTH_SHORT).show()
-            }
-
-            itemView.findViewById<Button>(R.id.pauseButton).setOnClickListener {
-                Toast.makeText(itemView.context, "Pause button clicked", Toast.LENGTH_SHORT).show()
-            }
-
-            itemView.findViewById<Button>(R.id.settingsButton).setOnClickListener {
-                Toast.makeText(itemView.context, "Settings button clicked", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
@@ -152,121 +130,19 @@ class TimerAdapter(
                 wifiInfoText.setTextColor(ContextCompat.getColor(context, R.color.batteryHigh))
             }
 
-            // Aggiungi un touch listener per l'intero item
-            itemView.setOnTouchListener { v, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_UP -> {
-                        // Calcola se il touch è avvenuto sopra seatInfoText
-                        val rect = Rect()
-                        seatInfoText.getGlobalVisibleRect(rect)
-                        if (rect.contains(event.rawX.toInt(), event.rawY.toInt()) &&
-                            timer.seatInfo != null &&
-                            timer.seatInfo.openSeats.isNotEmpty()) {
-                            Toast.makeText(context, "SEAT OPEN touched", Toast.LENGTH_SHORT).show()
-                            AlertDialog.Builder(v.context)
-                                .setTitle("Gestione posti liberi")
-                                .setMessage("Vuoi cancellare questa notifica di posti liberi?")
-                                .setNegativeButton("CANCEL", null)
-                                .setPositiveButton("RESET") { _, _ ->
-                                    listener.onResetSeatInfo(timer)
-                                }
-                                .show()
-                            return@setOnTouchListener true
-                        }
-                    }
-                }
-                return@setOnTouchListener false
-            }
-
             // Tempo trascorso dall'ultimo aggiornamento
             lastUpdateInfoText.text = formatLastUpdate(timer.lastUpdateTimestamp)
 
             // Bottoni di controllo - Nascondiamo resetButton
             resetButton.visibility = View.GONE
 
-            startButton.setOnClickListener {
-                Toast.makeText(context, "Start clicked", Toast.LENGTH_SHORT).show()
-                listener.onStartClicked(timer)
-            }
+            startButton.setOnClickListener { listener.onStartClicked(timer) }
+            pauseButton.setOnClickListener { listener.onPauseClicked(timer) }
+            settingsButton.setOnClickListener { listener.onSettingsClicked(timer) }
 
-            pauseButton.setOnClickListener {
-                Toast.makeText(context, "Pause clicked", Toast.LENGTH_SHORT).show()
-                listener.onPauseClicked(timer)
-            }
-
-            settingsButton.setOnClickListener {
-                Toast.makeText(context, "Settings clicked", Toast.LENGTH_SHORT).show()
-                listener.onSettingsClicked(timer)
-            }
-
-
-            // Determina se il timer è online in base all'ultimo aggiornamento
-            val isTimerOnline = try {
-                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-                sdf.timeZone = TimeZone.getTimeZone("UTC")
-                val lastUpdateTime = sdf.parse(timer.lastUpdateTimestamp)
-                val now = Date()
-
-                // Calcola la differenza in minuti
-                val diffInMs = now.time - (lastUpdateTime?.time ?: 0)
-                val diffInMinutes = diffInMs / (1000 * 60)
-
-                // Un timer è considerato online se l'ultimo aggiornamento è avvenuto
-                // negli ultimi 5 minuti
-                diffInMinutes < 5
-            } catch (e: Exception) {
-                // In caso di errore, considera il timer offline
-                false
-            }
-            startButton.isEnabled = true
-            pauseButton.isEnabled = true
-            settingsButton.isEnabled = true
-            startButton.alpha = 1.0f
-            pauseButton.alpha = 1.0f
-            settingsButton.alpha = 1.0f
-
-            if (timer.isRunning && !timer.isPaused) {
-                startButton.isEnabled = false // Disabilita Start solo se già in esecuzione
-                startButton.alpha = 0.5f
-            } else {
-                pauseButton.isEnabled = false // Disabilita Pause se non in esecuzione
-                pauseButton.alpha = 0.5f
-            }
-
-            // Gestione delle informazioni sui posti liberi
-            if (timer.seatInfo != null && timer.seatInfo.openSeats.isNotEmpty()) {
-                // Formatta i posti liberi in una stringa
-                val formattedSeats = timer.seatInfo.openSeats.joinToString(", ")
-                seatInfoText.text = "SEAT OPEN: $formattedSeats"
-                seatInfoText.visibility = View.VISIBLE
-
-                // Assicurati che sia cliccabile
-                seatInfoText.isClickable = true
-                seatInfoText.isFocusable = true
-
-                seatInfoText.setOnClickListener { view ->
-                    // Log con tag più visibile e messaggio semplice
-                    Toast.makeText(context, "SEAT OPEN clicked", Toast.LENGTH_SHORT).show()
-
-                    AlertDialog.Builder(view.context)
-                        .setTitle("Gestione posti liberi")
-                        .setMessage("Vuoi cancellare questa notifica di posti liberi?")
-                        .setNegativeButton("CANCEL", null)
-                        .setPositiveButton("RESET") { _, _ ->
-                            listener.onResetSeatInfo(timer)
-                        }
-                        .show()
-                }
-
-                // Notifica potenzialmente da mostrare
-                if (timer.seatInfo.needsNotification) {
-                    (context as? DashboardActivity)?.checkAndShowNotification(timer)
-                }
-            } else {
-                seatInfoText.visibility = View.GONE
-                // Rimuovi il listener se non ci sono informazioni sui posti
-                seatInfoText.setOnClickListener(null)
-            }
+            // Abilita/disabilita bottoni in base allo stato
+            startButton.isEnabled = !timer.isRunning || timer.isPaused
+            pauseButton.isEnabled = timer.isRunning && !timer.isPaused
         }
 
         private fun formatTimerValue(seconds: Int): String {

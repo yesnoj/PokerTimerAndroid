@@ -53,9 +53,6 @@ class MainActivity : AppCompatActivity() {
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
 
-        // Osserva le richieste di posti
-        observeSeatRequests()
-
         // Configura i listener per i pulsanti
         setupButtonListeners()
 
@@ -66,18 +63,6 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, ModeSelectionActivity::class.java)
             startActivity(intent)
             finish() // Opzionale, chiude l'activity corrente
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        (application as PokerTimerApplication).setCurrentActivity(this)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        if ((application as PokerTimerApplication).getCurrentActivity() == this) {
-            (application as PokerTimerApplication).setCurrentActivity(null)
         }
     }
 
@@ -115,33 +100,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun observeSeatRequests() {
-        viewModel.seatRequestEvent.observe(this) { seatRequest ->
-            seatRequest?.let {
-                when (it) {
-                    is NetworkManager.SeatRequest.OpenSeats -> {
-                        // Mostra un dialogo per notificare la richiesta di posti liberi
-                        showSeatRequestAlert(it.tableNumber, it.seats)
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Mostra un alert di richiesta di posti liberi
-     */
-    private fun showSeatRequestAlert(tableNumber: Int, seats: List<Int>) {
-        val formattedSeats = seats.joinToString(", ")
-
-        AlertDialog.Builder(this)
-            .setTitle("Richiesta Posti Liberi")
-            .setMessage("Tavolo $tableNumber - SEAT OPEN\nPosti: $formattedSeats")
-            .setPositiveButton("OK", null)
-            .setCancelable(false)
-            .show()
-    }
-
     private fun setupButtonListeners() {
         // Pulsante Start/Pause
         binding.btnStartPause.setOnClickListener {
@@ -174,9 +132,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Mostra il dialogo di selezione dei giocatori
-     */
     private fun showPlayerSelectionDialog() {
         // Resetta le selezioni precedenti
         selectedPlayerSeats.clear()
@@ -211,83 +166,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Configura il pulsante di cancellazione
-        dialog.findViewById<Button>(R.id.cancelButton).setOnClickListener {
-            dialog.dismiss()
-        }
-
-        // Configura il pulsante di invio
-        dialog.findViewById<Button>(R.id.sendButton).setOnClickListener {
-            if (selectedPlayerSeats.isNotEmpty()) {
-                sendPlayerSeatRequest()
-                dialog.dismiss()
-            } else {
-                Toast.makeText(this, "Seleziona almeno un posto", Toast.LENGTH_SHORT).show()
-            }
-        }
 
         dialog.show()
     }
 
-    /**
-     * Seleziona/deseleziona un posto giocatore
-     */
-    private fun togglePlayerSelection(playerNumber: Int, button: Button) {
-        if (selectedPlayerSeats.contains(playerNumber)) {
-            // Deseleziona
-            selectedPlayerSeats.remove(playerNumber)
-            button.isSelected = false
-        } else {
-            // Seleziona
-            selectedPlayerSeats.add(playerNumber)
-            button.isSelected = true
-        }
-    }
 
-    /**
-     * Invia la richiesta di posti liberi al server
-     */
-    private fun sendPlayerSeatRequest() {
-        val currentState = viewModel.timerState.value ?: return
-        val tableNumber = currentState.tableNumber
-
-        // Crea la richiesta di posti
-        val seatRequest = PlayerSeatRequest(
-            tableNumber = tableNumber,
-            selectedSeats = selectedPlayerSeats.sorted() // Ordina i posti
-        )
-
-        // Mostra un messaggio di conferma
-        Toast.makeText(
-            this,
-            "Invio richiesta: Tavolo ${seatRequest.tableNumber}, Posti ${seatRequest.getFormattedSeats()}",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        // Se è configurato un URL del server, invia la richiesta
-        if (currentState.serverUrl.isNotEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                // Invia la richiesta al server
-                val success = viewModel.sendSeatRequest(seatRequest)
-
-                if (success) {
-                    // Dopo l'invio riuscito, forza un aggiornamento immediato dallo stato del server
-                    viewModel.refreshFromServer()
-
-                    // Chiudiamo la finestra di dialogo corrente
-                    (currentFocus?.parent as? Dialog)?.dismiss()
-                    // Oppure, se sei sicuro che questa funzione sia chiamata dentro il click listener del dialog:
-                    // (currentFocus?.context as? Dialog)?.dismiss()
-                } else {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Errore nell'invio della richiesta. Riprova.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
-    }
 
     private fun updateTimerDisplay(state: PokerTimerState) {
         // Aggiorna il contatore del timer
@@ -520,6 +403,21 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.cancel, null)
             .show()
+    }
+
+    /**
+     * Seleziona/deseleziona un posto giocatore
+     */
+    private fun togglePlayerSelection(playerNumber: Int, button: Button) {
+        if (selectedPlayerSeats.contains(playerNumber)) {
+            // Deseleziona
+            selectedPlayerSeats.remove(playerNumber)
+            button.isSelected = false
+        } else {
+            // Seleziona
+            selectedPlayerSeats.add(playerNumber)
+            button.isSelected = true
+        }
     }
 
     private fun updateT2Visibility(dialogView: View, isVisible: Boolean) {
