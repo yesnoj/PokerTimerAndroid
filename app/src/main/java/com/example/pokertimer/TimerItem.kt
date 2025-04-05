@@ -19,5 +19,25 @@ data class TimerItem(
     val lastUpdateTimestamp: String,
     val ipAddress: String? = null,
     val buzzerEnabled: Boolean = true,
-    val pendingCommand: String? = null
-)
+    val pendingCommand: String? = null,
+    val seatOpenInfo: String? = null  // Nuova proprietà per i posti liberi
+) {
+    /**
+     * Verifica se ci sono posti liberi da visualizzare
+     */
+    fun hasSeatOpenInfo(): Boolean {
+        return !seatOpenInfo.isNullOrEmpty() ||
+                (pendingCommand != null && pendingCommand.startsWith("seat_open:"))
+    }
+    /**
+     * Ottiene la stringa formattata dei posti liberi
+     */
+    fun getFormattedSeatInfo(): String {
+        return when {
+            !seatOpenInfo.isNullOrEmpty() -> "SEAT OPEN: $seatOpenInfo"
+            pendingCommand != null && pendingCommand.startsWith("seat_open:") ->
+                "SEAT OPEN: ${pendingCommand.substringAfter("seat_open:")}"
+            else -> ""
+        }
+    }
+}

@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import android.os.Handler
 import android.os.Looper
 import com.example.pokertimer.NetworkManager.Command
+import android.util.Log
+
 
 class PokerTimerViewModel(application: Application) : AndroidViewModel(application) {
     private var serverPollingJob: Job? = null
@@ -100,7 +102,11 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-
+    fun updateState(newState: PokerTimerState) {
+        _timerState.value = newState
+        // Invia lo stato aggiornato al server
+        sendTimerStatusToServer()
+    }
 
     fun refreshFromServer() {
         val currentState = _timerState.value ?: return
@@ -235,6 +241,27 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         sendTimerStatusToServer()
     }
 
+
+
+    /**
+     * Gestisce un comando SEAT_OPEN ricevuto dal server o da un'azione dell'utente
+     */
+    fun handleSeatOpenCommand(seats: String) {
+        // Poiché PokerTimerState non ha un campo pendingCommand,
+        // dobbiamo utilizzare un approccio diverso.
+        // L'informazione sui posti liberi sarà gestita lato server,
+        // e refreshFromServer() recupererà queste informazioni.
+
+        // Invia subito una richiesta al server per aggiornare lo stato
+        refreshFromServer()
+
+        // Mostra un messaggio di conferma
+        // Nota: questo non è il modo ideale di mostrare messaggi UI dal ViewModel
+        // ma per semplicità lo facciamo qui. In un'implementazione migliore,
+        // si utilizzerebbe un LiveData<Event<String>> per gli eventi UI.
+        Log.d("PokerTimerViewModel", "Posti liberi aggiornati: $seats")
+    }
+
     /**
      * Avvia il countdown effettivo
      */
@@ -323,6 +350,13 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                             }
                             is Command.RESET -> {
                                 resetTimer(currentState.isAutoStartMode)
+                            }
+                            // MODIFICA QUESTO CASO:
+                            is Command.SEAT_OPEN -> {
+                                // Invece di cercare di aggiornare direttamente lo stato,
+                                // aggiorniamo i dati dal server
+                                refreshFromServer()
+                                Log.d("PokerTimerViewModel", "Ricevuto comando SEAT_OPEN: ${command.seats}")
                             }
                             is Command.SETTINGS -> {
                                 // Aggiorna le impostazioni

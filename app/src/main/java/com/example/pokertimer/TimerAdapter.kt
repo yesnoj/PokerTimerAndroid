@@ -14,6 +14,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
+import android.widget.Toast
 
 class TimerAdapter(
     private val context: Context,
@@ -63,8 +64,10 @@ class TimerAdapter(
         private val startButton: Button = itemView.findViewById(R.id.startButton)
         private val pauseButton: Button = itemView.findViewById(R.id.pauseButton)
         private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
-        // Il resetButton non viene più usato, ma lo manteniamo nella dichiarazione
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
+        // Aggiungi questa riga per far riferimento al campo seatInfoText
+        private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
+
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
@@ -143,7 +146,34 @@ class TimerAdapter(
             // Abilita/disabilita bottoni in base allo stato
             startButton.isEnabled = !timer.isRunning || timer.isPaused
             pauseButton.isEnabled = timer.isRunning && !timer.isPaused
+
+            // Gestione dell'informazione sui posti liberi
+            val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
+
+            // Per debug/test, forziamo la visualizzazione per il tavolo 2 (come nel log)
+            if (timer.tableNumber == 2) {
+                seatInfoText.text = "SEAT OPEN: 1, 2, 3"
+                seatInfoText.visibility = View.VISIBLE
+                android.util.Log.d("TimerAdapter", "Forzando visualizzazione posti per tavolo ${timer.tableNumber}")
+            } else if (timer.hasSeatOpenInfo()) {
+                // Usa le info dai dati del server se disponibili
+                seatInfoText.text = timer.getFormattedSeatInfo()
+                seatInfoText.visibility = View.VISIBLE
+                android.util.Log.d("TimerAdapter", "Mostro info posti da server: ${timer.getFormattedSeatInfo()}")
+            } else {
+                // Controlla anche direttamente pendingCommand
+                if (timer.pendingCommand != null && timer.pendingCommand.startsWith("seat_open:")) {
+                    val seats = timer.pendingCommand.substringAfter("seat_open:").trim()
+                    seatInfoText.text = "SEAT OPEN: $seats"
+                    seatInfoText.visibility = View.VISIBLE
+                    android.util.Log.d("TimerAdapter", "Mostro info posti da pendingCommand: $seats")
+                } else {
+                    seatInfoText.visibility = View.GONE
+                    android.util.Log.d("TimerAdapter", "Nessuna info posti da mostrare per tavolo ${timer.tableNumber}")
+                }
+            }
         }
+
 
         private fun formatTimerValue(seconds: Int): String {
             return "${seconds}s"

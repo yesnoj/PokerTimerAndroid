@@ -187,6 +187,10 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
      * Aggiorna i dati dei timer
      * @param showLoading Determina se mostrare lo stato di caricamento
      */
+    /**
+     * Aggiorna i dati dei timer
+     * @param showLoading Determina se mostrare lo stato di caricamento
+     */
     private fun refreshTimerData(showLoading: Boolean = true) {
         // Mostra lo stato di caricamento solo quando richiesto
         if (showLoading && !swipeRefreshLayout.isRefreshing) {
@@ -233,6 +237,18 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     allTimerList.clear()
                     allTimerList.addAll(parsedTimers)
 
+                    // Log per debug - verifica le informazioni sui posti liberi
+                    for (timer in allTimerList) {
+                        if (timer.hasSeatOpenInfo()) {
+                            android.util.Log.d("DashboardActivity", "Timer ${timer.deviceId} ha informazioni su posti liberi: ${timer.getFormattedSeatInfo()}")
+                        } else {
+                            // Controlla anche pendingCommand
+                            if (timer.pendingCommand != null) {
+                                android.util.Log.d("DashboardActivity", "Timer ${timer.deviceId} ha pendingCommand: ${timer.pendingCommand}")
+                            }
+                        }
+                    }
+
                     // Applica il filtro corrente e aggiorna la UI
                     updateFilteredList()
 
@@ -254,7 +270,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
     }
-
     /**
      * Funzione di supporto per il fetch dei dati
      */
@@ -683,6 +698,21 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private fun updateT2Visibility(mode: Int, t2Container: View) {
         // Nelle modalità 3 e 4 si usa solo T1
         t2Container.visibility = if (mode == 3 || mode == 4) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * Aggiorna l'UI in base alle informazioni sui posti liberi
+     */
+    private fun updateSeatInfoUI(timer: TimerItem, viewHolder: TimerAdapter.TimerViewHolder) {
+        // Questo metodo sarebbe chiamato all'interno dell'adapter
+        val seatInfoText = viewHolder.itemView.findViewById<TextView>(R.id.seatInfoText)
+
+        if (timer.hasSeatOpenInfo()) {
+            seatInfoText.text = timer.getFormattedSeatInfo()
+            seatInfoText.visibility = View.VISIBLE
+        } else {
+            seatInfoText.visibility = View.GONE
+        }
     }
 
     /**

@@ -144,6 +144,10 @@ class MainActivity : AppCompatActivity() {
         val window = dialog.window
         window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
 
+        // Ottieni il numero del tavolo corrente
+        val currentState = viewModel.timerState.value
+        val tableNumber = currentState?.tableNumber ?: 1
+
         // Lista dei bottoni dei giocatori
         val playerButtons = listOf(
             dialog.findViewById<Button>(R.id.playerButton1),
@@ -166,11 +170,67 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Configura i listener per i pulsanti di azione
+        val sendButton = dialog.findViewById<Button>(R.id.sendButton)
+        val cancelButton = dialog.findViewById<Button>(R.id.cancelButton)
+
+        sendButton.setOnClickListener {
+            // Verifica se ci sono posti selezionati
+            if (selectedPlayerSeats.isEmpty()) {
+                Toast.makeText(this, "Nessun posto selezionato", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Crea l'oggetto richiesta
+            val seatRequest = PlayerSeatRequest(tableNumber, selectedPlayerSeats)
+
+            // Invia la richiesta al server
+            sendSeatRequestToServer(seatRequest)
+
+            // Chiudi il dialogo
+            dialog.dismiss()
+        }
+
+        cancelButton.setOnClickListener {
+            // Chiudi il dialogo senza inviare nulla
+            dialog.dismiss()
+        }
 
         dialog.show()
     }
 
+    private fun sendSeatRequestToServer(seatRequest: PlayerSeatRequest) {
+        // Mostra un toast per indicare che la richiesta è stata inviata
+        val message = "Invio richiesta posti: ${seatRequest.getFormattedSeats()}"
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
+        val currentState = viewModel.timerState.value
+        val serverUrl = currentState?.serverUrl ?: return
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // NetworkManager è già presente nel progetto
+                val networkManager = NetworkManager(applicationContext)
+
+                // Invia la richiesta usando il NetworkManager
+                val success = networkManager.sendSeatRequest(serverUrl, seatRequest)
+
+                // Gestisci la risposta
+                if (success) {
+                    Toast.makeText(applicationContext, "Richiesta inviata con successo", Toast.LENGTH_SHORT).show()
+
+                    // Aggiorno le impostazioni per mostrare che è stato inviato un comando al server
+                    viewModel.refreshFromServer()
+                } else {
+                    Toast.makeText(applicationContext, "Errore nell'invio della richiesta", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore: ${e.message}", e)
+                Toast.makeText(applicationContext, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     private fun updateTimerDisplay(state: PokerTimerState) {
         // Aggiorna il contatore del timer

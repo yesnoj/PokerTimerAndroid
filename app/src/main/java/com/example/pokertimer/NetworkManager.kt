@@ -7,6 +7,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import com.google.gson.Gson
 import java.util.Random
+import kotlinx.coroutines.delay
 
 class NetworkManager(private val context: Context) {
 
@@ -177,6 +178,9 @@ class NetworkManager(private val context: Context) {
             val tableNumber: Int,
             val buzzerEnabled: Boolean
         ) : Command()
+
+        // Aggiungi questa nuova classe di comando:
+        data class SEAT_OPEN(val seats: String) : Command()
     }
 
     /**
@@ -193,14 +197,19 @@ class NetworkManager(private val context: Context) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
 
+                // Log più dettagliato che mostra esattamente i posti selezionati
+                android.util.Log.d("NetworkManager", "Selected seats: ${seatRequest.selectedSeats.joinToString(", ")}")
+
                 // Costruisci il payload JSON
+                val deviceId = getUniqueDeviceId()
                 val jsonPayload = """
-                {
-                    "table_number": ${seatRequest.tableNumber},
-                    "seats": [${seatRequest.selectedSeats.joinToString(",")}],
-                    "action": "seat_open"
-                }
-                """.trimIndent()
+            {
+                "device_id": "$deviceId",
+                "table_number": ${seatRequest.tableNumber},
+                "seats": [${seatRequest.selectedSeats.joinToString(",")}],
+                "action": "seat_open"
+            }
+            """.trimIndent()
 
                 android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
 
@@ -212,7 +221,28 @@ class NetworkManager(private val context: Context) {
                 val responseCode = connection.responseCode
                 android.util.Log.d("NetworkManager", "Response code: $responseCode")
 
+                // Leggi anche la risposta del server
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val inputStream = connection.inputStream
+                    val responseBody = inputStream.bufferedReader().use { it.readText() }
+                    android.util.Log.d("NetworkManager", "Server response: $responseBody")
+                }
+
                 connection.disconnect()
+
+                // Se la richiesta è andata a buon fine, facciamo una richiesta di refresh
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    // Aspetta un po' per dare tempo al server di elaborare
+                    delay(500)
+
+                    // Fai una richiesta per ottenere lo stato aggiornato dal server
+                    val statusUrl = URL("$serverUrl/api/timers")
+                    val statusConn = statusUrl.openConnection() as HttpURLConnection
+                    statusConn.requestMethod = "GET"
+                    val statusCode = statusConn.responseCode
+                    android.util.Log.d("NetworkManager", "Status refresh response: $statusCode")
+                    statusConn.disconnect()
+                }
 
                 return@withContext responseCode == HttpURLConnection.HTTP_OK
             } catch (e: Exception) {
@@ -220,6 +250,39 @@ class NetworkManager(private val context: Context) {
                 return@withContext false
             }
         }
+    }
+
+    /**
+     * Elabora i comandi dal server, tra cui le informazioni sui posti liberi
+     */
+    private fun processServerCommand(responseBody: String): Command? {
+        try {
+            val gson = Gson()
+            val response = gson.fromJson(responseBody, ServerResponse::class.java)
+
+            if (response.command != null) {
+                android.util.Log.d("NetworkManager", "Received command: ${response.command}")
+
+                // Gestisci i diversi comandi
+                when {
+                    response.command == "start" -> return Command.START
+                    response.command == "pause" -> return Command.PAUSE
+                    response.command == "reset" -> return Command.RESET
+                    response.command.startsWith("seat_open:") -> {
+                        // Estrai i posti dalla stringa del comando
+                        val seats = response.command.substringAfter("seat_open:")
+                        return Command.SEAT_OPEN(seats)
+                    }
+                    response.command == "settings" || response.command == "apply_settings" -> {
+                        // Elabora le nuove impostazioni
+                        // ... (codice esistente)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NetworkManager", "Error parsing command: ${e.message}", e)
+        }
+        return null
     }
 
     /**
