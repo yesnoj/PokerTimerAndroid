@@ -1,5 +1,6 @@
 package com.example.pokertimer
 
+import android.graphics.Color
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.app.NotificationChannel
@@ -24,7 +25,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -41,7 +41,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import android.provider.Settings
 import android.net.Uri
-
+import androidx.core.app.NotificationCompat
+import android.app.Notification
 
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
@@ -176,6 +177,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         // Crea il canale di notifica
         createNotificationChannel()
+
+        // Verifica le impostazioni di notifica
+        checkNotificationSettings()
 
         // Mostra lo stato iniziale
         showEmptyState()
@@ -342,17 +346,27 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
      * Crea il canale di notifica (richiesto per Android 8.0+)
      */
     private fun createNotificationChannel() {
-        // Richiesto solo per Android 8.0 e versioni successive
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Poker Timer Notifiche"
-            val descriptionText = "Notifiche per posti liberi nei tavoli"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val name = "Poker Timer Urgent Notifications"
+            val descriptionText = "Notifiche urgenti per posti liberi nei tavoli"
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
                 description = descriptionText
+                enableLights(true)
+                lightColor = Color.RED
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 250, 250)
+                setShowBadge(true)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                // Rimuovi questa riga che sta causando l'errore:
+                // importance = NotificationManager.IMPORTANCE_HIGH
             }
-            // Registra il canale nel sistema
+
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
+
+            // Log per verificare che il canale sia stato creato correttamente
+            Log.d("DashboardActivity", "Canale di notifica creato con importance: ${channel.importance}")
         }
     }
 
@@ -526,56 +540,127 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
      * Mostra una notifica standard per nuovi posti liberi
      */
     private fun showSeatOpenNotification(timer: TimerItem, seatInfo: String) {
-        val title = "Nuovi Posti Liberi"
+        val title = "⚠️ POSTI LIBERI"  // Emoji per attirare l'attenzione
         val content = "Tavolo ${timer.tableNumber}: $seatInfo"
 
-        // Crea un intent per aprire la dashboard quando la notifica viene toccata
-        val intent = Intent(this, DashboardActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("table_number", timer.tableNumber)
-            putExtra("highlight_timer", timer.deviceId)
-            // IMPORTANTE: Includi l'URL del server nell'intent
-            putExtra("server_url", serverUrl)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
+        try {
+            // Intent principale
+            val intent = Intent(this, DashboardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("table_number", timer.tableNumber)
+                putExtra("highlight_timer", timer.deviceId)
+                putExtra("server_url", serverUrl)
             }
-        )
 
-        // Crea la notifica
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_timer)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)  // Aumenta la priorità
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)  // Imposta una categoria rilevante
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // Rendi visibile nella schermata di blocco
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                timer.tableNumber, // Uso del tableNumber come requestCode per avere PendingIntent diversi
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
 
-        // Mostra la notifica
-        with(NotificationManagerCompat.from(this)) {
-            // Verifica il permesso di notifica (Android 13+)
+            // Crea un'azione per la notifica
+            val actionIntent = Intent(this, DashboardActivity::class.java).apply {
+                action = "com.example.pokertimer.VIEW_SEATS"
+                putExtra("table_number", timer.tableNumber)
+                putExtra("highlight_timer", timer.deviceId)
+                putExtra("server_url", serverUrl)
+            }
+
+            val actionPendingIntent = PendingIntent.getActivity(
+                this,
+                timer.tableNumber + 100, // Un requestCode diverso
+                actionIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            val action = NotificationCompat.Action.Builder(
+                R.drawable.ic_timer,
+                "Vedi Dettagli",
+                actionPendingIntent
+            ).build()
+
+            // Costruisci la notifica con tutte le opzioni per massimizzare la visibilità
+            val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_timer)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM) // ALARM è più intrusivo di CALL
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .addAction(action)
+                .setAutoCancel(true)
+                .setFullScreenIntent(pendingIntent, true)
+                .setTimeoutAfter(10000) // 10 secondi
+                .setOngoing(true) // Rende persistente la notifica
+                .setDefaults(NotificationCompat.DEFAULT_ALL) // Suoni, vibrazione e luci LED
+
+            // Aggiunta di stile per notifiche espandibili
+            val bigTextStyle = NotificationCompat.BigTextStyle()
+                .bigText("Posti liberi al tavolo ${timer.tableNumber}: $seatInfo\nTocca per visualizzare i dettagli.")
+                .setBigContentTitle("⚠️ POSTI LIBERI DISPONIBILI")
+                .setSummaryText("Notifica urgente")
+
+            builder.setStyle(bigTextStyle)
+
+            // Imposta vibrazione personalizzata (pattern più lungo e intenso)
+            val vibratePattern = longArrayOf(0, 400, 200, 400, 200, 400)
+            builder.setVibrate(vibratePattern)
+
+            // Log prima di mostrare la notifica
+            Log.d("DashboardActivity", "Mostrando notifica per tavolo ${timer.tableNumber} con posti: $seatInfo")
+
+            // Verifica e richiedi permessi se necessario
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (ActivityCompat.checkSelfPermission(
                         this@DashboardActivity,
                         android.Manifest.permission.POST_NOTIFICATIONS
                     ) != PackageManager.PERMISSION_GRANTED
                 ) {
-                    // Se il permesso non è concesso, chiedi il permesso all'utente
-                    ActivityCompat.requestPermissions(
-                        this@DashboardActivity,
-                        arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
-                        1
-                    )
+                    Log.e("DashboardActivity", "Permesso notifiche mancante!")
                     return
                 }
             }
-            notify(NOTIFICATION_ID + timer.tableNumber.hashCode(), builder.build())
+
+            // Ottieni il NotificationManager
+            val notificationManager = NotificationManagerCompat.from(this)
+
+            // Mostra la notifica e verifica il risultato
+            notificationManager.notify(NOTIFICATION_ID + timer.tableNumber.hashCode(), builder.build())
+            Log.d("DashboardActivity", "Notifica inviata con successo")
+
+            // Richiama la notifica subito dopo averla mostrata per attrarre ulteriormente l'attenzione
+            Handler(Looper.getMainLooper()).postDelayed({
+                notificationManager.notify(NOTIFICATION_ID + timer.tableNumber.hashCode(), builder.build())
+                Log.d("DashboardActivity", "Notifica richiamata dopo 500ms")
+            }, 500)
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore durante l'invio della notifica", e)
+        }
+    }
+
+    private fun checkNotificationSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL_ID)
+
+            if (channel != null && channel.importance != NotificationManager.IMPORTANCE_HIGH) {
+                // Il canale esiste ma non ha l'importanza corretta
+                AlertDialog.Builder(this)
+                    .setTitle("Notifiche non configurate correttamente")
+                    .setMessage("Le notifiche potrebbero non apparire come popup. Vuoi configurare le impostazioni di notifica?")
+                    .setPositiveButton("Impostazioni") { _, _ ->
+                        // Apri le impostazioni del canale di notifica specifico
+                        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                            putExtra(Settings.EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID)
+                        }
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("No grazie", null)
+                    .show()
+            }
         }
     }
 
