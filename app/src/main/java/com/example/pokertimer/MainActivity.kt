@@ -2,6 +2,7 @@ package com.example.pokertimer
 
 import android.app.AlertDialog
 import android.app.Dialog
+import android.app.ProgressDialog
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
@@ -12,7 +13,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Switch
@@ -26,12 +29,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.SocketTimeoutException
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: MainActivityBinding
     private lateinit var viewModel: PokerTimerViewModel
     private val selectedPlayerSeats = mutableListOf<Int>()
+
+    // Costanti per la discovery del server
+    companion object {
+        private const val DISCOVERY_PORT = 8888
+        private const val DISCOVERY_TIMEOUT_MS = 3000
+        private const val TAG = "MainActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -199,39 +213,6 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun sendSeatRequestToServer(seatRequest: PlayerSeatRequest) {
-        // Mostra un toast per indicare che la richiesta è stata inviata
-        val message = "Invio richiesta posti: ${seatRequest.getFormattedSeats()}"
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-
-        val currentState = viewModel.timerState.value
-        val serverUrl = currentState?.serverUrl ?: return
-
-        // Utilizza una coroutine per la chiamata di rete
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                // NetworkManager è già presente nel progetto
-                val networkManager = NetworkManager(applicationContext)
-
-                // Invia la richiesta usando il NetworkManager
-                val success = networkManager.sendSeatRequest(serverUrl, seatRequest)
-
-                // Gestisci la risposta
-                if (success) {
-                    Toast.makeText(applicationContext, "Richiesta inviata con successo", Toast.LENGTH_SHORT).show()
-
-                    // Aggiorno le impostazioni per mostrare che è stato inviato un comando al server
-                    viewModel.refreshFromServer()
-                } else {
-                    Toast.makeText(applicationContext, "Errore nell'invio della richiesta", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Errore: ${e.message}", e)
-                Toast.makeText(applicationContext, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
     private fun updateTimerDisplay(state: PokerTimerState) {
         // Aggiorna il contatore del timer
         binding.tvTimer.text = state.currentTimer.toString()
@@ -335,98 +316,136 @@ class MainActivity : AppCompatActivity() {
     private fun showSettingsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
+
+        // Inizializza le viste del dialogo
+        val radioGroupMode = dialogView.findViewById<RadioGroup>(R.id.radio_group_mode)
+        val radioMode1 = dialogView.findViewById<RadioButton>(R.id.radio_mode_1)
+        val radioMode2 = dialogView.findViewById<RadioButton>(R.id.radio_mode_2)
+        val radioMode3 = dialogView.findViewById<RadioButton>(R.id.radio_mode_3)
+        val radioMode4 = dialogView.findViewById<RadioButton>(R.id.radio_mode_4)
+
+        val timerT1Value = dialogView.findViewById<TextView>(R.id.tv_t1_value)
+        val timerT2Value = dialogView.findViewById<TextView>(R.id.tv_t2_value)
+        val timerT2Layout = dialogView.findViewById<LinearLayout>(R.id.layout_timer_t2)
+        val timerT2Label = dialogView.findViewById<TextView>(R.id.tv_timer_t2_label)
+
+        val decreaseT1Button = dialogView.findViewById<Button>(R.id.btn_decrease_t1)
+        val increaseT1Button = dialogView.findViewById<Button>(R.id.btn_increase_t1)
+        val decreaseT2Button = dialogView.findViewById<Button>(R.id.btn_decrease_t2)
+        val increaseT2Button = dialogView.findViewById<Button>(R.id.btn_increase_t2)
+
+        val buzzerSwitch = dialogView.findViewById<Switch>(R.id.switch_buzzer)
+
+        // Valori per table_number
+        val tableNumberText = dialogView.findViewById<TextView>(R.id.tv_table_number)
         var tableNumber = currentState.tableNumber
-        dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
+        tableNumberText.text = tableNumber.toString()
 
-        dialogView.findViewById<Button>(R.id.btn_decrease_table).setOnClickListener {
-            if (tableNumber > 0) {
-                tableNumber--
-                dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
-            }
-        }
+        val decreaseTableButton = dialogView.findViewById<Button>(R.id.btn_decrease_table)
+        val increaseTableButton = dialogView.findViewById<Button>(R.id.btn_increase_table)
 
-        dialogView.findViewById<Button>(R.id.btn_increase_table).setOnClickListener {
-            if (tableNumber < 99) {
-                tableNumber++
-                dialogView.findViewById<TextView>(R.id.tv_table_number).text = tableNumber.toString()
-            }
-        }
+        // Server URL e pulsante di test
+        val serverUrlInput = dialogView.findViewById<EditText>(R.id.et_server_url)
+        val testConnectionButton = dialogView.findViewById<Button>(R.id.btn_test_connection)
 
-        // Imposta lo stato attuale nel dialogo
+        // Riferimento al pulsante di discovery
+        val discoverButton = dialogView.findViewById<Button>(R.id.btn_discover_server)
+
+        // Imposta i valori attuali nel dialogo
         when (currentState.operationMode) {
-            PokerTimerState.MODE_1 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked = true
-            PokerTimerState.MODE_2 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked = true
-            PokerTimerState.MODE_3 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_3).isChecked = true
-            PokerTimerState.MODE_4 -> dialogView.findViewById<RadioButton>(R.id.radio_mode_4).isChecked = true
+            PokerTimerState.MODE_1 -> radioMode1.isChecked = true
+            PokerTimerState.MODE_2 -> radioMode2.isChecked = true
+            PokerTimerState.MODE_3 -> radioMode3.isChecked = true
+            PokerTimerState.MODE_4 -> radioMode4.isChecked = true
         }
 
         // Valori T1 e T2
-        dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${currentState.timerT1}s"
-        dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${currentState.timerT2}s"
+        var t1Value = currentState.timerT1
+        var t2Value = currentState.timerT2
+        timerT1Value.text = "${t1Value}s"
+        timerT2Value.text = "${t2Value}s"
 
         // Stato buzzer
-        dialogView.findViewById<Switch>(R.id.switch_buzzer).isChecked = currentState.buzzerEnabled
+        buzzerSwitch.isChecked = currentState.buzzerEnabled
 
         // Imposta l'URL del server nel campo di testo
-        dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).setText(currentState.serverUrl)
+        serverUrlInput.setText(currentState.serverUrl)
 
         // Visibilità delle impostazioni T2
         updateT2Visibility(
             dialogView,
-            dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked || dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked
+            radioMode1.isChecked || radioMode2.isChecked
         )
 
+        // Listener per i pulsanti di incremento/decremento di table_number
+        decreaseTableButton.setOnClickListener {
+            if (tableNumber > 0) {
+                tableNumber--
+                tableNumberText.text = tableNumber.toString()
+            }
+        }
+
+        increaseTableButton.setOnClickListener {
+            if (tableNumber < 99) {
+                tableNumber++
+                tableNumberText.text = tableNumber.toString()
+            }
+        }
+
         // Listener per i radio button della modalità
-        dialogView.findViewById<RadioGroup>(R.id.radio_group_mode).setOnCheckedChangeListener { _, checkedId ->
+        radioGroupMode.setOnCheckedChangeListener { _, checkedId ->
             val isT1T2Mode = checkedId == R.id.radio_mode_1 || checkedId == R.id.radio_mode_2
             updateT2Visibility(dialogView, isT1T2Mode)
         }
 
         // Listener per i pulsanti di incremento/decremento di T1
-        var t1Value = currentState.timerT1
-        dialogView.findViewById<Button>(R.id.btn_decrease_t1).setOnClickListener {
+        decreaseT1Button.setOnClickListener {
             if (t1Value > 5) {
                 t1Value -= 5
-                dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${t1Value}s"
+                timerT1Value.text = "${t1Value}s"
             }
         }
 
-        dialogView.findViewById<Button>(R.id.btn_increase_t1).setOnClickListener {
+        increaseT1Button.setOnClickListener {
             if (t1Value < 95) {
                 t1Value += 5
-                dialogView.findViewById<TextView>(R.id.tv_t1_value).text = "${t1Value}s"
+                timerT1Value.text = "${t1Value}s"
             }
         }
 
         // Listener per i pulsanti di incremento/decremento di T2
-        var t2Value = currentState.timerT2
-        dialogView.findViewById<Button>(R.id.btn_decrease_t2).setOnClickListener {
+        decreaseT2Button.setOnClickListener {
             if (t2Value > 5) {
                 t2Value -= 5
-                dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${t2Value}s"
+                timerT2Value.text = "${t2Value}s"
             }
         }
 
-        dialogView.findViewById<Button>(R.id.btn_increase_t2).setOnClickListener {
+        increaseT2Button.setOnClickListener {
             if (t2Value < 95) {
                 t2Value += 5
-                dialogView.findViewById<TextView>(R.id.tv_t2_value).text = "${t2Value}s"
+                timerT2Value.text = "${t2Value}s"
             }
+        }
+
+        // Listener per il pulsante di discovery
+        discoverButton.setOnClickListener {
+            discoverServers(serverUrlInput)
         }
 
         // Gestione del test di connessione al server
-        dialogView.findViewById<Button>(R.id.btn_test_connection).setOnClickListener {
-            val serverUrl = dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).text.toString()
+        testConnectionButton.setOnClickListener {
+            val serverUrl = serverUrlInput.text.toString()
             if (serverUrl.isNotEmpty()) {
                 // Mostra un indicatore di caricamento
-                dialogView.findViewById<Button>(R.id.btn_test_connection).isEnabled = false
-                dialogView.findViewById<Button>(R.id.btn_test_connection).text = getString(R.string.testing)
+                testConnectionButton.isEnabled = false
+                testConnectionButton.text = getString(R.string.testing)
 
                 viewModel.testServerConnection(serverUrl) { success ->
                     // Torna al thread principale
                     runOnUiThread {
-                        dialogView.findViewById<Button>(R.id.btn_test_connection).isEnabled = true
-                        dialogView.findViewById<Button>(R.id.btn_test_connection).text = getString(R.string.test_connection)
+                        testConnectionButton.isEnabled = true
+                        testConnectionButton.text = getString(R.string.test_connection)
 
                         // Mostra il risultato del test
                         val message = if (success) R.string.connection_success else R.string.connection_failed
@@ -444,10 +463,10 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.save) { _, _ ->
                 // Determina la modalità selezionata
                 val mode = when {
-                    dialogView.findViewById<RadioButton>(R.id.radio_mode_1).isChecked -> PokerTimerState.MODE_1
-                    dialogView.findViewById<RadioButton>(R.id.radio_mode_2).isChecked -> PokerTimerState.MODE_2
-                    dialogView.findViewById<RadioButton>(R.id.radio_mode_3).isChecked -> PokerTimerState.MODE_3
-                    dialogView.findViewById<RadioButton>(R.id.radio_mode_4).isChecked -> PokerTimerState.MODE_4
+                    radioMode1.isChecked -> PokerTimerState.MODE_1
+                    radioMode2.isChecked -> PokerTimerState.MODE_2
+                    radioMode3.isChecked -> PokerTimerState.MODE_3
+                    radioMode4.isChecked -> PokerTimerState.MODE_4
                     else -> PokerTimerState.MODE_1 // Default
                 }
 
@@ -456,9 +475,9 @@ class MainActivity : AppCompatActivity() {
                     timerT1 = t1Value,
                     timerT2 = t2Value,
                     operationMode = mode,
-                    buzzerEnabled = dialogView.findViewById<Switch>(R.id.switch_buzzer).isChecked,
+                    buzzerEnabled = buzzerSwitch.isChecked,
                     tableNumber = tableNumber,
-                    serverUrl = dialogView.findViewById<android.widget.EditText>(R.id.et_server_url).text.toString()
+                    serverUrl = serverUrlInput.text.toString()
                 )
             }
             .setNegativeButton(R.string.cancel, null)
@@ -483,5 +502,167 @@ class MainActivity : AppCompatActivity() {
     private fun updateT2Visibility(dialogView: View, isVisible: Boolean) {
         dialogView.findViewById<View>(R.id.tv_timer_t2_label).visibility = if (isVisible) View.VISIBLE else View.GONE
         dialogView.findViewById<View>(R.id.layout_timer_t2).visibility = if (isVisible) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Invia una richiesta di posti liberi al server
+     */
+    private fun sendSeatRequestToServer(seatRequest: PlayerSeatRequest) {
+        // Mostra un toast per indicare che la richiesta è in corso
+        val message = "Invio richiesta posti: ${seatRequest.getFormattedSeats()}"
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+        val currentState = viewModel.timerState.value
+        val serverUrl = currentState?.serverUrl ?: return
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // NetworkManager è già presente nel progetto
+                val networkManager = NetworkManager(applicationContext)
+
+                // Invia la richiesta usando il NetworkManager
+                val success = networkManager.sendSeatRequest(serverUrl, seatRequest)
+
+                // Gestisci la risposta
+                if (success) {
+                    Toast.makeText(applicationContext, "Richiesta inviata con successo", Toast.LENGTH_SHORT).show()
+
+                    // Aggiorna le informazioni localmente
+                    // Nota: questo è solo temporaneo, idealmente il dato verrebbe aggiornato
+                    // quando si ricarica la dashboard dal server
+                    if (currentState != null) {
+                        val newState = currentState.copy(
+                            // Qui potresti aggiungere altre proprietà se necessario
+                        )
+                        viewModel.updateState(newState)
+                    }
+                } else {
+                    Toast.makeText(applicationContext, "Errore nell'invio della richiesta", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore: ${e.message}", e)
+                Toast.makeText(applicationContext, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /**
+     * Cerca server disponibili sulla rete locale tramite UDP broadcast
+     */
+    private fun discoverServers(serverUrlField: EditText) {
+        // Mostra un indicatore di progresso
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Ricerca server in corso...")
+            setCancelable(false)
+            show()
+        }
+
+        Thread {
+            try {
+                // Crea un socket per il broadcast
+                val socket = DatagramSocket()
+                socket.broadcast = true
+
+                // Crea il messaggio di discovery
+                val message = "POKER_TIMER_DISCOVERY".toByteArray()
+                val packet = DatagramPacket(
+                    message,
+                    message.size,
+                    InetAddress.getByName("255.255.255.255"),
+                    DISCOVERY_PORT
+                )
+
+                Log.d(TAG, "Sending discovery broadcast")
+
+                // Invia il broadcast
+                socket.send(packet)
+
+                // Prepara per ricevere le risposte
+                val buffer = ByteArray(1024)
+                val responsePacket = DatagramPacket(buffer, buffer.size)
+
+                // Imposta un timeout
+                socket.soTimeout = DISCOVERY_TIMEOUT_MS
+
+                // Lista dei server trovati
+                val discoveredServers = mutableListOf<String>()
+
+                try {
+                    // Ricezione delle risposte fino al timeout
+                    while (true) {
+                        socket.receive(responsePacket)
+                        val serverResponse = String(responsePacket.data, 0, responsePacket.length)
+                        val serverIp = responsePacket.address.hostAddress
+
+                        Log.d(TAG, "Received response: '$serverResponse' from $serverIp")
+
+                        // Verifica la risposta
+                        if (serverResponse.trim() == "POKER_TIMER_SERVER") {
+                            // Aggiunge l'indirizzo IP e la porta del server Express
+                            val serverUrl = "http://$serverIp:3000"
+                            Log.d(TAG, "Found server: $serverUrl")
+
+                            // Aggiunge il server alla lista se non è già presente
+                            if (!discoveredServers.contains(serverUrl)) {
+                                discoveredServers.add(serverUrl)
+                            }
+                        }
+                    }
+                } catch (e: SocketTimeoutException) {
+                    // Timeout raggiunto, abbiamo finito la discovery
+                    Log.d(TAG, "Discovery timeout reached")
+                }
+
+                // Chiudi il socket
+                socket.close()
+
+                // Aggiorna l'UI sul thread principale
+                runOnUiThread {
+                    progressDialog.dismiss()
+
+                    if (discoveredServers.isEmpty()) {
+                        Toast.makeText(this, "Nessun server trovato", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showDiscoveredServers(discoveredServers, serverUrlField)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during server discovery", e)
+
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    Toast.makeText(
+                        this,
+                        "Errore durante la ricerca: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    /**
+     * Mostra un dialogo con i server scoperti
+     */
+    private fun showDiscoveredServers(servers: List<String>, serverUrlField: EditText) {
+        if (servers.size == 1) {
+            // Se è stato trovato un solo server, selezionalo automaticamente
+            val serverUrl = servers[0]
+            serverUrlField.setText(serverUrl)
+            Toast.makeText(this, "Server trovato: $serverUrl", Toast.LENGTH_SHORT).show()
+        } else {
+            // Mostra una lista di selezione
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("Server trovati")
+
+            builder.setItems(servers.toTypedArray()) { _, which ->
+                val selectedServer = servers[which]
+                serverUrlField.setText(selectedServer)
+            }
+
+            builder.setNegativeButton("Annulla", null)
+            builder.show()
+        }
     }
 }

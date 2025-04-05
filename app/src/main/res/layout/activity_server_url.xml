@@ -55,11 +55,25 @@
         android:background="@color/white"
         android:textColor="@color/black" />
 
+    <!-- Nuovo pulsante per la scoperta automatica dei server -->
+    <Button
+        android:id="@+id/discoverButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:text="Cerca server sulla rete"
+        android:drawableStart="@drawable/ic_wifi"
+        android:drawablePadding="8dp"
+        android:padding="12dp"
+        android:drawableTint="@color/white" />
+
     <Button
         android:id="@+id/connectButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:text="Connetti al server" />

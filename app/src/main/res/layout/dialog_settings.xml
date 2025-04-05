@@ -197,28 +197,38 @@
             android:textSize="18sp" />
     </LinearLayout>
 
-    <!-- Sezione Configurazione Server -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/server_config"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        <!-- Sezione Configurazione Server -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/server_config"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-    <EditText
-        android:id="@+id/et_server_url"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="@string/server_url_hint"
-        android:inputType="textUri"
-        android:padding="8dp" />
+        <EditText
+            android:id="@+id/et_server_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/server_url_hint"
+            android:inputType="textUri"
+            android:padding="8dp" />
 
-    <Button
-        android:id="@+id/btn_test_connection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/test_connection" />
+        <!-- Nuovo pulsante di discovery -->
+        <Button
+            android:id="@+id/btn_discover_server"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:drawableStart="@drawable/ic_wifi"
+            android:drawablePadding="8dp"
+            android:text="Cerca server sulla rete" />
+
+        <Button
+            android:id="@+id/btn_test_connection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/test_connection" />
 </LinearLayout>
