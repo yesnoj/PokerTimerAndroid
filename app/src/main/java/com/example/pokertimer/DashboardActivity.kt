@@ -1,6 +1,14 @@
 package com.example.pokertimer
 
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,20 +17,19 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Button
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.Switch
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,12 +39,40 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
-import android.widget.LinearLayout
+import android.provider.Settings
+import android.net.Uri
 
+
+/**
+ * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
+ */
+object SeatNotificationTracker {
+    // Map per tenere traccia dei posti già notificati per ogni tavolo
+    private val notifiedSeats = mutableMapOf<String, String>()
+
+    /**
+     * Verifica se una combinazione di posti per un timer specifico è già stata notificata
+     * @return true se è una nuova notifica, false se è già stata mostrata
+     */
+    fun isNewNotification(deviceId: String, seatInfo: String): Boolean {
+        val previousInfo = notifiedSeats[deviceId]
+        return previousInfo != seatInfo
+    }
+
+    /**
+     * Segna una notifica come visualizzata
+     */
+    fun markAsNotified(deviceId: String, seatInfo: String) {
+        notifiedSeats[deviceId] = seatInfo
+    }
+
+    /**
+     * Rimuove un timer dalla lista delle notifiche
+     */
+    fun clearNotification(deviceId: String) {
+        notifiedSeats.remove(deviceId)
+    }
+}
 
 class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener {
 
@@ -46,14 +81,18 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private var timerRefreshHandler: Handler? = null
     private var refreshRunnable: Runnable? = null
 
+    // Costanti per le notifiche
+    companion object {
+        private const val NOTIFICATION_CHANNEL_ID = "poker_timer_seats"
+        private const val NOTIFICATION_ID = 1001
+        private const val ONLINE_TIMEOUT_MINUTES = 5 // Timeout per considerare un timer online
+    }
+
     private lateinit var timersRecyclerView: RecyclerView
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var emptyStateView: View
     private lateinit var errorStateView: View
     private lateinit var loadingStateView: View
-    private lateinit var refreshFab: FloatingActionButton
-    private lateinit var refreshButton: Button
-    private lateinit var errorRetryButton: Button
     private lateinit var errorMessageText: TextView
     private lateinit var filteredCountText: TextView
 
@@ -63,12 +102,27 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private val filteredTimerList = mutableListOf<TimerItem>()
     private var currentFilter = TimerFilterOption.ALL
 
-    // Costante per il timeout online (in minuti)
-    private val ONLINE_TIMEOUT_MINUTES = 5
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
+
+        // Verifica e richiedi il permesso per le notifiche su Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.d("DashboardActivity", "Richiedo permesso POST_NOTIFICATIONS")
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    100
+                )
+            } else {
+                Log.d("DashboardActivity", "Permesso POST_NOTIFICATIONS già concesso")
+            }
+        }
 
         // Inizializza l'handler per l'aggiornamento periodico
         timerRefreshHandler = Handler(Looper.getMainLooper())
@@ -105,11 +159,10 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         emptyStateView = findViewById(R.id.emptyStateView)
         errorStateView = findViewById(R.id.errorStateView)
         loadingStateView = findViewById(R.id.loadingStateView)
-        refreshButton = findViewById(R.id.refreshButton)
-        errorRetryButton = findViewById(R.id.errorRetryButton)
+        val refreshButton = findViewById<Button>(R.id.refreshButton)
+        val errorRetryButton = findViewById<Button>(R.id.errorRetryButton)
         errorMessageText = findViewById(R.id.errorMessageText)
 
-        // Inizializza componenti per il filtro, se presenti nel layout
         try {
             filteredCountText = findViewById(R.id.filteredCountText)
         } catch (e: Exception) {
@@ -121,6 +174,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         timersRecyclerView.layoutManager = LinearLayoutManager(this)
         timersRecyclerView.adapter = timerAdapter
 
+        // Crea il canale di notifica
+        createNotificationChannel()
+
         // Mostra lo stato iniziale
         showEmptyState()
 
@@ -131,8 +187,135 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         refreshButton.setOnClickListener { refreshTimerData(true) }
         errorRetryButton.setOnClickListener { refreshTimerData(true) }
 
+        // Verifica l'intent iniziale per eventuali azioni di notifica
+        handleNotificationIntent(intent)
+
         // Carica i dati all'inizio
         refreshTimerData(true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 100) {
+            // Verifica se la richiesta di permesso per le notifiche è stata accettata
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d("DashboardActivity", "Autorizzazione notifiche concessa")
+                Toast.makeText(this, "Notifiche autorizzate", Toast.LENGTH_SHORT).show()
+
+                // Opzionale: mostra una notifica di test per verificare che tutto funzioni
+                Handler(Looper.getMainLooper()).postDelayed({
+                    showTestNotification()
+                }, 1000)
+            } else {
+                Log.d("DashboardActivity", "Autorizzazione notifiche negata")
+                Toast.makeText(this, "Le notifiche non saranno mostrate", Toast.LENGTH_SHORT).show()
+
+                // Indirizza l'utente alle impostazioni dell'app per abilitare manualmente
+                AlertDialog.Builder(this)
+                    .setTitle("Notifiche disabilitate")
+                    .setMessage("Le notifiche sono necessarie per avvisarti di nuovi posti liberi. Vuoi abilitarle nelle impostazioni?")
+                    .setPositiveButton("Impostazioni") { _, _ ->
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.fromParts("package", packageName, null)
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("No, grazie", null)
+                    .show()
+            }
+        }
+    }
+
+    /**
+     * Mostra una notifica di test per verificare che il sistema di notifiche funzioni
+     */
+    /**
+     * Mostra una notifica di test per verificare che il sistema di notifiche funzioni
+     */
+    private fun showTestNotification() {
+        try {
+            val title = "Test Notifica"
+            val content = "Le notifiche funzionano correttamente"
+
+            // Crea un intent per aprire la dashboard quando la notifica viene toccata
+            val intent = Intent(this, DashboardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                // IMPORTANTE: Includi l'URL del server nell'intent
+                putExtra("server_url", serverUrl)
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+            )
+
+            // Crea la notifica con priorità elevata
+            val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_timer)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)  // Priorità alta
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)  // Categoria messaggio
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // Visibile nella lock screen
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true) // La notifica si chiude quando viene toccata
+
+            // Mostra la notifica
+            with(NotificationManagerCompat.from(this)) {
+                // Verifica il permesso di notifica (Android 13+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (ActivityCompat.checkSelfPermission(
+                            this@DashboardActivity,
+                            android.Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        Log.e("DashboardActivity", "Permesso notifiche non disponibile")
+                        return
+                    }
+                }
+
+                Log.d("DashboardActivity", "Sto mostrando la notifica di test")
+                notify(999, builder.build())
+            }
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore mostrando la notifica di test", e)
+        }
+    }
+
+    private fun handleNotificationIntent(intent: Intent) {
+        // Gestisci l'apertura da notifica
+        if (intent.hasExtra("table_number") && intent.hasExtra("highlight_timer")) {
+            val tableNumber = intent.getIntExtra("table_number", -1)
+            val timerDeviceId = intent.getStringExtra("highlight_timer")
+
+            // Trova la posizione del timer
+            if (tableNumber != -1 && timerDeviceId != null) {
+                // Aspetta che la recyclerView sia pronta
+                timersRecyclerView.post {
+                    val position = filteredTimerList.indexOfFirst { it.tableNumber == tableNumber }
+                    if (position >= 0) {
+                        // Scrolla alla posizione del timer
+                        timersRecyclerView.smoothScrollToPosition(position)
+
+                        // Evidenzia la card
+                        highlightTimerCard(position)
+                    }
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -153,6 +336,24 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         stopAutoRefresh()
         timerRefreshHandler = null
         refreshRunnable = null
+    }
+
+    /**
+     * Crea il canale di notifica (richiesto per Android 8.0+)
+     */
+    private fun createNotificationChannel() {
+        // Richiesto solo per Android 8.0 e versioni successive
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Poker Timer Notifiche"
+            val descriptionText = "Notifiche per posti liberi nei tavoli"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+            // Registra il canale nel sistema
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 
     /**
@@ -182,11 +383,17 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         return true
     }
 
-
     /**
-     * Aggiorna i dati dei timer
+     * Ricarica i dati dal server con un ritardo
      * @param showLoading Determina se mostrare lo stato di caricamento
+     * @param delayMs Ritardo in millisecondi prima di effettuare il refresh
      */
+    private fun delayedRefreshTimerData(showLoading: Boolean = false, delayMs: Long = 500) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            refreshTimerData(showLoading)
+        }, delayMs)
+    }
+
     /**
      * Aggiorna i dati dei timer
      * @param showLoading Determina se mostrare lo stato di caricamento
@@ -240,11 +447,25 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     // Log per debug - verifica le informazioni sui posti liberi
                     for (timer in allTimerList) {
                         if (timer.hasSeatOpenInfo()) {
-                            android.util.Log.d("DashboardActivity", "Timer ${timer.deviceId} ha informazioni su posti liberi: ${timer.getFormattedSeatInfo()}")
+                            Log.d("DashboardActivity", "Timer ${timer.deviceId} ha informazioni su posti liberi: ${timer.getFormattedSeatInfo()}")
+
+                            // Controlla se ci sono nuove informazioni da notificare
+                            val seatInfo = timer.seatOpenInfo ?:
+                            (if (timer.pendingCommand?.startsWith("seat_open:") == true)
+                                timer.pendingCommand.substringAfter("seat_open:").trim()
+                            else "")
+
+                            if (seatInfo.isNotEmpty() && SeatNotificationTracker.isNewNotification(timer.deviceId, seatInfo)) {
+                                // Mostra una notifica all'utente
+                                showSeatOpenNotification(timer, seatInfo)
+
+                                // Segna questa notifica come visualizzata
+                                SeatNotificationTracker.markAsNotified(timer.deviceId, seatInfo)
+                            }
                         } else {
                             // Controlla anche pendingCommand
                             if (timer.pendingCommand != null) {
-                                android.util.Log.d("DashboardActivity", "Timer ${timer.deviceId} ha pendingCommand: ${timer.pendingCommand}")
+                                Log.d("DashboardActivity", "Timer ${timer.deviceId} ha pendingCommand: ${timer.pendingCommand}")
                             }
                         }
                     }
@@ -270,6 +491,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
     }
+
     /**
      * Funzione di supporto per il fetch dei dati
      */
@@ -297,6 +519,84 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         } catch (e: Exception) {
             e.printStackTrace()
             "ERROR:${e.message}"
+        }
+    }
+
+    /**
+     * Mostra una notifica standard per nuovi posti liberi
+     */
+    private fun showSeatOpenNotification(timer: TimerItem, seatInfo: String) {
+        val title = "Nuovi Posti Liberi"
+        val content = "Tavolo ${timer.tableNumber}: $seatInfo"
+
+        // Crea un intent per aprire la dashboard quando la notifica viene toccata
+        val intent = Intent(this, DashboardActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("table_number", timer.tableNumber)
+            putExtra("highlight_timer", timer.deviceId)
+            // IMPORTANTE: Includi l'URL del server nell'intent
+            putExtra("server_url", serverUrl)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+        )
+
+        // Crea la notifica
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_timer)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)  // Aumenta la priorità
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)  // Imposta una categoria rilevante
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)  // Rendi visibile nella schermata di blocco
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        // Mostra la notifica
+        with(NotificationManagerCompat.from(this)) {
+            // Verifica il permesso di notifica (Android 13+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ActivityCompat.checkSelfPermission(
+                        this@DashboardActivity,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    // Se il permesso non è concesso, chiedi il permesso all'utente
+                    ActivityCompat.requestPermissions(
+                        this@DashboardActivity,
+                        arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                        1
+                    )
+                    return
+                }
+            }
+            notify(NOTIFICATION_ID + timer.tableNumber.hashCode(), builder.build())
+        }
+    }
+
+    /**
+     * Evidenzia brevemente una card del timer
+     */
+    private fun highlightTimerCard(position: Int) {
+        val viewHolder = timersRecyclerView.findViewHolderForAdapterPosition(position)
+        val cardView = viewHolder?.itemView
+
+        cardView?.let {
+            // Salva il colore di sfondo originale
+            val originalBackground = it.background
+
+            // Cambia il colore di sfondo per evidenziare
+            it.setBackgroundColor(ContextCompat.getColor(this, R.color.colorAccent))
+
+            // Torna al colore originale dopo un breve periodo
+            Handler(Looper.getMainLooper()).postDelayed({
+                it.background = originalBackground
+            }, 1500) // 1.5 secondi di evidenziazione
         }
     }
 
@@ -471,10 +771,10 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private fun isTimerOnline(timer: TimerItem): Boolean {
         try {
             // Estrai la data dell'ultimo aggiornamento
-            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-            sdf.timeZone = TimeZone.getTimeZone("UTC")
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
             val lastUpdateTime = sdf.parse(timer.lastUpdateTimestamp)
-            val now = Date()
+            val now = java.util.Date()
 
             // Calcola la differenza in minuti
             val diffInMs = now.time - (lastUpdateTime?.time ?: 0)
@@ -519,7 +819,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val decreaseTableButton = dialogView.findViewById<Button>(R.id.decreaseTableButton)
         val increaseTableButton = dialogView.findViewById<Button>(R.id.increaseTableButton)
 
-        val buzzerSwitch = dialogView.findViewById<Switch>(R.id.buzzerSwitch)
+        val buzzerSwitch = dialogView.findViewById<android.widget.Switch>(R.id.buzzerSwitch)
 
         val decreaseT1Button = dialogView.findViewById<Button>(R.id.decreaseT1Button)
         val increaseT1Button = dialogView.findViewById<Button>(R.id.increaseT1Button)
@@ -591,6 +891,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         increaseT2Button.setOnClickListener {
             if (currentT2 < 95) {
+
                 currentT2 += 5
                 t2ValueText.text = currentT2.toString()
             }
@@ -701,21 +1002,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     }
 
     /**
-     * Aggiorna l'UI in base alle informazioni sui posti liberi
-     */
-    private fun updateSeatInfoUI(timer: TimerItem, viewHolder: TimerAdapter.TimerViewHolder) {
-        // Questo metodo sarebbe chiamato all'interno dell'adapter
-        val seatInfoText = viewHolder.itemView.findViewById<TextView>(R.id.seatInfoText)
-
-        if (timer.hasSeatOpenInfo()) {
-            seatInfoText.text = timer.getFormattedSeatInfo()
-            seatInfoText.visibility = View.VISIBLE
-        } else {
-            seatInfoText.visibility = View.GONE
-        }
-    }
-
-    /**
      * Applica le impostazioni al timer e invia al server
      * @param forceFactoryReset Se true, forza l'applicazione delle impostazioni e disabilita l'aggiornamento automatico
      */
@@ -769,6 +1055,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     }
                 }
             } catch (e: Exception) {
+                Log.e("TimerSettings", "Errore: ${e.message}", e)
                 Toast.makeText(this@DashboardActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -782,7 +1069,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
             R.id.action_filter -> {
                 // Gestione del filtro
-                val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+                val dialog = AlertDialog.Builder(this)
                     .setTitle("Filtra Timer")
                     .setSingleChoiceItems(
                         TimerFilterOption.getTitles(),
@@ -848,26 +1135,28 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
      * Invia le impostazioni al server
      */
     private suspend fun sendTimerSettings(url: String, settings: JSONObject): String {
-        return try {
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+        return withContext(Dispatchers.IO) {
+            try {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
 
-            // Invia il JSON
-            val outputStream = connection.outputStream
-            outputStream.write(settings.toString().toByteArray())
-            outputStream.close()
+                // Invia il JSON
+                val outputStream = connection.outputStream
+                outputStream.write(settings.toString().toByteArray())
+                outputStream.close()
 
-            val responseCode = connection.responseCode
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                "Impostazioni salvate con successo"
-            } else {
-                "ERROR:Errore del server: $responseCode"
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    "Impostazioni salvate con successo"
+                } else {
+                    "ERROR:Errore del server: $responseCode"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                "ERROR:${e.message}"
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            "ERROR:${e.message}"
         }
     }
 
@@ -887,5 +1176,75 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
     override fun onSettingsClicked(timer: TimerItem) {
         showTimerSettingsDialog(timer)
+    }
+
+    /**
+     * Metodo per gestire il reset dei posti liberi da una card del timer
+     */
+    override fun onSeatInfoResetRequested(timer: TimerItem) {
+        resetSeatOpenInfo(timer)
+    }
+
+    /**
+     * Invia la richiesta di reset dei posti liberi al server
+     */
+    private fun resetSeatOpenInfo(timer: TimerItem) {
+        // Mostra un toast per indicare che la richiesta è in corso
+        Toast.makeText(this, "Resetting posti liberi per tavolo ${timer.tableNumber}...", Toast.LENGTH_SHORT).show()
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Utilizza il NetworkManager per inviare la richiesta di reset
+                val networkManager = NetworkManager(applicationContext)
+                val success = networkManager.resetSeatInfo(serverUrl ?: "", timer.tableNumber)
+
+                if (success) {
+                    Toast.makeText(this@DashboardActivity, "Posti liberati con successo", Toast.LENGTH_SHORT).show()
+
+                    // IMPORTANTE: Aggiorna immediatamente la lista locale prima del refresh dal server
+                    // Trova il timer nella lista principale e aggiornalo
+                    val index = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+                    if (index >= 0) {
+                        // Crea una copia del timer con seatOpenInfo rimosso
+                        val updatedTimer = allTimerList[index].copy(
+                            seatOpenInfo = null,
+                            pendingCommand = null  // Rimuovi anche eventuali pendingCommand relativi ai posti
+                        )
+                        allTimerList[index] = updatedTimer
+                    }
+
+                    // Aggiorna anche la lista filtrata
+                    val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+                    if (filteredIndex >= 0) {
+                        val updatedTimer = filteredTimerList[filteredIndex].copy(
+                            seatOpenInfo = null,
+                            pendingCommand = null
+                        )
+                        filteredTimerList[filteredIndex] = updatedTimer
+                    }
+
+                    // Notifica l'adapter del cambiamento
+                    timerAdapter.updateTimers(filteredTimerList)
+
+                    // Aggiorna anche la UI immediatamente
+                    val viewHolder = timersRecyclerView.findViewHolderForAdapterPosition(filteredIndex) as? TimerAdapter.TimerViewHolder
+                    viewHolder?.itemView?.findViewById<TextView>(R.id.seatInfoText)?.let { textView ->
+                        textView.visibility = View.GONE
+                    }
+
+                    // Rimuovi il tracker per questo timer
+                    SeatNotificationTracker.clearNotification(timer.deviceId)
+
+                    // Ricarica i dati dal server dopo un ritardo
+                    delayedRefreshTimerData(false, 1500)
+                } else {
+                    Toast.makeText(this@DashboardActivity, "Errore nel reset dei posti liberi", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("DashboardActivity", "Errore nel reset dei posti: ${e.message}", e)
+                Toast.makeText(this@DashboardActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

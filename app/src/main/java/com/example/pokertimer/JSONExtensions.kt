@@ -77,7 +77,7 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             }
 
             // Gestione delle informazioni sui posti liberi
-            // Controlla sia i campi seat_open, seat_open_info, e anche nei timer_data
+            // Inizializza a null e poi cerca in vari campi possibili
             var seatOpenInfo: String? = null
 
             // Cerca nel campo seat_open
@@ -90,6 +90,40 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             else if (timerJson.has("seat_open_info") && !timerJson.isNull("seat_open_info")) {
                 seatOpenInfo = timerJson.optString("seat_open_info")
                 android.util.Log.d("JSONExtensions", "Found seat_open_info: $seatOpenInfo for timer $deviceId")
+            }
+
+            // Verifica se il seat_info è stato resettato
+            var seatOpenInfoIsReset = false
+            if (timerJson.has("seat_info_reset") && !timerJson.isNull("seat_info_reset")) {
+                seatOpenInfoIsReset = timerJson.optBoolean("seat_info_reset", false)
+            }
+
+            // Se il seat_info è stato esplicitamente resettato, forza un valore null
+            if (seatOpenInfoIsReset) {
+                seatOpenInfo = null
+                android.util.Log.d("JSONExtensions", "seat_info explicitly reset for timer $deviceId")
+            }
+
+            // Cerca nel campo seat_info che è un oggetto con array open_seats
+            if (timerJson.has("seat_info") && !timerJson.isNull("seat_info")) {
+                val seatInfoObj = timerJson.optJSONObject("seat_info")
+                if (seatInfoObj != null) {
+                    if (!seatInfoObj.has("open_seats") || seatInfoObj.isNull("open_seats") ||
+                        seatInfoObj.getJSONArray("open_seats").length() == 0) {
+                        seatOpenInfo = null
+                        android.util.Log.d("JSONExtensions", "seat_info has no open_seats for timer $deviceId")
+                    } else {
+                        // Se c'è open_seats, estrai i valori
+                        val openSeatsArray = seatInfoObj.getJSONArray("open_seats")
+                        val seatsStringBuilder = StringBuilder()
+                        for (i in 0 until openSeatsArray.length()) {
+                            if (i > 0) seatsStringBuilder.append(", ")
+                            seatsStringBuilder.append(openSeatsArray.get(i))
+                        }
+                        seatOpenInfo = seatsStringBuilder.toString()
+                        android.util.Log.d("JSONExtensions", "Extracted seat_info.open_seats: $seatOpenInfo for timer $deviceId")
+                    }
+                }
             }
 
             // Cerca nel campo timer_data
@@ -107,10 +141,17 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 android.util.Log.d("JSONExtensions", "Extracted seat info from pendingCommand: $seatOpenInfo for timer $deviceId")
             }
 
-            // Verifica se dobbiamo forzare i dati per il tavolo 2 (come nel log)
-            if (tableNumber == 2 && seatOpenInfo == null) {
-                seatOpenInfo = "1, 2, 3" // Forza i posti come nel log
-                android.util.Log.d("JSONExtensions", "Forcing seat info for table 2: $seatOpenInfo")
+            // Verifica se è una stringa vuota e in tal caso usa null
+            if (seatOpenInfo != null && seatOpenInfo.isEmpty()) {
+                seatOpenInfo = null
+            }
+
+            // Verifica se dobbiamo forzare i dati per il tavolo 2 (solo per debug)
+            // Rimuovi questa parte in produzione
+            if (tableNumber == 2 && seatOpenInfo == null && !seatOpenInfoIsReset) {
+                // Non forzare più il valore per tavolo 2 se era già stato resettato
+                // seatOpenInfo = "1, 2, 3" // Forza i posti come nel log
+                // android.util.Log.d("JSONExtensions", "Forcing seat info for table 2: $seatOpenInfo")
             }
 
             // Crea un oggetto TimerItem e aggiungilo alla lista
@@ -133,6 +174,11 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 pendingCommand = pendingCommand,
                 seatOpenInfo = seatOpenInfo
             )
+
+            // Log per debug se ci sono informazioni sui posti
+            if (timerItem.hasSeatOpenInfo()) {
+                android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) has seat info: ${timerItem.getFormattedSeatInfo()}")
+            }
 
             timerList.add(timerItem)
         } catch (e: Exception) {

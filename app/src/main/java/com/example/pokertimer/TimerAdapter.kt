@@ -7,6 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
@@ -14,7 +16,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
-import android.widget.Toast
 
 class TimerAdapter(
     private val context: Context,
@@ -25,9 +26,10 @@ class TimerAdapter(
     interface TimerActionListener {
         fun onStartClicked(timer: TimerItem)
         fun onPauseClicked(timer: TimerItem)
-        fun onSettingsClicked(timer: TimerItem)
-        // Manteniamo onResetClicked nell'interfaccia ma non lo useremo nel layout
         fun onResetClicked(timer: TimerItem)
+        fun onSettingsClicked(timer: TimerItem)
+        // Nuovo metodo per gestire il reset dei posti liberi
+        fun onSeatInfoResetRequested(timer: TimerItem)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TimerViewHolder {
@@ -43,9 +45,29 @@ class TimerAdapter(
 
     override fun getItemCount(): Int = timers.size
 
+
+
     fun updateTimers(newTimers: List<TimerItem>) {
+        // Log per debug
+        android.util.Log.d("TimerAdapter", "Updating timers list, size: ${newTimers.size}")
+
+        // Verifica se ci sono timer con seatOpenInfo
+        newTimers.forEach { timer ->
+            if (timer.hasSeatOpenInfo()) {
+                android.util.Log.d("TimerAdapter", "Timer ${timer.deviceId} (table ${timer.tableNumber}) has seat info: ${timer.getFormattedSeatInfo()}")
+            }
+        }
+
+        // Aggiorna la lista
         this.timers = newTimers
+
+        // Notifica che l'intero dataset è cambiato per forzare un refresh completo
         notifyDataSetChanged()
+    }
+
+    // Metodo per recuperare l'ID di un timer in base alla posizione
+    override fun getItemId(position: Int): Long {
+        return timers[position].deviceId.hashCode().toLong()
     }
 
     class TimerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -64,10 +86,9 @@ class TimerAdapter(
         private val startButton: Button = itemView.findViewById(R.id.startButton)
         private val pauseButton: Button = itemView.findViewById(R.id.pauseButton)
         private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
+        // Il resetButton non viene più usato, ma lo manteniamo nella dichiarazione
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
-        // Aggiungi questa riga per far riferimento al campo seatInfoText
         private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
-
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
@@ -148,32 +169,47 @@ class TimerAdapter(
             pauseButton.isEnabled = timer.isRunning && !timer.isPaused
 
             // Gestione dell'informazione sui posti liberi
-            val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
+            if (timer.hasSeatOpenInfo()) {
+                // Ottieni le informazioni sui posti
+                val seatInfo = when {
+                    timer.seatOpenInfo != null -> timer.seatOpenInfo
+                    timer.pendingCommand?.startsWith("seat_open:") == true ->
+                        timer.pendingCommand.substringAfter("seat_open:").trim()
+                    else -> ""
+                }
 
-            // Per debug/test, forziamo la visualizzazione per il tavolo 2 (come nel log)
-            if (timer.tableNumber == 2) {
-                seatInfoText.text = "SEAT OPEN: 1, 2, 3"
-                seatInfoText.visibility = View.VISIBLE
-                android.util.Log.d("TimerAdapter", "Forzando visualizzazione posti per tavolo ${timer.tableNumber}")
-            } else if (timer.hasSeatOpenInfo()) {
-                // Usa le info dai dati del server se disponibili
-                seatInfoText.text = timer.getFormattedSeatInfo()
-                seatInfoText.visibility = View.VISIBLE
-                android.util.Log.d("TimerAdapter", "Mostro info posti da server: ${timer.getFormattedSeatInfo()}")
-            } else {
-                // Controlla anche direttamente pendingCommand
-                if (timer.pendingCommand != null && timer.pendingCommand.startsWith("seat_open:")) {
-                    val seats = timer.pendingCommand.substringAfter("seat_open:").trim()
-                    seatInfoText.text = "SEAT OPEN: $seats"
+                if (seatInfo.isNotEmpty()) {
+                    seatInfoText.text = "SEAT OPEN: $seatInfo"
                     seatInfoText.visibility = View.VISIBLE
-                    android.util.Log.d("TimerAdapter", "Mostro info posti da pendingCommand: $seats")
+
+                    // Rendi cliccabile per resettare i posti
+                    seatInfoText.setOnClickListener {
+                        showSeatResetConfirmation(context, timer, seatInfo, listener)
+                    }
                 } else {
                     seatInfoText.visibility = View.GONE
-                    android.util.Log.d("TimerAdapter", "Nessuna info posti da mostrare per tavolo ${timer.tableNumber}")
                 }
+            } else {
+                seatInfoText.visibility = View.GONE
             }
         }
 
+        private fun showSeatResetConfirmation(
+            context: Context,
+            timer: TimerItem,
+            seatInfo: String,
+            listener: TimerActionListener
+        ) {
+            AlertDialog.Builder(context)
+                .setTitle("Reset Posti Liberi")
+                .setMessage("Vuoi rimuovere l'indicazione di posti liberi ($seatInfo) per il tavolo ${timer.tableNumber}?")
+                .setPositiveButton("Reset") { _, _ ->
+                    // Chiamata al listener
+                    listener.onSeatInfoResetRequested(timer)
+                }
+                .setNegativeButton("Annulla", null)
+                .show()
+        }
 
         private fun formatTimerValue(seconds: Int): String {
             return "${seconds}s"

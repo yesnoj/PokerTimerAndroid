@@ -8,6 +8,7 @@ import java.net.URL
 import com.google.gson.Gson
 import java.util.Random
 import kotlinx.coroutines.delay
+import org.json.JSONObject
 
 class NetworkManager(private val context: Context) {
 
@@ -247,6 +248,91 @@ class NetworkManager(private val context: Context) {
                 return@withContext responseCode == HttpURLConnection.HTTP_OK
             } catch (e: Exception) {
                 android.util.Log.e("NetworkManager", "Send seat request error: ${e.message}", e)
+                return@withContext false
+            }
+        }
+    }
+
+    /**
+     * Invia una richiesta per resettare i posti liberi di un tavolo
+     */
+    suspend fun resetSeatInfo(serverUrl: String, tableNumber: Int): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Prima, dobbiamo trovare il deviceId corrispondente a questo tavolo
+                // Facciamo una richiesta per ottenere tutti i timer
+                val timersUrl = URL("$serverUrl/api/timers")
+                val timersConnection = timersUrl.openConnection() as HttpURLConnection
+                timersConnection.requestMethod = "GET"
+
+                val responseCode = timersConnection.responseCode
+                var deviceId: String? = null
+
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val inputStream = timersConnection.inputStream
+                    val responseBody = inputStream.bufferedReader().use { it.readText() }
+
+                    // Parsifichiamo il JSON per trovare il deviceId del timer con questo numero di tavolo
+                    try {
+                        val jsonObject = JSONObject(responseBody)
+                        val keys = jsonObject.keys()
+
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            val timerObject = jsonObject.getJSONObject(key)
+                            if (timerObject.optInt("table_number") == tableNumber) {
+                                deviceId = key
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("NetworkManager", "Error parsing timers JSON: ${e.message}")
+                    }
+                }
+
+                timersConnection.disconnect()
+
+                if (deviceId == null) {
+                    android.util.Log.e("NetworkManager", "No device found for table $tableNumber")
+                    return@withContext false
+                }
+
+                // Ora usiamo il comando reset_seat_info
+                val commandUrl = URL("$serverUrl/api/command/$deviceId")
+                android.util.Log.d("NetworkManager", "Sending reset_seat_info command to: $commandUrl")
+
+                val connection = commandUrl.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                // Payload JSON con il comando reset_seat_info
+                val jsonPayload = """
+            {
+                "command": "reset_seat_info"
+            }
+            """.trimIndent()
+
+                android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
+
+                val outputStream = connection.outputStream
+                outputStream.write(jsonPayload.toByteArray())
+                outputStream.close()
+
+                val cmdResponseCode = connection.responseCode
+                android.util.Log.d("NetworkManager", "Response code: $cmdResponseCode")
+
+                if (cmdResponseCode == HttpURLConnection.HTTP_OK) {
+                    val cmdInputStream = connection.inputStream
+                    val cmdResponseBody = cmdInputStream.bufferedReader().use { it.readText() }
+                    android.util.Log.d("NetworkManager", "Server response: $cmdResponseBody")
+                }
+
+                connection.disconnect()
+
+                return@withContext cmdResponseCode == HttpURLConnection.HTTP_OK
+            } catch (e: Exception) {
+                android.util.Log.e("NetworkManager", "Reset seats error: ${e.message}", e)
                 return@withContext false
             }
         }
