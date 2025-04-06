@@ -317,6 +317,8 @@ class MainActivity : AppCompatActivity() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
 
+
+
         // Inizializza le viste del dialogo
         val radioGroupMode = dialogView.findViewById<RadioGroup>(R.id.radio_group_mode)
         val radioMode1 = dialogView.findViewById<RadioButton>(R.id.radio_mode_1)
@@ -346,10 +348,12 @@ class MainActivity : AppCompatActivity() {
 
         // Server URL e pulsante di test
         val serverUrlInput = dialogView.findViewById<EditText>(R.id.et_server_url)
-        val testConnectionButton = dialogView.findViewById<Button>(R.id.btn_test_connection)
 
         // Riferimento al pulsante di discovery
         val discoverButton = dialogView.findViewById<Button>(R.id.btn_discover_server)
+
+        val connectButton = dialogView.findViewById<Button>(R.id.btn_connect)
+        val disconnectButton = dialogView.findViewById<Button>(R.id.btn_disconnect)
 
         // Imposta i valori attuali nel dialogo
         when (currentState.operationMode) {
@@ -370,6 +374,8 @@ class MainActivity : AppCompatActivity() {
 
         // Imposta l'URL del server nel campo di testo
         serverUrlInput.setText(currentState.serverUrl)
+        updateConnectionButtonsState(disconnectButton, connectButton, currentState.isConnectedToServer)
+
 
         // Visibilità delle impostazioni T2
         updateT2Visibility(
@@ -433,29 +439,54 @@ class MainActivity : AppCompatActivity() {
             discoverServers(serverUrlInput)
         }
 
-        // Gestione del test di connessione al server
-        testConnectionButton.setOnClickListener {
+        connectButton.setOnClickListener {
             val serverUrl = serverUrlInput.text.toString()
             if (serverUrl.isNotEmpty()) {
-                // Mostra un indicatore di caricamento
-                testConnectionButton.isEnabled = false
-                testConnectionButton.text = getString(R.string.testing)
+                // Disabilita temporaneamente i pulsanti durante il test
+                connectButton.isEnabled = false
+                disconnectButton.isEnabled = false
+                connectButton.text = getString(R.string.testing)
+
+                Log.d("MainActivity", "Avvio test connessione su URL: $serverUrl")
 
                 viewModel.testServerConnection(serverUrl) { success ->
                     // Torna al thread principale
                     runOnUiThread {
-                        testConnectionButton.isEnabled = true
-                        testConnectionButton.text = getString(R.string.test_connection)
+                        Log.d("MainActivity", "Risultato test connessione: $success")
+
+                        // Aggiorna i pulsanti in base al risultato
+                        updateConnectionButtonsState(disconnectButton, connectButton, success)
 
                         // Mostra il risultato del test
                         val message = if (success) R.string.connection_success else R.string.connection_failed
                         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+                        // NON è più necessario aggiornare lo stato qui, lo fa già il ViewModel
+                        // Il test di connessione nel ViewModel aggiorna già lo stato
+
+                        // Verifica stato dopo aggiornamento, solo per debug
+                        val newState = viewModel.timerState.value
+                        Log.d("MainActivity", "Stato dopo aggiornamento: isConnected=${newState?.isConnectedToServer}, serverUrl=${newState?.serverUrl}")
                     }
                 }
             } else {
                 Toast.makeText(this, R.string.enter_server_url, Toast.LENGTH_SHORT).show()
             }
         }
+
+        // Listener per il pulsante Disconnetti
+        disconnectButton.setOnClickListener {
+            // Aggiorna lo stato di connessione nel ViewModel
+            // Questo chiamerà la funzione updateState modificata che fermerà il polling
+            viewModel.stopServerPolling()
+
+            // Aggiorna i pulsanti
+            updateConnectionButtonsState(disconnectButton, connectButton, false)
+
+            // Mostra un messaggio di conferma
+            Toast.makeText(this, "Disconnesso dal server", Toast.LENGTH_SHORT).show()
+        }
+
 
         // Costruzione del dialog
         AlertDialog.Builder(this)
@@ -496,6 +527,23 @@ class MainActivity : AppCompatActivity() {
             // Seleziona
             selectedPlayerSeats.add(playerNumber)
             button.isSelected = true
+        }
+    }
+
+    /**
+     * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
+     */
+    private fun updateConnectionButtonsState(disconnectButton: Button, connectButton: Button, isConnected: Boolean) {
+        if (isConnected) {
+            // Se connesso, abilita Disconnetti e disabilita Connetti
+            disconnectButton.isEnabled = true
+            connectButton.isEnabled = false
+            connectButton.text = "Connesso"
+        } else {
+            // Se disconnesso, abilita Connetti e disabilita Disconnetti
+            disconnectButton.isEnabled = false
+            connectButton.isEnabled = true
+            connectButton.text = "Connetti"
         }
     }
 

@@ -73,4 +73,9 @@
     <string name="reset_auto_instruction">Reset: Ripristina e avvia subito il timer</string>
     <string name="reset_manual_instruction">Reset: Ripristina e ferma il timer</string>
     <string name="switch_instruction">Doppio click: Passa all\'altro timer</string>
+
+    <string name="connect">Connetti</string>
+    <string name="disconnect">Disconnetti</string>
+    <string name="connected">Connesso</string>
+    <string name="disconnected">Disconnesso dal server</string>
 </resources>

@@ -17,7 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import com.example.pokertimer.NetworkManager.Command
 import android.util.Log
-
+import kotlinx.coroutines.isActive
 
 class PokerTimerViewModel(application: Application) : AndroidViewModel(application) {
     private var serverPollingJob: Job? = null
@@ -103,9 +103,32 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun updateState(newState: PokerTimerState) {
+        val oldState = _timerState.value
+
+        // Log aggiunto per debugging
+        Log.d("PokerTimerViewModel", "updateState: cambiamento stato connessione: ${oldState?.isConnectedToServer} -> ${newState.isConnectedToServer}")
+
+        // Aggiorno lo stato
         _timerState.value = newState
-        // Invia lo stato aggiornato al server
-        sendTimerStatusToServer()
+
+        // Se lo stato di connessione è cambiato da disconnesso a connesso
+        if ((oldState?.isConnectedToServer != true) && newState.isConnectedToServer) {
+            // Riavvia il polling
+            if (newState.serverUrl.isNotEmpty()) {
+                Log.d("PokerTimerViewModel", "updateState: avvio polling per server connesso")
+                startServerPolling()
+            }
+        }
+        // Se lo stato di connessione è cambiato da connesso a disconnesso
+        else if ((oldState?.isConnectedToServer == true) && !newState.isConnectedToServer) {
+            // Ferma il polling
+            Log.d("PokerTimerViewModel", "updateState: fermo polling per server disconnesso")
+            stopServerPolling()
+        }
+        // Se il server è connesso, invia lo stato
+        else if (newState.isConnectedToServer && newState.serverUrl.isNotEmpty()) {
+            sendTimerStatusToServer()
+        }
     }
 
     fun refreshFromServer() {
@@ -147,6 +170,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
 
         _timerState.value = newState
     }
+
+
 
     /**
      * Avvia il timer
@@ -324,74 +349,110 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Invia lo stato del timer al server
      */
+    /**
+     * Invia lo stato del timer al server
+     */
     private fun sendTimerStatusToServer() {
         val currentState = _timerState.value ?: return
 
-        if (currentState.serverUrl.isNotEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                try {
-                    val (success, command) = networkManager.sendTimerStatus(currentState.serverUrl, currentState)
+        // Non inviare se non siamo connessi o se l'URL è vuoto
+        if (!currentState.isConnectedToServer || currentState.serverUrl.isEmpty()) {
+            return
+        }
 
-                    // Aggiorna lo stato di connessione
-                    _timerState.value = currentState.copy(isConnectedToServer = success)
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val (success, command) = networkManager.sendTimerStatus(currentState.serverUrl, currentState)
 
-                    // Gestisci il comando ricevuto dal server
-                    if (success && command != null) {
-                        when (command) {
-                            is Command.START -> {
-                                if (!currentState.isRunning || currentState.isPaused) {
-                                    startTimer()
-                                }
-                            }
-                            is Command.PAUSE -> {
-                                if (currentState.isRunning && !currentState.isPaused) {
-                                    pauseTimer()
-                                }
-                            }
-                            is Command.RESET -> {
-                                resetTimer(currentState.isAutoStartMode)
-                            }
-                            // MODIFICA QUESTO CASO:
-                            is Command.SEAT_OPEN -> {
-                                // Invece di cercare di aggiornare direttamente lo stato,
-                                // aggiorniamo i dati dal server
-                                refreshFromServer()
-                                Log.d("PokerTimerViewModel", "Ricevuto comando SEAT_OPEN: ${command.seats}")
-                            }
-                            is Command.SETTINGS -> {
-                                // Aggiorna le impostazioni
-                                saveSettings(
-                                    timerT1 = command.t1,
-                                    timerT2 = command.t2,
-                                    operationMode = command.mode,
-                                    buzzerEnabled = command.buzzerEnabled,
-                                    tableNumber = command.tableNumber,
-                                    serverUrl = currentState.serverUrl
-                                )
+                // Aggiorna lo stato di connessione
+                _timerState.value = currentState.copy(isConnectedToServer = success)
+
+                // Gestisci il comando ricevuto dal server
+                if (success && command != null) {
+                    when (command) {
+                        is Command.START -> {
+                            if (!currentState.isRunning || currentState.isPaused) {
+                                startTimer()
                             }
                         }
+                        is Command.PAUSE -> {
+                            if (currentState.isRunning && !currentState.isPaused) {
+                                pauseTimer()
+                            }
+                        }
+                        is Command.RESET -> {
+                            resetTimer(currentState.isAutoStartMode)
+                        }
+                        // MODIFICA QUESTO CASO:
+                        is Command.SEAT_OPEN -> {
+                            // Invece di cercare di aggiornare direttamente lo stato,
+                            // aggiorniamo i dati dal server
+                            refreshFromServer()
+                            Log.d("PokerTimerViewModel", "Ricevuto comando SEAT_OPEN: ${command.seats}")
+                        }
+                        is Command.SETTINGS -> {
+                            // Aggiorna le impostazioni
+                            saveSettings(
+                                timerT1 = command.t1,
+                                timerT2 = command.t2,
+                                operationMode = command.mode,
+                                buzzerEnabled = command.buzzerEnabled,
+                                tableNumber = command.tableNumber,
+                                serverUrl = currentState.serverUrl
+                            )
+                        }
                     }
-                } catch (e: Exception) {
-                    _timerState.value = currentState.copy(isConnectedToServer = false)
                 }
+            } catch (e: Exception) {
+                Log.e("PokerTimerViewModel", "Errore nell'invio dello stato: ${e.message}", e)
+                // In caso di errore, aggiorna lo stato di connessione a false
+                _timerState.value = currentState.copy(isConnectedToServer = false)
             }
         }
     }
+
 
     /**
      * Testa la connessione al server
      */
     fun testServerConnection(serverUrl: String, callback: (Boolean) -> Unit) {
+        Log.d("PokerTimerViewModel", "Inizio test connessione a $serverUrl")
+
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val success = networkManager.testConnection(serverUrl)
+                Log.d("PokerTimerViewModel", "Risultato test connessione: $success")
+
+                // Se il test è riuscito, gestisci la connessione
+                if (success) {
+                    val currentState = _timerState.value ?: return@launch
+
+                    Log.d("PokerTimerViewModel", "Test riuscito, imposto stato connessione a TRUE")
+
+                    // Imposta lo stato di connessione con una copia diretta
+                    val updatedState = currentState.copy(
+                        serverUrl = serverUrl,
+                        isConnectedToServer = true
+                    )
+
+                    // IMPORTANTE: Aggiorno lo stato direttamente senza passare da updateState
+                    // per evitare loop o sovrapposizioni con updateState chiamato da MainActivity
+                    _timerState.postValue(updatedState)
+
+                    // Avvia il polling qui
+                    if (updatedState.isConnectedToServer) {
+                        Log.d("PokerTimerViewModel", "Avvio polling esplicito dopo test riuscito")
+                        startServerPolling()
+                    }
+                }
+
                 callback(success)
             } catch (e: Exception) {
+                Log.e("PokerTimerViewModel", "Errore nel test di connessione: ${e.message}", e)
                 callback(false)
             }
         }
     }
-
     /**
      * Gestione del pulsante Stop
      */
@@ -488,24 +549,67 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Ferma eventuali job in corso
         stopServerPolling()
 
+        val currentState = _timerState.value
+        if (currentState == null) {
+            Log.e("PokerTimerViewModel", "Impossibile avviare polling: stato è null")
+            return
+        }
+
+        if (currentState.serverUrl.isEmpty()) {
+            Log.e("PokerTimerViewModel", "Impossibile avviare polling: URL server vuoto")
+            return
+        }
+
+        Log.d("PokerTimerViewModel", "Avvio polling per server: ${currentState.serverUrl}")
+
         // Avvia un nuovo job per il polling
         serverPollingJob = CoroutineScope(Dispatchers.Main).launch {
-            while (true) {
-                // Invia lo stato al server e gestisci eventuali comandi
+            try {
+                // Invia immediatamente un primo aggiornamento
                 sendTimerStatusToServer()
+                Log.d("PokerTimerViewModel", "Inviato primo aggiornamento al server")
 
-                // Attendi prima del prossimo polling
-                delay(2000) // Polling ogni 2 secondi
+                while (true) {
+                    // Verifica se il job è stato cancellato
+                    if (!isActive) {
+                        Log.d("PokerTimerViewModel", "Polling interrotto: job non più attivo")
+                        break
+                    }
+
+                    // Attendi prima del prossimo polling
+                    delay(2000) // Polling ogni 2 secondi
+
+                    // Controlla che siamo ancora connessi
+                    val state = _timerState.value
+                    if (state == null || !state.isConnectedToServer || state.serverUrl.isEmpty()) {
+                        Log.d("PokerTimerViewModel", "Polling interrotto: stato non valido")
+                        break
+                    }
+
+                    // Invia lo stato
+                    Log.d("PokerTimerViewModel", "Invio aggiornamento periodico")
+                    sendTimerStatusToServer()
+                }
+            } catch (e: Exception) {
+                Log.e("PokerTimerViewModel", "Errore durante il polling: ${e.message}", e)
+            } finally {
+                Log.d("PokerTimerViewModel", "Job di polling terminato")
             }
         }
+
+        Log.d("PokerTimerViewModel", "Job di polling avviato con successo")
     }
 
     /**
      * Ferma il polling del server
      */
-    private fun stopServerPolling() {
+    fun stopServerPolling() {
         serverPollingJob?.cancel()
         serverPollingJob = null
+
+        // Aggiorniamo lo stato per indicare la disconnessione
+        val currentState = _timerState.value ?: return
+        _timerState.value = currentState.copy(isConnectedToServer = false)
     }
 }
 
