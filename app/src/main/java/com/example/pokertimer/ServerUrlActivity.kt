@@ -16,6 +16,8 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
+import java.net.HttpURLConnection
+import java.net.URL
 
 class ServerUrlActivity : AppCompatActivity() {
 
@@ -30,6 +32,8 @@ class ServerUrlActivity : AppCompatActivity() {
     private lateinit var serverUrlInput: EditText
     private lateinit var connectButton: Button
     private lateinit var discoverButton: Button
+    private lateinit var disconnectButton: Button
+    private var isConnected = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,11 +42,15 @@ class ServerUrlActivity : AppCompatActivity() {
         // Inizializza le viste
         serverUrlInput = findViewById(R.id.serverUrlInput)
         connectButton = findViewById(R.id.connectButton)
-        discoverButton = findViewById(R.id.discoverButton) // Aggiungi questo pulsante al tuo layout
+        disconnectButton = findViewById(R.id.disconnectButton) // Nuovo pulsante Disconnetti
+        discoverButton = findViewById(R.id.discoverButton)
         val backButton = findViewById<ImageView>(R.id.backButton)
 
         // Carica l'URL salvato
         loadSavedServerUrl()
+
+        // Imposta lo stato iniziale dei pulsanti
+        updateConnectionButtonsState(false)
 
         // Imposta il listener per il pulsante indietro
         backButton.setOnClickListener { finish() }
@@ -50,8 +58,44 @@ class ServerUrlActivity : AppCompatActivity() {
         // Imposta il listener per il pulsante di connessione
         connectButton.setOnClickListener { connectToServer() }
 
+        // Imposta il listener per il pulsante di disconnessione
+        disconnectButton.setOnClickListener { disconnectFromServer() }
+
         // Imposta il listener per il pulsante di discovery
         discoverButton.setOnClickListener { discoverServers() }
+    }
+
+    /**
+     * Disconnetti dal server
+     */
+    private fun disconnectFromServer() {
+        // Modifica lo stato di connessione
+        isConnected = false
+
+        // Aggiorna lo stato dei pulsanti
+        updateConnectionButtonsState(false)
+
+        // Mostra un messaggio di conferma
+        Toast.makeText(this, "Disconnesso dal server", Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * Aggiorna lo stato dei pulsanti di connessione
+     */
+    private fun updateConnectionButtonsState(connected: Boolean) {
+        isConnected = connected
+
+        if (connected) {
+            // Se connesso, abilita Disconnetti e modifica Connetti
+            disconnectButton.isEnabled = true
+            connectButton.isEnabled = false
+            connectButton.text = "Connesso"
+        } else {
+            // Se disconnesso, disabilita Disconnetti e ripristina Connetti
+            disconnectButton.isEnabled = false
+            connectButton.isEnabled = true
+            connectButton.text = "Connetti"
+        }
     }
 
     /**
@@ -77,6 +121,9 @@ class ServerUrlActivity : AppCompatActivity() {
     /**
      * Connetti al server e avvia la DashboardActivity
      */
+    /**
+     * Connetti al server e avvia la DashboardActivity
+     */
     private fun connectToServer() {
         var serverUrl = serverUrlInput.text.toString().trim()
 
@@ -91,15 +138,54 @@ class ServerUrlActivity : AppCompatActivity() {
             serverUrlInput.setText(serverUrl)
         }
 
-        // Salva l'URL
-        saveServerUrl(serverUrl)
+        // Tenta di connettersi prima di procedere
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Connessione in corso...")
+            setCancelable(false)
+            show()
+        }
 
-        // Avvia l'activity della dashboard
-        val intent = Intent(this, DashboardActivity::class.java)
-        intent.putExtra("server_url", serverUrl)
-        startActivity(intent)
+        // Test di connessione
+        Thread {
+            try {
+                val url = URL("$serverUrl/api/timers")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+
+                val responseCode = connection.responseCode
+                connection.disconnect()
+
+                runOnUiThread {
+                    progressDialog.dismiss()
+
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        // Connessione riuscita
+                        Toast.makeText(this, "Connessione riuscita", Toast.LENGTH_SHORT).show()
+
+                        // Aggiorna lo stato dei pulsanti
+                        updateConnectionButtonsState(true)
+
+                        // Salva l'URL
+                        saveServerUrl(serverUrl)
+
+                        // Avvia l'activity della dashboard
+                        val intent = Intent(this, DashboardActivity::class.java)
+                        intent.putExtra("server_url", serverUrl)
+                        startActivity(intent)
+                    } else {
+                        // Connessione fallita
+                        Toast.makeText(this, "Errore di connessione: $responseCode", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
     }
-
     /**
      * Cerca server disponibili sulla rete locale tramite UDP broadcast
      */

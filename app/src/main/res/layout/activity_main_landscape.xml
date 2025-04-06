@@ -8,52 +8,10 @@
     android:keepScreenOn="true"
     tools:context=".MainActivity">
 
-    <!-- Header riorganizzato con freccia indietro allineata con il titolo -->
-    <LinearLayout
-        android:id="@+id/header_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
-        android:gravity="center_vertical"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <ImageView
-            android:id="@+id/backToModeSelectionButton"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            android:src="@drawable/ic_back"
-            android:tint="@color/white"
-            android:contentDescription="Torna alla selezione modalità" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/app_name"
-            android:textColor="@color/white"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_marginStart="8dp" />
-
-        <ImageButton
-            android:id="@+id/btn_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/settings"
-            android:padding="8dp"
-            android:src="@drawable/ic_settings" />
-    </LinearLayout>
-
     <!-- Container principale per l'orientamento orizzontale -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/header_layout"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_height="match_parent">
 
         <!-- Parte sinistra con il timer e le informazioni principali -->
         <LinearLayout
@@ -118,7 +76,7 @@
                 android:layout_height="wrap_content"
                 android:textAlignment="center"
                 android:textColor="@color/white"
-                android:textSize="150sp"
+                android:textSize="190sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 tools:text="20" />
@@ -154,53 +112,6 @@
             app:layout_constraintStart_toEndOf="@id/timer_container"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintWidth_percent="0.4">
-
-            <!-- Info e stato server -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center">
-
-                <TextView
-                    android:id="@+id/tv_mode_info"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/white_70"
-                    android:textSize="14sp"
-                    tools:text="Mode 1" />
-
-                <TextView
-                    android:id="@+id/tv_buzzer_info"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:textColor="@color/white_70"
-                    android:textSize="14sp"
-                    tools:text="Buzzer: ON" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tv_server_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:textColor="@color/white_70"
-                android:textSize="14sp"
-                tools:text="Server: Connected" />
-
-            <!-- Indicazioni sulle modalità -->
-            <TextView
-                android:id="@+id/tv_mode_indicators"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:lineSpacingExtra="4dp"
-                android:textColor="@color/white_70"
-                android:textSize="12sp"
-                android:layout_marginBottom="16dp"
-                tools:text="START: Avvia il timer o lo mette in pausa\nSTOP: Ferma il timer\nRESET: Reimposta il timer\nSWITCH: Passa tra T1 e T2" />
 
             <!-- Pulsanti di controllo -->
             <Button

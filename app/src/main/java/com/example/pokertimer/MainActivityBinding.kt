@@ -12,15 +12,10 @@ class MainActivityBinding {
     lateinit var btnReset: Button
     lateinit var btnSwitch: Button
     lateinit var btnStop: Button
-    lateinit var btnSettings: ImageButton
     lateinit var tvTimer: TextView
     lateinit var tvActiveTimer: TextView
     lateinit var tvTableNumber: TextView
     lateinit var tvTimerStatus: TextView
-    lateinit var tvModeIndicators: TextView
-    lateinit var tvModeInfo: TextView
-    lateinit var tvBuzzerInfo: TextView
-    lateinit var tvServerStatus: TextView
     lateinit var tvSecondsLabel: TextView
     lateinit var btnPlayersSelection: ImageButton
 
@@ -33,15 +28,10 @@ class MainActivityBinding {
             binding.btnReset = activity.findViewById(R.id.btn_reset)
             binding.btnSwitch = activity.findViewById(R.id.btn_switch)
             binding.btnStop = activity.findViewById(R.id.btn_stop)
-            binding.btnSettings = activity.findViewById(R.id.btn_settings)
             binding.tvTimer = activity.findViewById(R.id.tv_timer)
             binding.tvActiveTimer = activity.findViewById(R.id.tv_active_timer)
             binding.tvTableNumber = activity.findViewById(R.id.tv_table_number)
             binding.tvTimerStatus = activity.findViewById(R.id.tv_timer_status)
-            binding.tvModeIndicators = activity.findViewById(R.id.tv_mode_indicators)
-            binding.tvModeInfo = activity.findViewById(R.id.tv_mode_info)
-            binding.tvBuzzerInfo = activity.findViewById(R.id.tv_buzzer_info)
-            binding.tvServerStatus = activity.findViewById(R.id.tv_server_status)
             binding.tvSecondsLabel = activity.findViewById(R.id.tv_seconds_label)
             binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
             return binding

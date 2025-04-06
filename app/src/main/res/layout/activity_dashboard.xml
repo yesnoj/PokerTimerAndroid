@@ -41,7 +41,9 @@
                 android:padding="8dp"
                 android:gravity="center"
                 android:textSize="14sp"
-                android:background="#F5F5F5"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:background="@color/primary_color"
                 android:text="Visualizzazione di tutti i timer (0)"
                 android:visibility="gone"
                 app:layout_constraintTop_toTopOf="parent" />

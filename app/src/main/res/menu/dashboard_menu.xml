@@ -15,12 +15,6 @@
         app:showAsAction="ifRoom" />
     
     <item
-        android:id="@+id/action_change_server"
-        android:icon="@drawable/ic_server"
-        android:title="Cambia server"
-        app:showAsAction="never" />
-    
-    <item
         android:id="@+id/action_clear_timers"
         android:title="Cancella tutti i timer"
         app:showAsAction="never" />

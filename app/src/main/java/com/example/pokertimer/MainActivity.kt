@@ -33,6 +33,10 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
+import android.view.Menu
+import android.view.MenuItem
+import androidx.lifecycle.Observer
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,6 +62,9 @@ class MainActivity : AppCompatActivity() {
             setContentView(R.layout.activity_main_portrait)
         }
 
+        // Configura l'ActionBar per mostrare la freccia indietro
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         // Inizializza il binding personalizzato
         binding = MainActivityBinding.bind(this)
 
@@ -69,15 +76,6 @@ class MainActivity : AppCompatActivity() {
 
         // Configura i listener per i pulsanti
         setupButtonListeners()
-
-        // Imposta listener per il pulsante Back
-        val backButton = findViewById<ImageView>(R.id.backToModeSelectionButton)
-        backButton?.setOnClickListener {
-            // Torna alla schermata di selezione modalità
-            val intent = Intent(this, ModeSelectionActivity::class.java)
-            startActivity(intent)
-            finish() // Opzionale, chiude l'activity corrente
-        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -102,7 +100,6 @@ class MainActivity : AppCompatActivity() {
         viewModel.timerState.value?.let {
             updateTimerDisplay(it)
             updateButtonsState(it)
-            updateModeIndicators(it)
         }
     }
 
@@ -110,7 +107,6 @@ class MainActivity : AppCompatActivity() {
         viewModel.timerState.observe(this) { state ->
             updateTimerDisplay(state)
             updateButtonsState(state)
-            updateModeIndicators(state)
         }
     }
 
@@ -133,11 +129,6 @@ class MainActivity : AppCompatActivity() {
         // Pulsante Stop
         binding.btnStop.setOnClickListener {
             viewModel.onStopPressed()
-        }
-
-        // Pulsante impostazioni
-        binding.btnSettings.setOnClickListener {
-            showSettingsDialog()
         }
 
         // Pulsante selezione giocatori
@@ -217,12 +208,7 @@ class MainActivity : AppCompatActivity() {
         // Aggiorna il contatore del timer
         binding.tvTimer.text = state.currentTimer.toString()
         binding.tvTableNumber.text = getString(R.string.table_format, state.tableNumber)
-        binding.tvServerStatus.text = getString(
-            if (state.isConnectedToServer) R.string.server_connected else R.string.server_disconnected
-        )
-        binding.tvServerStatus.setTextColor(
-            getColor(if (state.isConnectedToServer) R.color.status_color else R.color.error_color)
-        )
+
         // Aggiorna quale timer è attivo (T1/T2)
         binding.tvActiveTimer.text = getString(
             if (state.isT1Active) R.string.timer_t1 else R.string.timer_t2
@@ -245,12 +231,6 @@ class MainActivity : AppCompatActivity() {
             else -> getColor(R.color.white)
         }
         binding.tvTimerStatus.setTextColor(statusColor)
-
-        // Aggiorna info modalità e buzzer
-        binding.tvModeInfo.text = getString(R.string.mode_format, state.operationMode)
-        binding.tvBuzzerInfo.text = getString(
-            if (state.buzzerEnabled) R.string.buzzer_on else R.string.buzzer_off
-        )
 
         // Nascondi il pulsante switch se siamo in modalità solo T1
         binding.btnSwitch.visibility = if (state.isT1OnlyMode) View.GONE else View.VISIBLE
@@ -277,47 +257,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnSwitch.visibility = if (state.isT1OnlyMode) View.GONE else View.VISIBLE
     }
 
-    private fun updateModeIndicators(state: PokerTimerState) {
-        val instructionLines = mutableListOf<String>()
-
-        // Istruzioni per i pulsanti Start/Pause
-        if (state.isRunning && !state.isPaused) {
-            // Timer in esecuzione
-            instructionLines.add(getString(R.string.pause_instruction))
-        } else if (state.isPaused) {
-            // Timer in pausa
-            instructionLines.add(getString(R.string.resume_instruction))
-        } else {
-            // Timer fermo
-            instructionLines.add(getString(R.string.start_instruction))
-        }
-
-        // Istruzioni per il pulsante Stop
-        instructionLines.add(getString(R.string.stop_instruction))
-
-        // Istruzioni specifiche per il pulsante Reset in base alla modalità
-        if (state.isAutoStartMode) {
-            // Modalità 1 o 3
-            instructionLines.add(getString(R.string.reset_auto_instruction))
-        } else {
-            // Modalità 2 o 4
-            instructionLines.add(getString(R.string.reset_manual_instruction))
-        }
-
-        // Istruzioni per il pulsante Switch se disponibile
-        if (!state.isT1OnlyMode) {
-            instructionLines.add(getString(R.string.switch_instruction))
-        }
-
-        // Aggiorna il testo delle istruzioni
-        binding.tvModeIndicators.text = instructionLines.joinToString("\n")
-    }
 
     private fun showSettingsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
-
-
 
         // Inizializza le viste del dialogo
         val radioGroupMode = dialogView.findViewById<RadioGroup>(R.id.radio_group_mode)
@@ -346,14 +289,17 @@ class MainActivity : AppCompatActivity() {
         val decreaseTableButton = dialogView.findViewById<Button>(R.id.btn_decrease_table)
         val increaseTableButton = dialogView.findViewById<Button>(R.id.btn_increase_table)
 
-        // Server URL e pulsante di test
+        // Server URL e pulsanti di connessione
         val serverUrlInput = dialogView.findViewById<EditText>(R.id.et_server_url)
+        val connectButton = dialogView.findViewById<Button>(R.id.btn_connect)
+        val disconnectButton = dialogView.findViewById<Button>(R.id.btn_disconnect)
+
+        // Header dello stato del server
+        val serverStatusHeader = dialogView.findViewById<TextView>(R.id.server_status_header)
+        updateServerStatusHeader(serverStatusHeader, currentState.isConnectedToServer)
 
         // Riferimento al pulsante di discovery
         val discoverButton = dialogView.findViewById<Button>(R.id.btn_discover_server)
-
-        val connectButton = dialogView.findViewById<Button>(R.id.btn_connect)
-        val disconnectButton = dialogView.findViewById<Button>(R.id.btn_disconnect)
 
         // Imposta i valori attuali nel dialogo
         when (currentState.operationMode) {
@@ -374,14 +320,15 @@ class MainActivity : AppCompatActivity() {
 
         // Imposta l'URL del server nel campo di testo
         serverUrlInput.setText(currentState.serverUrl)
-        updateConnectionButtonsState(disconnectButton, connectButton, currentState.isConnectedToServer)
-
 
         // Visibilità delle impostazioni T2
         updateT2Visibility(
             dialogView,
             radioMode1.isChecked || radioMode2.isChecked
         )
+
+        // Aggiorna lo stato dei pulsanti di connessione
+        updateConnectionButtonsState(disconnectButton, connectButton, currentState.isConnectedToServer)
 
         // Listener per i pulsanti di incremento/decremento di table_number
         decreaseTableButton.setOnClickListener {
@@ -434,11 +381,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Listener per il pulsante di discovery
-        discoverButton.setOnClickListener {
-            discoverServers(serverUrlInput)
-        }
-
+        // Listener per il pulsante Connetti
         connectButton.setOnClickListener {
             val serverUrl = serverUrlInput.text.toString()
             if (serverUrl.isNotEmpty()) {
@@ -447,11 +390,13 @@ class MainActivity : AppCompatActivity() {
                 disconnectButton.isEnabled = false
                 connectButton.text = getString(R.string.testing)
 
+                // Log aggiunto
                 Log.d("MainActivity", "Avvio test connessione su URL: $serverUrl")
 
                 viewModel.testServerConnection(serverUrl) { success ->
                     // Torna al thread principale
                     runOnUiThread {
+                        // Log aggiunto
                         Log.d("MainActivity", "Risultato test connessione: $success")
 
                         // Aggiorna i pulsanti in base al risultato
@@ -461,12 +406,14 @@ class MainActivity : AppCompatActivity() {
                         val message = if (success) R.string.connection_success else R.string.connection_failed
                         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
-                        // NON è più necessario aggiornare lo stato qui, lo fa già il ViewModel
-                        // Il test di connessione nel ViewModel aggiorna già lo stato
+                        // Se la connessione è riuscita, aggiorna lo stato
+                        if (success) {
+                            // Log aggiunto
+                            Log.d("MainActivity", "Aggiornamento stato connessione a true")
 
-                        // Verifica stato dopo aggiornamento, solo per debug
-                        val newState = viewModel.timerState.value
-                        Log.d("MainActivity", "Stato dopo aggiornamento: isConnected=${newState?.isConnectedToServer}, serverUrl=${newState?.serverUrl}")
+                            // Aggiorna l'header dello stato
+                            updateServerStatusHeader(serverStatusHeader, true)
+                        }
                     }
                 }
             } else {
@@ -477,19 +424,23 @@ class MainActivity : AppCompatActivity() {
         // Listener per il pulsante Disconnetti
         disconnectButton.setOnClickListener {
             // Aggiorna lo stato di connessione nel ViewModel
-            // Questo chiamerà la funzione updateState modificata che fermerà il polling
             viewModel.stopServerPolling()
 
-            // Aggiorna i pulsanti
+            // Aggiorna i pulsanti e l'header
             updateConnectionButtonsState(disconnectButton, connectButton, false)
+            updateServerStatusHeader(serverStatusHeader, false)
 
             // Mostra un messaggio di conferma
             Toast.makeText(this, "Disconnesso dal server", Toast.LENGTH_SHORT).show()
         }
 
+        // Listener per il pulsante di discovery
+        discoverButton.setOnClickListener {
+            discoverServers(serverUrlInput)
+        }
 
-        // Costruzione del dialog
-        AlertDialog.Builder(this)
+        // Crea il dialogo
+        val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton(R.string.save) { _, _ ->
                 // Determina la modalità selezionata
@@ -512,7 +463,35 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .create()
+
+        // Osserva cambiamenti nello stato del timer mentre il dialogo è aperto
+        val serverStatusObserver = Observer<PokerTimerState> { state ->
+            // Aggiorna lo stato del server quando cambia
+            updateServerStatusHeader(serverStatusHeader, state.isConnectedToServer)
+            updateConnectionButtonsState(disconnectButton, connectButton, state.isConnectedToServer)
+        }
+
+        // Registra l'observer
+        viewModel.timerState.observe(this, serverStatusObserver)
+
+        // Rimuovi l'observer quando il dialogo si chiude
+        dialog.setOnDismissListener {
+            viewModel.timerState.removeObserver(serverStatusObserver)
+        }
+
+        // Mostra il dialogo
+        dialog.show()
+    }
+
+    private fun updateServerStatusHeader(headerView: TextView, isConnected: Boolean) {
+        if (isConnected) {
+            headerView.text = "Server: Connesso"
+            headerView.setTextColor(getColor(R.color.status_color))
+        } else {
+            headerView.text = "Server: Disconnesso"
+            headerView.setTextColor(getColor(R.color.error_color))
+        }
     }
 
     /**
@@ -713,4 +692,41 @@ class MainActivity : AppCompatActivity() {
             builder.show()
         }
     }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                // Torna alla schermata di selezione modalità
+                val intent = Intent(this, ModeSelectionActivity::class.java)
+                startActivity(intent)
+                finish() // Chiude l'activity corrente
+                true
+            }
+            R.id.action_settings -> {
+                showSettingsDialog()
+                true
+            }
+            R.id.action_help -> {
+                showHelpDialog()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun showHelpDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_help, null)
+
+        AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setTitle("Aiuto Timer")
+            .setPositiveButton("Chiudi", null)
+            .show()
+    }
+
 }

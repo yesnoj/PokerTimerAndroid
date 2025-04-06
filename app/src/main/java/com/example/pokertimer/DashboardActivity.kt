@@ -86,7 +86,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "poker_timer_seats"
         private const val NOTIFICATION_ID = 1001
-        private const val ONLINE_TIMEOUT_MINUTES = 5 // Timeout per considerare un timer online
+        private const val ONLINE_TIMEOUT_MINUTES = 1 // Timeout per considerare un timer online
     }
 
     private lateinit var timersRecyclerView: RecyclerView
@@ -1175,12 +1175,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 refreshTimerData(true)
                 true
             }
-            R.id.action_change_server -> {
-                val intent = Intent(this, ServerUrlActivity::class.java)
-                startActivity(intent)
-                finish()
-                true
-            }
             R.id.action_clear_timers -> {
                 // Mostra un dialog di conferma prima di cancellare tutti i timer
                 AlertDialog.Builder(this)
@@ -1196,7 +1190,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             else -> super.onOptionsItemSelected(item)
         }
     }
-
     /**
      * Cancella tutti i timer dalla lista locale
      */
