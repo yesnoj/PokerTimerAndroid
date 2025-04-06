@@ -180,13 +180,15 @@
       text-align: right;
     }
     
-    .timer-count {
-      padding: 10px;
-      background-color: #e9ecef;
-      border-radius: 4px;
-      display: inline-block;
-      margin-top: 10px;
-    }
+.timer-count {
+  display: flex;
+  align-items: center; /* Questo allinea verticalmente il testo */
+  background-color: #e9ecef;
+  border-radius: 4px;
+  padding: 6px 10px; /* Stesse dimensioni del padding della select */
+  height: 100%; /* Assicura che abbia la stessa altezza */
+  box-sizing: border-box; /* Include padding nel calcolo dell'altezza */
+}
     
     .wifi-excellent {
       color: #28a745;
@@ -438,19 +440,106 @@
       margin-bottom: 15px;
     }
 
+    .seat-info:hover {
+      background-color: #f7c948 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .filter-controls {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .filter-controls select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background-color: white;
+      margin-right: 10px;
+    }
+
+    .filtered-timer {
+      display: none;
+    }
+
+
+    .control-panel-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .filter-controls {
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .filter-controls select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background-color: white;
+      margin-right: 10px;
+    }
+
+    .filter-controls {
+      display: flex;
+      align-items: center; /* Questo allinea verticalmente al centro */
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .refresh-controls .refresh-btn {
+      margin-left: 10px;
+    }
+
+    /* Stile per essere sicuri che su schermi piccoli si comporti bene */
+    @media (max-width: 768px) {
+      .control-panel-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .filter-controls, .refresh-controls {
+        margin: 8px 0;
+      }
+    }
+
   </style>
 </head>
 <body>
   <h1>Poker Timer Monitor</h1>
   
-  <div class="control-panel">
-    <div class="refresh-control">
+<div class="control-panel">
+  <div class="control-panel-content">
+    <div class="filter-controls">
+      <label for="timer-filter">Visualizza: </label>
+      <select id="timer-filter" onchange="applyTimerFilter()">
+        <option value="all">Tutti i timer</option>
+        <option value="online">Timer online</option>
+        <option value="offline">Timer offline</option>
+      </select>
+      <span class="timer-count" id="timer-count">0 timer visualizzati</span>
+    </div>
+    
+    <div class="refresh-controls">
       <label for="auto-refresh">Auto Refresh: </label>
       <input type="checkbox" id="auto-refresh" checked>
       <button onclick="fetchTimerData()" class="refresh-btn">Refresh Now</button>
-      <span class="timer-count" id="timer-count">0 timers connected</span>
     </div>
   </div>
+</div>
   
   <div class="timer-grid" id="timer-container">
     <div class="no-timers">
@@ -566,6 +655,9 @@
 
   <script>
     let hiddenTimers = [];
+    let currentFilter = 'all'; // Filtro predefinito: 'all', 'online', 'offline'
+    const ONLINE_TIMEOUT_MS = 10000; // 10 secondi per considerare un timer online
+
 
     // Funzione per caricare i timer nascosti da localStorage
     function loadHiddenTimers() {
@@ -577,6 +669,32 @@
           console.error('Error loading hidden timers:', e);
           hiddenTimers = [];
         }
+      }
+    }
+
+    // Funzione per applicare il filtro selezionato
+    function applyTimerFilter() {
+      // Ottieni il valore del filtro selezionato
+      currentFilter = document.getElementById('timer-filter').value;
+      console.log('Applying filter:', currentFilter);
+      
+      // Aggiorna la dashboard con il nuovo filtro
+      updateDashboard();
+    }
+
+    // Controlla se un timer è considerato online in base al timestamp dell'ultimo aggiornamento
+    function isTimerOnline(timer) {
+      try {
+        // Estrai la data dell'ultimo aggiornamento
+        const lastUpdate = new Date(timer.last_update);
+        const now = new Date();
+        
+        // Un timer è considerato online se l'ultimo aggiornamento è avvenuto negli ultimi X secondi
+        return (now - lastUpdate) < ONLINE_TIMEOUT_MS;
+      } catch (e) {
+        // In caso di errore nel parsing della data, considera il timer offline
+        console.error('Error checking timer online status:', e);
+        return false;
       }
     }
 
@@ -656,13 +774,22 @@ function updateDashboard() {
   console.log('Updating dashboard with timers:', timers);
 
   const container = document.getElementById('timer-container');
-  // Filtra i timer nascosti
-  const timerValues = Object.entries(timers)
+  
+  // Prima filtra i timer nascosti
+  let timerValues = Object.entries(timers)
     .filter(([deviceId]) => !hiddenTimers.includes(deviceId))
     .map(([, timer]) => timer);
   
-  // Aggiorna il contatore dei timer visibili
-  document.getElementById('timer-count').textContent = `${timerValues.length} timers connected`;
+  // Applica il filtro corrente (all/online/offline)
+  if (currentFilter === 'online') {
+    timerValues = timerValues.filter(timer => isTimerOnline(timer));
+  } else if (currentFilter === 'offline') {
+    timerValues = timerValues.filter(timer => !isTimerOnline(timer));
+  }
+  
+  // Aggiorna il contatore dei timer filtrati visibili
+  document.getElementById('timer-count').textContent = `${timerValues.length} timer visualizzati`;
+ 
   
   if (timerValues.length === 0) {
     container.innerHTML = `
@@ -739,11 +866,13 @@ function updateDashboard() {
     ` : '';
     
     // Determina se ci sono informazioni sui posti liberi da mostrare
+    // Sostituisci con questo nuovo codice
     let seatInfoHTML = '';
     if (timer.seat_info && timer.seat_info.open_seats && timer.seat_info.open_seats.length > 0) {
       const formattedSeats = timer.seat_info.open_seats.join(', ');
       seatInfoHTML = `
-        <div class="seat-info" style="margin-top: 8px; padding: 4px 8px; background-color: #fde68a; color: #854d0e; border-radius: 4px; font-weight: bold;">
+        <div class="seat-info" onclick="resetSeatInfo('${timer.device_id}', ${timer.table_number}, '${formattedSeats}'); event.stopPropagation();" 
+             style="margin-top: 8px; margin-bottom: 15px; display: inline-block; padding: 4px 8px; background-color: #fde68a; color: #854d0e; border-radius: 4px; font-weight: bold; cursor: pointer;">
           SEAT OPEN: ${formattedSeats}
         </div>
       `;
@@ -856,10 +985,20 @@ function updateDashboard() {
     }
     
     function formatWifiSignal(rssi) {
-      // Converti RSSI in una rappresentazione visiva della potenza del segnale
+      // Per i dispositivi Android, rssi sarà 0 o un altro valore positivo o nullo
+      // I valori normali di RSSI sono negativi (es. -65 dBm)
       let signalBars = '';
       let signalClass = '';
       
+      // Se rssi è zero o positivo, presumiamo che sia un dispositivo Android
+      // e mostriamo il massimo della potenza del segnale
+      if (rssi >= 0) {
+        signalBars = '●●●●●';
+        signalClass = 'wifi-excellent';
+        return `<span class="${signalClass}">${signalBars}</span> Ottimo`;
+      }
+      
+      // Per i valori normali di RSSI (negativi)
       if (rssi >= -50) {
         signalBars = '●●●●●';
         signalClass = 'wifi-excellent';
@@ -879,7 +1018,7 @@ function updateDashboard() {
       
       return `<span class="${signalClass}">${signalBars}</span> ${rssi} dBm`;
     }
-    
+
     function sendCommand(deviceId, command) {
       fetch(`/api/command/${deviceId}`, {
         method: 'POST',
@@ -1215,6 +1354,47 @@ function updateDashboard() {
         alert('Factory reset command sent. The timer will restart and may disconnect from the network.');
       }
     }
+
+    function resetSeatInfo(deviceId, tableNumber, seatInfo) {
+      if (confirm(`Vuoi rimuovere l'indicazione di posti liberi (${seatInfo}) per il tavolo ${tableNumber}?`)) {
+        console.log(`Resetting seat info for device: ${deviceId}, table: ${tableNumber}`);
+        
+        fetch(`/api/command/${deviceId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            command: 'reset_seat_info'
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Seat info reset successfully:', data);
+          
+          // Aggiorna immediatamente lo stato del timer locale
+          if (timers[deviceId] && timers[deviceId].seat_info) {
+            delete timers[deviceId].seat_info;
+          }
+          
+          // Aggiorna la dashboard
+          updateDashboard();
+          
+          // Mostra un messaggio di conferma
+          alert(`Posti liberi rimossi con successo dal tavolo ${tableNumber}`);
+        })
+        .catch(error => {
+          console.error('Error resetting seat info:', error);
+          alert(`Errore nel reset dei posti: ${error.message}`);
+        });
+      }
+    }
+
     
     // Gestione della chiusura dei modali cliccando fuori
     window.onclick = function(event) {
