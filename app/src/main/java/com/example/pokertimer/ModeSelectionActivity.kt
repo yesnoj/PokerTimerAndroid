@@ -3,8 +3,13 @@ package com.example.pokertimer
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.widget.Button
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import android.view.WindowManager
+
+
 
 class ModeSelectionActivity : AppCompatActivity() {
 
@@ -15,13 +20,32 @@ class ModeSelectionActivity : AppCompatActivity() {
         private const val MODE_DASHBOARD = "dashboard"
     }
 
+    // Nel metodo onCreate di ModeSelectionActivity
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Nascondi la barra di stato (notifiche)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
+        // Nascondi l'action bar
+        supportActionBar?.hide()
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_mode_selection)
 
         // Ottieni riferimenti ai pulsanti CardView
         val timerModeCard = findViewById<CardView>(R.id.timerModeCard)
         val dashboardModeCard = findViewById<CardView>(R.id.dashboardModeCard)
+
+        // Aggiungi il riferimento al pulsante Help
+        val helpButton = findViewById<Button>(R.id.helpButton)
+
+        // Imposta listener per il pulsante Help
+        helpButton.setOnClickListener {
+            // Mostra il dialog di aiuto
+            showHelpDialog()
+        }
 
         // Imposta listener per il pulsante Timer
         timerModeCard.setOnClickListener {
@@ -44,6 +68,15 @@ class ModeSelectionActivity : AppCompatActivity() {
 
         // Controlla se l'utente aveva selezionato una modalità in precedenza
         checkLastMode()
+    }
+
+    private fun showHelpDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_help, null)
+        AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setTitle("Aiuto Timer")
+            .setPositiveButton("Chiudi", null)
+            .show()
     }
 
     /**

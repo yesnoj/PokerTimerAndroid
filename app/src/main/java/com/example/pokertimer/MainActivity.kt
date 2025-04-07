@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
-import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
@@ -36,6 +35,12 @@ import java.net.SocketTimeoutException
 import android.view.Menu
 import android.view.MenuItem
 import androidx.lifecycle.Observer
+import android.os.Build
+import android.view.View
+import android.view.WindowInsets
+import android.view.GestureDetector
+import android.view.MotionEvent
+import kotlin.math.abs
 
 
 class MainActivity : AppCompatActivity() {
@@ -43,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: MainActivityBinding
     private lateinit var viewModel: PokerTimerViewModel
     private val selectedPlayerSeats = mutableListOf<Int>()
+    private var isActionBarVisible = true
+    private lateinit var gestureDetector: GestureDetector
+
 
     // Costanti per la discovery del server
     companion object {
@@ -54,6 +62,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Nascondi la barra delle notifiche (status bar)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
+        // Rimuovi l'action bar
+        supportActionBar?.hide()
+
         // Determina l'orientamento attuale e carica il layout appropriato
         val orientation = resources.configuration.orientation
         if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -61,9 +78,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             setContentView(R.layout.activity_main_portrait)
         }
-
-        // Configura l'ActionBar per mostrare la freccia indietro
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Inizializza il binding personalizzato
         binding = MainActivityBinding.bind(this)
@@ -76,6 +90,12 @@ class MainActivity : AppCompatActivity() {
 
         // Configura i listener per i pulsanti
         setupButtonListeners()
+
+        // Imposta il long press per accedere alle impostazioni
+        setupLongPressForSettings()
+
+        // Imposta lo swipe verso destra per tornare indietro
+        setupSwipeGesture()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -103,10 +123,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Override di onTouchEvent per gestire il gesto
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event)
+    }
+
+    private fun setupLongPressForSettings() {
+        val contentView = findViewById<View>(android.R.id.content)
+
+        contentView.setOnLongClickListener {
+            // Mostra il dialog delle impostazioni
+            showSettingsDialog()
+            true
+        }
+    }
+
+    private fun setupSwipeGesture() {
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            private val SWIPE_THRESHOLD = 100
+            private val SWIPE_VELOCITY_THRESHOLD = 100
+
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                val diffX = e2.x - (e1?.x ?: 0f)
+
+                if (diffX > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                    // Swipe verso destra
+                    finish()
+                    return true
+                }
+                return false
+            }
+        })
+    }
+
+
+
     private fun observeTimerState() {
         viewModel.timerState.observe(this) { state ->
             updateTimerDisplay(state)
             updateButtonsState(state)
+        }
+    }
+
+    private fun toggleActionBar() {
+        isActionBarVisible = !isActionBarVisible
+
+        if (isActionBarVisible) {
+            supportActionBar?.show()
+        } else {
+            supportActionBar?.hide()
+        }
+
+        // Opzionale: impostare in full screen quando la barra è nascosta
+        if (!isActionBarVisible) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.setDecorFitsSystemWindows(false)
+                window.insetsController?.hide(WindowInsets.Type.statusBars())
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+            }
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.setDecorFitsSystemWindows(true)
+                window.insetsController?.show(WindowInsets.Type.statusBars())
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            }
         }
     }
 
