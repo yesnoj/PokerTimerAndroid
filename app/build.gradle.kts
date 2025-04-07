@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     //implementation(libs.androidx.material3)
+    implementation("androidx.percentlayout:percentlayout:1.0.0")
+
 
     // Aggiunta della libreria Material Design
     implementation("com.google.android.material:material:1.5.0")
