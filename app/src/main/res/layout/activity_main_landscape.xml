@@ -14,29 +14,36 @@
         android:layout_height="match_parent">
 
         <!-- Parte sinistra con il timer e le informazioni principali -->
+
+        <!-- Parte destra con i controlli e le info aggiuntive -->
+
         <LinearLayout
             android:id="@+id/timer_container"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:orientation="vertical"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="16dp"
-            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/controls_container"
-            app:layout_constraintWidth_percent="0.6">
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintWidth_percent="0.6"
+            tools:layout_editor_absoluteY="-27dp">
 
             <!-- Informazioni sul timer attivo (T1/T2) e tavolo -->
+
+            <!-- Display principale del timer -->
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center">
+                android:gravity="center"
+                android:orientation="vertical">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center">
+                    android:gravity="center"
+                    android:orientation="horizontal">
 
                     <TextView
                         android:id="@+id/tv_active_timer"
@@ -55,7 +62,7 @@
                         android:textSize="16sp"
                         tools:text="Tavolo 1" />
                 </LinearLayout>
-                
+
                 <!-- Bottone per selezionare i giocatori -->
                 <ImageButton
                     android:id="@+id/btn_players_selection"
@@ -69,16 +76,18 @@
                     app:tint="@color/white" />
             </LinearLayout>
 
-            <!-- Display principale del timer -->
             <TextView
                 android:id="@+id/tv_timer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="470dp"
+                android:layout_height="354dp"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:lineHeight="350sp"
+                android:maxLines="1"
                 android:textAlignment="center"
                 android:textColor="@color/white"
-                android:textSize="190sp"
+                android:textSize="375sp"
                 android:textStyle="bold"
-                android:maxLines="1"
                 tools:text="20" />
 
             <!-- Label "secondi" -->
@@ -101,53 +110,54 @@
                 tools:text="Running" />
         </LinearLayout>
 
-        <!-- Parte destra con i controlli e le info aggiuntive -->
         <LinearLayout
             android:id="@+id/controls_container"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
+            android:layout_width="226dp"
+            android:layout_height="wrap_content"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="16dp"
-            app:layout_constraintStart_toEndOf="@id/timer_container"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/timer_container"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintWidth_percent="0.4">
 
             <!-- Pulsanti di controllo -->
             <Button
                 android:id="@+id/btn_start_pause"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="80dp"
+                android:layout_marginBottom="8dp"
                 android:backgroundTint="@color/primary_color"
                 android:text="@string/start"
                 android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
+                android:textSize="16sp" />
 
             <Button
                 android:id="@+id/btn_stop"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="80dp"
+                android:layout_marginBottom="8dp"
                 android:backgroundTint="@color/error_color"
                 android:text="@string/stop"
                 android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
+                android:textSize="16sp" />
 
             <Button
                 android:id="@+id/btn_reset"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="80dp"
+                android:layout_marginBottom="8dp"
                 android:backgroundTint="@color/secondary_color"
                 android:text="@string/reset"
                 android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
+                android:textSize="16sp" />
 
             <Button
                 android:id="@+id/btn_switch"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="80dp"
                 android:backgroundTint="@color/secondary_color"
                 android:text="@string/switch_timer"
                 android:textColor="@color/white"
