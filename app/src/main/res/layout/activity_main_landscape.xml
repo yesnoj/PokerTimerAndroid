@@ -125,18 +125,6 @@
                     android:src="@drawable/ic_players"
                     app:tint="@color/white" />
             </LinearLayout>
-
-            <!-- Istruzioni di gesto - SEMPLIFICATE -->
-            <TextView
-                android:id="@+id/gesture_instructions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:textColor="@color/white_70"
-                android:textSize="10sp"
-                android:gravity="center"
-                android:text="Swipe per cambiare\nTap per avviare\nDoppio tap ferma"
-                android:lineSpacingExtra="1dp"/>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

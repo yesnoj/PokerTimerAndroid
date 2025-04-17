@@ -8,6 +8,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import android.view.WindowManager
+import android.graphics.Color
 
 
 
@@ -72,11 +73,14 @@ class ModeSelectionActivity : AppCompatActivity() {
 
     private fun showHelpDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_help, null)
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setTitle("Aiuto Timer")
             .setPositiveButton("Chiudi", null)
             .show()
+
+        // Imposta il colore del testo del pulsante "Chiudi" a bianco
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
     }
 
     /**

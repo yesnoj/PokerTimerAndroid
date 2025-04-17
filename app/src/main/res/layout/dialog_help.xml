@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="wrap_content">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,70 +12,43 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Come usare Poker Timer"
+            android:text="Gestione Timer"
+            android:textStyle="bold"
             android:textSize="18sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Un tocco: avvia/riavvia il timer\n• Doppio tocco: reimposta il timer\n• Tocco prolungato: pausa/impostazioni\n• Swipe orizzontale: cambia timer T1/T2"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità Timer"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp"/>
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Modalità 1: T1/T2 con avvio automatico"
+            android:text="Il timer funziona in modalità standard con due timer configurabili:\n\n• T1: Timer principale\n• T2: Timer secondario"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Posti Liberi"
             android:textStyle="bold"
-            android:layout_marginTop="8dp"/>
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="• START: Avvia il timer o lo mette in pausa\n• STOP: Ferma e ripristina il timer\n• RESET: Ripristina e avvia subito il timer\n• SWITCH: Passa all'altro timer (T1/T2)" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 2: T1/T2 con avvio manuale"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="• START: Avvia il timer o lo mette in pausa\n• STOP: Ferma e ripristina il timer\n• RESET: Ripristina e ferma il timer\n• SWITCH: Passa all'altro timer (T1/T2)" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 3: Solo T1 con avvio automatico"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="• START: Avvia il timer o lo mette in pausa\n• STOP: Ferma e ripristina il timer\n• RESET: Ripristina e avvia subito il timer" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 4: Solo T1 con avvio manuale"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="• START: Avvia il timer o lo mette in pausa\n• STOP: Ferma e ripristina il timer\n• RESET: Ripristina e ferma il timer" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Note aggiuntive"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="• Il pulsante SWITCH è visibile solo nelle modalità 1 e 2.\n• Quando il timer scade, verrà emesso un suono se il buzzer è attivato.\n• Per il controllo remoto, connettiti al server di monitoraggio." />
+            android:text="Usa il pulsante 'Seleziona posti liberi' per segnalare posti disponibili al tavolo. I posti selezionati rimarranno attivi finché non verranno resettati dalla Dashboard." />
 
     </LinearLayout>
 </ScrollView>

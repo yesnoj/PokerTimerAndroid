@@ -3,6 +3,7 @@ package com.example.pokertimer
 import android.app.AlertDialog
 import android.app.Dialog
 import android.app.ProgressDialog
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
@@ -36,7 +37,14 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import kotlin.math.abs
 import androidx.core.content.ContextCompat
-
+import android.graphics.Color
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.os.Build
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
 
@@ -211,6 +219,16 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     override fun onLongPress(e: MotionEvent) {
         val currentState = viewModel.timerState.value ?: return
 
+        // Aggiungi vibrazione
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            // Per API inferiori a 26
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(50)
+        }
+
         // Se il timer è in esecuzione, lo mette in pausa
         if (currentState.isRunning && !currentState.isPaused) {
             viewModel.onStartPausePressed()
@@ -266,9 +284,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     }
 
     private fun showPlayerSelectionDialog() {
-        // Resetta le selezioni precedenti
-        selectedPlayerSeats.clear()
-
         // Crea il dialogo
         val dialog = Dialog(this)
         dialog.setContentView(R.layout.dialog_player_selection)
@@ -280,6 +295,13 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         // Ottieni il numero del tavolo corrente
         val currentState = viewModel.timerState.value
         val tableNumber = currentState?.tableNumber ?: 1
+
+        // Verifica se ci sono posti già selezionati
+        val existingSeats = viewModel.getExistingSeats()
+
+        // Resetta e carica le selezioni precedenti
+        selectedPlayerSeats.clear()
+        selectedPlayerSeats.addAll(existingSeats)
 
         // Lista dei bottoni dei giocatori
         val playerButtons = listOf(
@@ -295,9 +317,15 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             dialog.findViewById<Button>(R.id.playerButton10)
         )
 
-        // Configura i listener per i bottoni dei giocatori
+        // Configura i listener per i bottoni dei giocatori e preseleziona posti esistenti
         playerButtons.forEachIndexed { index, button ->
             val playerNumber = index + 1
+
+            // Preseleziona posti esistenti
+            if (selectedPlayerSeats.contains(playerNumber)) {
+                button.isSelected = true
+            }
+
             button.setOnClickListener {
                 togglePlayerSelection(playerNumber, button)
             }
@@ -325,11 +353,18 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         }
 
         cancelButton.setOnClickListener {
+            // Ripristina la lista originale
+            selectedPlayerSeats.clear()
+            selectedPlayerSeats.addAll(existingSeats)
+
             // Chiudi il dialogo senza inviare nulla
             dialog.dismiss()
         }
 
         dialog.show()
+
+        // Cambia il colore del pulsante Cancel a bianco
+        cancelButton.setTextColor(Color.WHITE)
     }
 
     private fun showSettingsDialog() {
@@ -549,6 +584,22 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             // Deseleziona
             selectedPlayerSeats.remove(playerNumber)
             button.isSelected = false
+
+            // Ottengo il numero del tavolo corrente
+            val currentState = viewModel.timerState.value
+            val tableNumber = currentState?.tableNumber ?: 1
+
+            // Invia immediatamente la nuova lista di posti al server
+            val seatRequest = PlayerSeatRequest(tableNumber, selectedPlayerSeats)
+
+            // Inviamo la richiesta solo se ci sono posti, altrimenti facciamo un reset
+            if (selectedPlayerSeats.isNotEmpty()) {
+                // Aggiorna i posti selezionati sul server senza chiudere il dialog
+                sendSeatRequestToServerSilent(seatRequest)
+            } else {
+                // Se non ci sono più posti selezionati, possiamo fare una richiesta di reset
+                resetSeatInfoSilent(tableNumber)
+            }
         } else {
             // Seleziona
             selectedPlayerSeats.add(playerNumber)
@@ -557,8 +608,73 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     }
 
     /**
-     * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
+     * Invia una richiesta di posti liberi al server senza dialoghi
      */
+    private fun sendSeatRequestToServerSilent(seatRequest: PlayerSeatRequest) {
+        val currentState = viewModel.timerState.value
+        val serverUrl = currentState?.serverUrl ?: return
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // NetworkManager è già presente nel progetto
+                val networkManager = NetworkManager(applicationContext)
+
+                // Invia la richiesta usando il NetworkManager
+                val success = networkManager.sendSeatRequest(serverUrl, seatRequest)
+
+                if (success) {
+                    // Salva i posti selezionati nel ViewModel
+                    viewModel.saveSelectedSeats(seatRequest.selectedSeats)
+
+                    // Aggiungi un ritardo prima di refreshare per dare tempo al server di elaborare
+                    delay(500)
+
+                    // Forza un refresh della dashboard
+                    val refreshUrl = URL("$serverUrl/api/timers")
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val connection = refreshUrl.openConnection() as HttpURLConnection
+                            connection.requestMethod = "GET"
+                            val responseCode = connection.responseCode
+                            Log.d("MainActivity", "Force refresh response: $responseCode")
+                            connection.disconnect()
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error forcing refresh: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Invia una richiesta di reset posti al server senza dialoghi
+     */
+    private fun resetSeatInfoSilent(tableNumber: Int) {
+        val currentState = viewModel.timerState.value
+        val serverUrl = currentState?.serverUrl ?: return
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // NetworkManager è già presente nel progetto
+                val networkManager = NetworkManager(applicationContext)
+
+                // Invia la richiesta di reset
+                val success = networkManager.resetSeatInfo(serverUrl, tableNumber)
+
+                if (success) {
+                    // Resetta i posti selezionati nel ViewModel
+                    viewModel.saveSelectedSeats(emptyList())
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore reset posti: ${e.message}", e)
+            }
+        }
+    }
     /**
      * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
      */
@@ -621,13 +737,12 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                 if (success) {
                     Toast.makeText(applicationContext, "Richiesta inviata con successo", Toast.LENGTH_SHORT).show()
 
+                    // Salva i posti selezionati nel ViewModel
+                    viewModel.saveSelectedSeats(seatRequest.selectedSeats)
+
                     // Aggiorna le informazioni localmente
-                    // Nota: questo è solo temporaneo, idealmente il dato verrebbe aggiornato
-                    // quando si ricarica la dashboard dal server
                     if (currentState != null) {
-                        val newState = currentState.copy(
-                            // Qui potresti aggiungere altre proprietà se necessario
-                        )
+                        val newState = currentState.copy()
                         viewModel.updateState(newState)
                     }
                 } else {
@@ -639,7 +754,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }
     }
-
     /**
      * Cerca server disponibili sulla rete locale tramite UDP broadcast
      */

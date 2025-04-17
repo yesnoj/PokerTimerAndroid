@@ -73,21 +73,6 @@
         android:textSize="24sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/gesture_instructions"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Istruzioni gesti -->
-    <TextView
-        android:id="@+id/gesture_instructions"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tap per avviare\nDoppio tap per fermare\nTap e mantieni per impostazioni"
-        android:textColor="@color/white_70"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:lineSpacingExtra="4dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         android:layout_marginBottom="32dp" />
 

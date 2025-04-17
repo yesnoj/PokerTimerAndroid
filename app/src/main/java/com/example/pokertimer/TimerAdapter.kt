@@ -200,7 +200,7 @@ class TimerAdapter(
             seatInfo: String,
             listener: TimerActionListener
         ) {
-            AlertDialog.Builder(context)
+            val dialog = AlertDialog.Builder(context)
                 .setTitle("Reset Posti Liberi")
                 .setMessage("Vuoi rimuovere l'indicazione di posti liberi ($seatInfo) per il tavolo ${timer.tableNumber}?")
                 .setPositiveButton("Reset") { _, _ ->
@@ -208,7 +208,13 @@ class TimerAdapter(
                     listener.onSeatInfoResetRequested(timer)
                 }
                 .setNegativeButton("Annulla", null)
-                .show()
+                .create()
+
+            dialog.show()
+
+            // Cambia il colore dei pulsanti a bianco
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
         }
 
         private fun formatTimerValue(seconds: Int): String {

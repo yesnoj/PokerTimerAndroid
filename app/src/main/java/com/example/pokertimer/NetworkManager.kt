@@ -36,6 +36,10 @@ class NetworkManager(private val context: Context) {
      * Invia lo stato del timer al server e riceve eventuali comandi
      * @return Coppia (successo, comando)
      */
+    /**
+     * Invia lo stato del timer al server e riceve eventuali comandi
+     * @return Coppia (successo, comando)
+     */
     suspend fun sendTimerStatus(serverUrl: String, timerState: PokerTimerState): Pair<Boolean, Command?> {
         return withContext(Dispatchers.IO) {
             try {
@@ -52,20 +56,20 @@ class NetworkManager(private val context: Context) {
                 android.util.Log.d("NetworkManager", "Using device ID: $deviceId")
 
                 val jsonPayload = """
-                {
-                    "device_id": "$deviceId",
-                    "table_number": ${timerState.tableNumber},
-                    "is_running": ${timerState.isRunning},
-                    "is_paused": ${timerState.isPaused},
-                    "current_timer": ${timerState.currentTimer},
-                    "time_expired": ${timerState.isExpired},
-                    "mode": ${timerState.operationMode},
-                    "t1_value": ${timerState.timerT1},
-                    "t2_value": ${timerState.timerT2},
-                    "battery_level": 100,
-                    "voltage": 5.0
-                }
-                """.trimIndent()
+            {
+                "device_id": "$deviceId",
+                "table_number": ${timerState.tableNumber},
+                "is_running": ${timerState.isRunning},
+                "is_paused": ${timerState.isPaused},
+                "current_timer": ${timerState.currentTimer},
+                "time_expired": ${timerState.isExpired},
+                "mode": ${timerState.operationMode},
+                "t1_value": ${timerState.timerT1},
+                "t2_value": ${timerState.timerT2},
+                "battery_level": 100,
+                "voltage": 5.0
+            }
+            """.trimIndent()
 
                 android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
 
@@ -96,6 +100,7 @@ class NetworkManager(private val context: Context) {
                                 "start" -> return@withContext Pair(true, Command.START)
                                 "pause" -> return@withContext Pair(true, Command.PAUSE)
                                 "reset" -> return@withContext Pair(true, Command.RESET)
+                                "clear_seats" -> return@withContext Pair(true, Command.CLEAR_SEATS)
                                 "settings", "apply_settings" -> {  // Aggiungi "apply_settings" qui
                                     // Elabora le nuove impostazioni
                                     if (response.settings != null) {
@@ -150,7 +155,6 @@ class NetworkManager(private val context: Context) {
             }
         }
     }
-
     // Classe per rappresentare la risposta del server
     data class ServerResponse(
         val status: String,
@@ -179,9 +183,8 @@ class NetworkManager(private val context: Context) {
             val tableNumber: Int,
             val buzzerEnabled: Boolean
         ) : Command()
-
-        // Aggiungi questa nuova classe di comando:
         data class SEAT_OPEN(val seats: String) : Command()
+        object CLEAR_SEATS : Command()
     }
 
     /**
@@ -354,6 +357,7 @@ class NetworkManager(private val context: Context) {
                     response.command == "start" -> return Command.START
                     response.command == "pause" -> return Command.PAUSE
                     response.command == "reset" -> return Command.RESET
+                    response.command == "clear_seats" -> return Command.CLEAR_SEATS
                     response.command.startsWith("seat_open:") -> {
                         // Estrai i posti dalla stringa del comando
                         val seats = response.command.substringAfter("seat_open:")
@@ -361,7 +365,36 @@ class NetworkManager(private val context: Context) {
                     }
                     response.command == "settings" || response.command == "apply_settings" -> {
                         // Elabora le nuove impostazioni
-                        // ... (codice esistente)
+                        if (response.settings != null) {
+                            val settings = response.settings
+                            android.util.Log.d("NetworkManager", "Received settings: $settings")
+
+                            val t1 = settings.t1 ?: 20
+                            val t2 = settings.t2 ?: 30
+                            val mode = settings.mode ?: 1
+                            val tableNumber = settings.tableNumber ?: 1
+
+                            // Gestione migliorata del buzzer
+                            val buzzerEnabled = when {
+                                settings.buzzer == null -> true
+                                settings.buzzer is Boolean -> settings.buzzer as Boolean
+                                settings.buzzer is Double -> (settings.buzzer as Double).toInt() == 1
+                                settings.buzzer is Int -> (settings.buzzer as Int) == 1
+                                settings.buzzer is String -> {
+                                    val buzzerStr = settings.buzzer as String
+                                    buzzerStr.equals("true", ignoreCase = true) || buzzerStr == "1"
+                                }
+                                else -> {
+                                    // Conversione di sicurezza
+                                    val buzzerStr = settings.buzzer.toString()
+                                    buzzerStr.equals("true", ignoreCase = true) || buzzerStr == "1"
+                                }
+                            }
+
+                            android.util.Log.d("NetworkManager", "Buzzer parsed as: $buzzerEnabled")
+
+                            return Command.SETTINGS(t1, t2, mode, tableNumber, buzzerEnabled)
+                        }
                     }
                 }
             }
@@ -370,7 +403,6 @@ class NetworkManager(private val context: Context) {
         }
         return null
     }
-
     /**
      * Testa la connessione al server
      */

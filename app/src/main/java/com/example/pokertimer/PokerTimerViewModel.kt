@@ -28,6 +28,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     // Stato del timer osservabile
     private val _timerState = MutableLiveData<PokerTimerState>()
     val timerState: LiveData<PokerTimerState> = _timerState
+    private val selectedSeats = mutableListOf<Int>()
 
     // Gestione dei suoni
     private val soundPool: SoundPool
@@ -423,6 +424,12 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                                 serverUrl = currentState.serverUrl
                             )
                         }
+                        // Gestisci il comando CLEAR_SEATS
+                        is Command.CLEAR_SEATS -> {
+                            // Resetta la lista dei posti selezionati
+                            selectedSeats.clear()
+                            Log.d("PokerTimerViewModel", "Ricevuto comando CLEAR_SEATS, posti selezionati resettati")
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -432,7 +439,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-
     /**
      * Testa la connessione al server
      */
@@ -647,5 +653,21 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Aggiorniamo lo stato per indicare la disconnessione
         val currentState = _timerState.value ?: return
         _timerState.value = currentState.copy(isConnectedToServer = false)
+    }
+
+
+    /**
+     * Salva i posti selezionati
+     */
+    fun saveSelectedSeats(seats: List<Int>) {
+        selectedSeats.clear()
+        selectedSeats.addAll(seats)
+    }
+
+    /**
+     * Recupera i posti esistenti
+     */
+    fun getExistingSeats(): List<Int> {
+        return selectedSeats.toList()
     }
 }

@@ -43,6 +43,7 @@ import android.provider.Settings
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import android.app.Notification
+import android.graphics.PorterDuff
 import android.widget.Switch
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
@@ -194,6 +195,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         // Carica i dati all'inizio
         refreshTimerData(true)
+
+        toolbar.overflowIcon?.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_ATOP)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -1215,14 +1218,20 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
             R.id.action_clear_timers -> {
                 // Mostra un dialog di conferma prima di cancellare tutti i timer
-                AlertDialog.Builder(this)
+                val dialog = AlertDialog.Builder(this)
                     .setTitle("Cancella tutti i timer")
                     .setMessage("Sei sicuro di voler cancellare tutti i timer dalla dashboard? Questa operazione non può essere annullata.")
                     .setPositiveButton("Cancella") { _, _ ->
                         clearAllTimers()
                     }
                     .setNegativeButton("Annulla", null)
-                    .show()
+                    .create()
+
+                dialog.show()
+
+                // Imposta i colori dei pulsanti a bianco
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -1329,6 +1338,44 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                             pendingCommand = null  // Rimuovi anche eventuali pendingCommand relativi ai posti
                         )
                         allTimerList[index] = updatedTimer
+
+                        // Dopo il reset, invia un comando clear_seats al client per cancellare i posti selezionati
+                        val deviceId = allTimerList[index].deviceId
+                        val commandUrl = URL("$serverUrl/api/command/$deviceId")
+                        android.util.Log.d("DashboardActivity", "Sending clear_seats command to: $commandUrl")
+
+                        try {
+                            val commandConnection = commandUrl.openConnection() as HttpURLConnection
+                            commandConnection.requestMethod = "POST"
+                            commandConnection.doOutput = true
+                            commandConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                            // Payload JSON con il comando clear_seats
+                            val jsonPayload = """
+                        {
+                            "command": "clear_seats"
+                        }
+                        """.trimIndent()
+
+                            android.util.Log.d("DashboardActivity", "Sending payload: $jsonPayload")
+
+                            val outputStream = commandConnection.outputStream
+                            outputStream.write(jsonPayload.toByteArray())
+                            outputStream.close()
+
+                            val cmdResponseCode = commandConnection.responseCode
+                            android.util.Log.d("DashboardActivity", "Clear seats response code: $cmdResponseCode")
+
+                            if (cmdResponseCode == HttpURLConnection.HTTP_OK) {
+                                val cmdInputStream = commandConnection.inputStream
+                                val cmdResponseBody = cmdInputStream.bufferedReader().use { it.readText() }
+                                android.util.Log.d("DashboardActivity", "Server response: $cmdResponseBody")
+                            }
+
+                            commandConnection.disconnect()
+                        } catch (e: Exception) {
+                            android.util.Log.e("DashboardActivity", "Error sending clear_seats command: ${e.message}", e)
+                        }
                     }
 
                     // Aggiorna anche la lista filtrata
@@ -1363,5 +1410,4 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 Toast.makeText(this@DashboardActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-}
+    }}
