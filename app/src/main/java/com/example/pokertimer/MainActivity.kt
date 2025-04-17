@@ -5,15 +5,18 @@ import android.app.Dialog
 import android.app.ProgressDialog
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -21,39 +24,32 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.core.view.GestureDetectorCompat
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
-import android.view.Menu
-import android.view.MenuItem
-import androidx.lifecycle.Observer
-import android.os.Build
-import android.view.View
-import android.view.WindowInsets
-import android.view.GestureDetector
-import android.view.MotionEvent
 import kotlin.math.abs
+import androidx.core.content.ContextCompat
 
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
 
     private lateinit var binding: MainActivityBinding
     private lateinit var viewModel: PokerTimerViewModel
     private val selectedPlayerSeats = mutableListOf<Int>()
+    private lateinit var gestureDetector: GestureDetectorCompat
     private var isActionBarVisible = true
-    private lateinit var gestureDetector: GestureDetector
 
-
-    // Costanti per la discovery del server
+    // Costanti per la gestione dei gesti
     companion object {
+        private const val SWIPE_THRESHOLD = 100
+        private const val SWIPE_VELOCITY_THRESHOLD = 100
         private const val DISCOVERY_PORT = 8888
         private const val DISCOVERY_TIMEOUT_MS = 3000
         private const val TAG = "MainActivity"
@@ -68,7 +64,7 @@ class MainActivity : AppCompatActivity() {
             WindowManager.LayoutParams.FLAG_FULLSCREEN
         )
 
-        // Rimuovi l'action bar
+        // Nascondi l'action bar
         supportActionBar?.hide()
 
         // Determina l'orientamento attuale e carica il layout appropriato
@@ -88,14 +84,58 @@ class MainActivity : AppCompatActivity() {
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
 
-        // Configura i listener per i pulsanti
-        setupButtonListeners()
+        // Inizializza il detector dei gesti
+        gestureDetector = GestureDetectorCompat(this, this)
+        gestureDetector.setOnDoubleTapListener(this)
+
+        // Configura il gestore dei tocchi sul layout principale
+        val mainContainer = findViewById<View>(R.id.main_container)
+        mainContainer.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
 
         // Imposta il long press per accedere alle impostazioni
         setupLongPressForSettings()
 
-        // Imposta lo swipe verso destra per tornare indietro
-        setupSwipeGesture()
+        // Bottone per selezionare i giocatori (l'unico bottone che rimane)
+        binding.btnPlayersSelection.setOnClickListener {
+            showPlayerSelectionDialog()
+        }
+    }
+
+    private fun observeTimerState() {
+        viewModel.timerState.observe(this) { state ->
+            updateTimerDisplay(state)
+        }
+    }
+
+    private fun updateTimerDisplay(state: PokerTimerState) {
+        // Aggiorna il contatore del timer
+        binding.tvTimer.text = state.currentTimer.toString()
+        binding.tvTableNumber.text = getString(R.string.table_format, state.tableNumber)
+
+        // Aggiorna quale timer è attivo (T1/T2)
+        binding.tvActiveTimer.text = getString(
+            if (state.isT1Active) R.string.timer_t1 else R.string.timer_t2
+        )
+
+        // Aggiorna lo stato del timer
+        val statusText = when {
+            state.isExpired -> getString(R.string.status_expired)
+            state.isPaused -> getString(R.string.status_paused)
+            state.isRunning -> getString(R.string.status_running)
+            else -> getString(R.string.status_stopped)
+        }
+        binding.tvTimerStatus.text = statusText
+
+        // Colore dello stato
+        val statusColor = when {
+            state.isExpired -> getColor(R.color.error_color)
+            state.isPaused -> getColor(R.color.secondary_color)
+            state.isRunning -> getColor(R.color.status_color)
+            else -> getColor(R.color.white)
+        }
+        binding.tvTimerStatus.setTextColor(statusColor)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -113,112 +153,116 @@ class MainActivity : AppCompatActivity() {
         // Re-inizializza il binding
         binding = MainActivityBinding.bind(this)
 
-        // Ricollega i listener e aggiorna lo stato
-        setupButtonListeners()
+        // Ricollega il gestore dei tocchi
+        val mainContainer = findViewById<View>(R.id.main_container)
+        mainContainer.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+        }
+
+        // Configura il pulsante per i giocatori
+        binding.btnPlayersSelection.setOnClickListener {
+            showPlayerSelectionDialog()
+        }
 
         // Se il viewModel e lo stato sono già inizializzati, aggiorna la UI
         viewModel.timerState.value?.let {
             updateTimerDisplay(it)
-            updateButtonsState(it)
         }
     }
 
-    // Override di onTouchEvent per gestire il gesto
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event)
+    // Implementazione dei metodi di GestureDetector.OnGestureListener
+    override fun onDown(e: MotionEvent): Boolean {
+        return true
     }
 
-    private fun setupLongPressForSettings() {
-        val contentView = findViewById<View>(android.R.id.content)
-
-        contentView.setOnLongClickListener {
-            // Mostra il dialog delle impostazioni
-            showSettingsDialog()
-            true
-        }
+    override fun onShowPress(e: MotionEvent) {
+        // Non facciamo nulla qui
     }
 
-    private fun setupSwipeGesture() {
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            private val SWIPE_THRESHOLD = 100
-            private val SWIPE_VELOCITY_THRESHOLD = 100
+    override fun onSingleTapUp(e: MotionEvent): Boolean {
+        val currentState = viewModel.timerState.value ?: return false
 
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                val diffX = e2.x - (e1?.x ?: 0f)
-
-                if (diffX > SWIPE_THRESHOLD && abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
-                    // Swipe verso destra
-                    finish()
-                    return true
-                }
-                return false
-            }
-        })
-    }
-
-
-
-    private fun observeTimerState() {
-        viewModel.timerState.observe(this) { state ->
-            updateTimerDisplay(state)
-            updateButtonsState(state)
-        }
-    }
-
-    private fun toggleActionBar() {
-        isActionBarVisible = !isActionBarVisible
-
-        if (isActionBarVisible) {
-            supportActionBar?.show()
-        } else {
-            supportActionBar?.hide()
+        // Se il timer è in pausa, lo riprende
+        if (currentState.isPaused) {
+            viewModel.onStartPausePressed()
+            return true
         }
 
-        // Opzionale: impostare in full screen quando la barra è nascosta
-        if (!isActionBarVisible) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(false)
-                window.insetsController?.hide(WindowInsets.Type.statusBars())
-            } else {
-                @Suppress("DEPRECATION")
-                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-            }
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                window.setDecorFitsSystemWindows(true)
-                window.insetsController?.show(WindowInsets.Type.statusBars())
-            } else {
-                @Suppress("DEPRECATION")
-                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
-            }
+        // Se il timer è fermo o scaduto, lo avvia
+        if (!currentState.isRunning || currentState.isExpired) {
+            viewModel.onStartPausePressed()
+            return true
         }
+
+        // Se il timer è in esecuzione, lo resetta e lo riavvia immediatamente
+        if (currentState.isRunning && !currentState.isPaused) {
+            // Resetta e avvia immediatamente dopo
+            viewModel.resetAndStartTimer()
+            return true
+        }
+
+        return false
     }
 
-    private fun setupButtonListeners() {
-        // Pulsante Start/Pause
-        binding.btnStartPause.setOnClickListener {
+    override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+        return false
+    }
+
+    override fun onLongPress(e: MotionEvent) {
+        val currentState = viewModel.timerState.value ?: return
+
+        // Se il timer è in esecuzione, lo mette in pausa
+        if (currentState.isRunning && !currentState.isPaused) {
             viewModel.onStartPausePressed()
         }
 
-        // Pulsante Reset
-        binding.btnReset.setOnClickListener {
-            viewModel.onResetPressed()
-        }
+        // Mostra il dialog delle impostazioni
+        showSettingsDialog()
+    }
 
-        // Pulsante Switch
-        binding.btnSwitch.setOnClickListener {
+    override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+        val diffX = e2.x - (e1?.x ?: 0f)
+        val diffY = e2.y - (e1?.y ?: 0f)
+
+        // Verifica che sia uno swipe orizzontale
+        if (abs(diffX) > abs(diffY) &&
+            abs(diffX) > SWIPE_THRESHOLD &&
+            abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+
+            val currentState = viewModel.timerState.value ?: return false
+
+            // Switcha tra T1 e T2
             viewModel.onSwitchPressed()
+
+            // Se è in esecuzione, lo ferma
+            if (currentState.isRunning) {
+                viewModel.stopTimer()
+            }
+
+            return true
         }
 
-        // Pulsante Stop
-        binding.btnStop.setOnClickListener {
-            viewModel.onStopPressed()
-        }
+        return false
+    }
 
-        // Pulsante selezione giocatori
-        binding.btnPlayersSelection.setOnClickListener {
-            showPlayerSelectionDialog()
-        }
+    // Implementazione dei metodi di GestureDetector.OnDoubleTapListener
+    override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+        // Già gestito in onSingleTapUp
+        return false
+    }
+
+    override fun onDoubleTap(e: MotionEvent): Boolean {
+        // Con doppio tap, torna a T1 o T2 e rimane fermo
+        viewModel.resetTimerWithoutAutostart()
+        return true
+    }
+
+    override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+        return false
+    }
+
+    private fun setupLongPressForSettings() {
+        // Già gestito in onLongPress del GestureDetector
     }
 
     private fun showPlayerSelectionDialog() {
@@ -288,75 +332,14 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun updateTimerDisplay(state: PokerTimerState) {
-        // Aggiorna il contatore del timer
-        binding.tvTimer.text = state.currentTimer.toString()
-        binding.tvTableNumber.text = getString(R.string.table_format, state.tableNumber)
-
-        // Aggiorna quale timer è attivo (T1/T2)
-        binding.tvActiveTimer.text = getString(
-            if (state.isT1Active) R.string.timer_t1 else R.string.timer_t2
-        )
-
-        // Aggiorna lo stato del timer
-        val statusText = when {
-            state.isExpired -> getString(R.string.status_expired)
-            state.isPaused -> getString(R.string.status_paused)
-            state.isRunning -> getString(R.string.status_running)
-            else -> getString(R.string.status_stopped)
-        }
-        binding.tvTimerStatus.text = statusText
-
-        // Colore dello stato
-        val statusColor = when {
-            state.isExpired -> getColor(R.color.error_color)
-            state.isPaused -> getColor(R.color.secondary_color)
-            state.isRunning -> getColor(R.color.status_color)
-            else -> getColor(R.color.white)
-        }
-        binding.tvTimerStatus.setTextColor(statusColor)
-
-        // Nascondi il pulsante switch se siamo in modalità solo T1
-        binding.btnSwitch.visibility = if (state.isT1OnlyMode) View.GONE else View.VISIBLE
-    }
-
-    private fun updateButtonsState(state: PokerTimerState) {
-        // Testo del pulsante Start/Pause
-        val startPauseText = when {
-            state.isPaused -> getString(R.string.resume)
-            state.isRunning && !state.isPaused -> getString(R.string.pause)
-            else -> getString(R.string.start)
-        }
-        binding.btnStartPause.text = startPauseText
-
-        // Colore del pulsante Start/Pause
-        val startPauseColor = when {
-            state.isPaused -> getColor(R.color.secondary_color)
-            state.isRunning && !state.isPaused -> getColor(R.color.primary_color)
-            else -> getColor(R.color.primary_color)
-        }
-        binding.btnStartPause.setBackgroundColor(startPauseColor)
-
-        // Nascondi il pulsante switch se siamo in modalità solo T1
-        binding.btnSwitch.visibility = if (state.isT1OnlyMode) View.GONE else View.VISIBLE
-    }
-
-
     private fun showSettingsDialog() {
+        // Modifica il codice per rimuovere il riferimento alle 4 modalità
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
 
         // Inizializza le viste del dialogo
-        val radioGroupMode = dialogView.findViewById<RadioGroup>(R.id.radio_group_mode)
-        val radioMode1 = dialogView.findViewById<RadioButton>(R.id.radio_mode_1)
-        val radioMode2 = dialogView.findViewById<RadioButton>(R.id.radio_mode_2)
-        val radioMode3 = dialogView.findViewById<RadioButton>(R.id.radio_mode_3)
-        val radioMode4 = dialogView.findViewById<RadioButton>(R.id.radio_mode_4)
-
         val timerT1Value = dialogView.findViewById<TextView>(R.id.tv_t1_value)
         val timerT2Value = dialogView.findViewById<TextView>(R.id.tv_t2_value)
-        val timerT2Layout = dialogView.findViewById<LinearLayout>(R.id.layout_timer_t2)
-        val timerT2Label = dialogView.findViewById<TextView>(R.id.tv_timer_t2_label)
 
         val decreaseT1Button = dialogView.findViewById<Button>(R.id.btn_decrease_t1)
         val increaseT1Button = dialogView.findViewById<Button>(R.id.btn_increase_t1)
@@ -385,14 +368,6 @@ class MainActivity : AppCompatActivity() {
         // Riferimento al pulsante di discovery
         val discoverButton = dialogView.findViewById<Button>(R.id.btn_discover_server)
 
-        // Imposta i valori attuali nel dialogo
-        when (currentState.operationMode) {
-            PokerTimerState.MODE_1 -> radioMode1.isChecked = true
-            PokerTimerState.MODE_2 -> radioMode2.isChecked = true
-            PokerTimerState.MODE_3 -> radioMode3.isChecked = true
-            PokerTimerState.MODE_4 -> radioMode4.isChecked = true
-        }
-
         // Valori T1 e T2
         var t1Value = currentState.timerT1
         var t2Value = currentState.timerT2
@@ -404,15 +379,6 @@ class MainActivity : AppCompatActivity() {
 
         // Imposta l'URL del server nel campo di testo
         serverUrlInput.setText(currentState.serverUrl)
-
-        // Visibilità delle impostazioni T2
-        updateT2Visibility(
-            dialogView,
-            radioMode1.isChecked || radioMode2.isChecked
-        )
-
-        // Aggiorna lo stato dei pulsanti di connessione
-        updateConnectionButtonsState(disconnectButton, connectButton, currentState.isConnectedToServer)
 
         // Listener per i pulsanti di incremento/decremento di table_number
         decreaseTableButton.setOnClickListener {
@@ -427,12 +393,6 @@ class MainActivity : AppCompatActivity() {
                 tableNumber++
                 tableNumberText.text = tableNumber.toString()
             }
-        }
-
-        // Listener per i radio button della modalità
-        radioGroupMode.setOnCheckedChangeListener { _, checkedId ->
-            val isT1T2Mode = checkedId == R.id.radio_mode_1 || checkedId == R.id.radio_mode_2
-            updateT2Visibility(dialogView, isT1T2Mode)
         }
 
         // Listener per i pulsanti di incremento/decremento di T1
@@ -523,30 +483,11 @@ class MainActivity : AppCompatActivity() {
             discoverServers(serverUrlInput)
         }
 
-        // Crea il dialogo
+        // Crea il dialogo con i listener temporaneamente a null
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
-            .setPositiveButton(R.string.save) { _, _ ->
-                // Determina la modalità selezionata
-                val mode = when {
-                    radioMode1.isChecked -> PokerTimerState.MODE_1
-                    radioMode2.isChecked -> PokerTimerState.MODE_2
-                    radioMode3.isChecked -> PokerTimerState.MODE_3
-                    radioMode4.isChecked -> PokerTimerState.MODE_4
-                    else -> PokerTimerState.MODE_1 // Default
-                }
-
-                // Salva le impostazioni
-                viewModel.saveSettings(
-                    timerT1 = t1Value,
-                    timerT2 = t2Value,
-                    operationMode = mode,
-                    buzzerEnabled = buzzerSwitch.isChecked,
-                    tableNumber = tableNumber,
-                    serverUrl = serverUrlInput.text.toString()
-                )
-            }
-            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save, null) // Impostato temporaneamente a null
+            .setNegativeButton(R.string.cancel, null) // Impostato temporaneamente a null
             .create()
 
         // Osserva cambiamenti nello stato del timer mentre il dialogo è aperto
@@ -566,6 +507,28 @@ class MainActivity : AppCompatActivity() {
 
         // Mostra il dialogo
         dialog.show()
+
+        // Ottieni i pulsanti e imposta il colore e i listener
+        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        positiveButton.setTextColor(ContextCompat.getColor(this, R.color.white))
+        positiveButton.setOnClickListener {
+            // Salva le impostazioni usando sempre la modalità 1 (l'unica disponibile ora)
+            viewModel.saveSettings(
+                timerT1 = t1Value,
+                timerT2 = t2Value,
+                operationMode = 1, // Manteniamo solo la modalità 1
+                buzzerEnabled = buzzerSwitch.isChecked,
+                tableNumber = tableNumber,
+                serverUrl = serverUrlInput.text.toString()
+            )
+            dialog.dismiss()
+        }
+
+        val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+        negativeButton.setTextColor(ContextCompat.getColor(this, R.color.white))
+        negativeButton.setOnClickListener {
+            dialog.dismiss()
+        }
     }
 
     private fun updateServerStatusHeader(headerView: TextView, isConnected: Boolean) {
@@ -596,23 +559,42 @@ class MainActivity : AppCompatActivity() {
     /**
      * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
      */
+    /**
+     * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
+     */
     private fun updateConnectionButtonsState(disconnectButton: Button, connectButton: Button, isConnected: Boolean) {
         if (isConnected) {
-            // Se connesso, abilita Disconnetti e disabilita Connetti
+            // Se connesso:
+            // 1. Abilita il pulsante Disconnetti
             disconnectButton.isEnabled = true
-            connectButton.isEnabled = false
-            connectButton.text = "Connesso"
-        } else {
-            // Se disconnesso, abilita Connetti e disabilita Disconnetti
-            disconnectButton.isEnabled = false
-            connectButton.isEnabled = true
-            connectButton.text = "Connetti"
-        }
-    }
 
-    private fun updateT2Visibility(dialogView: View, isVisible: Boolean) {
-        dialogView.findViewById<View>(R.id.tv_timer_t2_label).visibility = if (isVisible) View.VISIBLE else View.GONE
-        dialogView.findViewById<View>(R.id.layout_timer_t2).visibility = if (isVisible) View.VISIBLE else View.GONE
+            // 2. Modifica l'aspetto del pulsante Connetti per sembrare premuto:
+            // - Cambia il testo
+            connectButton.text = "Connesso"
+            // - Disabilitalo per evitare interazioni
+            connectButton.isEnabled = false
+            // - Cambia il colore di sfondo a un colore più scuro per sembrare premuto
+            connectButton.backgroundTintList = ContextCompat.getColorStateList(connectButton.context, R.color.primary_dark_color)
+            // - Aggiunge una leggera elevazione "interna" (valore negativo)
+            connectButton.elevation = 0f
+            // - Opzionalmente, aggiungi un'icona di spunta accanto al testo
+            connectButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_check, 0, 0, 0)
+            connectButton.compoundDrawablePadding = 8
+        } else {
+            // Se disconnesso:
+            // 1. Disabilita il pulsante Disconnetti
+            disconnectButton.isEnabled = false
+
+            // 2. Ripristina l'aspetto normale del pulsante Connetti:
+            connectButton.text = "Connetti"
+            connectButton.isEnabled = true
+            // - Ripristina il colore di sfondo originale
+            connectButton.backgroundTintList = ContextCompat.getColorStateList(connectButton.context, R.color.status_color)
+            // - Ripristina l'elevazione normale
+            connectButton.elevation = 4f
+            // - Rimuovi icone
+            connectButton.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
+        }
     }
 
     /**
@@ -776,41 +758,4 @@ class MainActivity : AppCompatActivity() {
             builder.show()
         }
     }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            android.R.id.home -> {
-                // Torna alla schermata di selezione modalità
-                val intent = Intent(this, ModeSelectionActivity::class.java)
-                startActivity(intent)
-                finish() // Chiude l'activity corrente
-                true
-            }
-            R.id.action_settings -> {
-                showSettingsDialog()
-                true
-            }
-            R.id.action_help -> {
-                showHelpDialog()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    private fun showHelpDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_help, null)
-
-        AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setTitle("Aiuto Timer")
-            .setPositiveButton("Chiudi", null)
-            .show()
-    }
-
 }

@@ -13,4 +13,10 @@
         <item name="android:minWidth">56dp</item>
         <item name="android:minHeight">56dp</item>
     </style>
+
+    <style name="WhiteSwitch" parent="Widget.AppCompat.CompoundButton.Switch">
+        <item name="colorControlActivated">@color/white</item>
+        <item name="colorSwitchThumbNormal">@color/white</item>
+        <item name="android:colorForeground">@color/white_70</item>
+    </style>
 </resources>

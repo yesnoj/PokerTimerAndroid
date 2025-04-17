@@ -91,15 +91,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
      * Gestione del pulsante Reset
      */
     fun onResetPressed() {
-        val currentState = _timerState.value ?: return
-
-        if (currentState.isAutoStartMode) {
-            // Nelle modalità 1 e 3, resetta e riparte subito
-            resetTimer(true)
-        } else {
-            // Nelle modalità 2 e 4, resetta e rimane fermo
-            resetTimer(false)
-        }
+        // Ora resettiamo e avviamo sempre automaticamente il timer
+        resetTimer(true)
     }
 
     fun updateState(newState: PokerTimerState) {
@@ -153,9 +146,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     fun onSwitchPressed() {
         val currentState = _timerState.value ?: return
 
-        // Solo per le modalità 1 e 2 (quelle che permettono T1/T2)
-        if (currentState.isT1OnlyMode) return
-
         // Interrompi il timer se è in esecuzione
         timerHandler?.removeCallbacks(timerRunnable ?: return)
 
@@ -170,8 +160,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
 
         _timerState.value = newState
     }
-
-
 
     /**
      * Avvia il timer
@@ -266,7 +254,43 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         sendTimerStatusToServer()
     }
 
+    /**
+     * Ferma il timer senza resettarlo
+     */
+    fun stopTimer() {
+        timerHandler?.removeCallbacks(timerRunnable ?: return)
 
+        val currentState = _timerState.value ?: return
+
+        _timerState.value = currentState.copy(
+            isRunning = false,
+            isPaused = false,
+            isExpired = false
+        )
+
+        // Invia lo stato al server
+        sendTimerStatusToServer()
+    }
+
+    /**
+     * Resetta il timer senza avviarlo automaticamente
+     */
+    fun resetTimerWithoutAutostart() {
+        timerHandler?.removeCallbacks(timerRunnable ?: return)
+
+        val currentState = _timerState.value ?: return
+        val resetToSeconds = if (currentState.isT1Active) currentState.timerT1 else currentState.timerT2
+
+        _timerState.value = currentState.copy(
+            currentTimer = resetToSeconds,
+            isRunning = false,
+            isPaused = false,
+            isExpired = false
+        )
+
+        // Invia lo stato al server
+        sendTimerStatusToServer()
+    }
 
     /**
      * Gestisce un comando SEAT_OPEN ricevuto dal server o da un'azione dell'utente
@@ -346,9 +370,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Avvia immediatamente il timer
         timerRunnable?.run()
     }
-    /**
-     * Invia lo stato del timer al server
-     */
+
     /**
      * Invia lo stato del timer al server
      */
@@ -381,9 +403,9 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                             }
                         }
                         is Command.RESET -> {
-                            resetTimer(currentState.isAutoStartMode)
+                            // Sempre con autoStart true nella nuova modalità unica
+                            resetTimer(true)
                         }
-                        // MODIFICA QUESTO CASO:
                         is Command.SEAT_OPEN -> {
                             // Invece di cercare di aggiornare direttamente lo stato,
                             // aggiorniamo i dati dal server
@@ -410,7 +432,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-
 
     /**
      * Testa la connessione al server
@@ -453,9 +474,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    /**
-     * Gestione del pulsante Stop
-     */
+
     /**
      * Gestione del pulsante Stop
      */
@@ -478,12 +497,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         sendTimerStatusToServer()
     }
 
-    /**
-     * Salva le impostazioni del timer
-     */
-    /**
-     * Salva le impostazioni del timer
-     */
     /**
      * Salva le impostazioni del timer
      */
@@ -533,7 +546,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-
 
     override fun onCleared() {
         super.onCleared()
@@ -601,6 +613,31 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     /**
+     * Resetta il timer e lo avvia immediatamente
+     */
+    fun resetAndStartTimer() {
+        timerHandler?.removeCallbacks(timerRunnable ?: return)
+
+        val currentState = _timerState.value ?: return
+        val resetToSeconds = if (currentState.isT1Active) currentState.timerT1 else currentState.timerT2
+
+        // Aggiorna lo stato con il timer resettato e in esecuzione
+        _timerState.value = currentState.copy(
+            currentTimer = resetToSeconds,
+            isRunning = true,
+            isPaused = false,
+            isExpired = false
+        )
+
+        // Avvia immediatamente il countdown
+        startCountdown(resetToSeconds)
+
+        // Invia lo stato al server
+        sendTimerStatusToServer()
+    }
+
+
+    /**
      * Ferma il polling del server
      */
     fun stopServerPolling() {
@@ -612,5 +649,3 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         _timerState.value = currentState.copy(isConnectedToServer = false)
     }
 }
-
-

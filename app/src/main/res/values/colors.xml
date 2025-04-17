@@ -38,5 +38,5 @@
     <color name="batteryLow">@color/error_color</color>
 
     <color name="colorError">@color/error_color</color>
-
+    <color name="brown">#795548</color>
 </resources>

@@ -64,10 +64,12 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:text="Cerca server sulla rete"
+        android:backgroundTint="@color/primary_color"
+        android:textColor="@color/white"
         android:drawableStart="@drawable/ic_wifi"
         android:drawablePadding="8dp"
-        android:padding="12dp"
-        android:drawableTint="@color/white" />
+        android:drawableTint="@color/white"
+        android:padding="12dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -83,6 +85,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
+            android:backgroundTint="@color/status_color"
+            android:textColor="@color/white"
             android:text="Connetti" />
 
         <Button
@@ -91,7 +95,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:backgroundTint="#F44336"
+            android:backgroundTint="@color/error_color"
+            android:textColor="@color/white"
             android:text="Disconnetti" />
 </LinearLayout>
 

@@ -18,12 +18,16 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.net.HttpURLConnection
 import java.net.URL
+import android.content.res.ColorStateList
+import android.graphics.Color
+import androidx.core.content.ContextCompat
 
 class ServerUrlActivity : AppCompatActivity() {
 
     companion object {
         private const val PREFS_NAME = "server_url_prefs"
         private const val KEY_SERVER_URL = "server_url"
+        private const val KEY_IS_CONNECTED = "is_connected"
         private const val DISCOVERY_PORT = 8888
         private const val DISCOVERY_TIMEOUT_MS = 3000
         private const val TAG = "ServerUrlActivity"
@@ -49,28 +53,28 @@ class ServerUrlActivity : AppCompatActivity() {
         // Carica l'URL salvato
         loadSavedServerUrl()
 
-        // Imposta lo stato iniziale dei pulsanti
-        updateConnectionButtonsState(false)
+        // Verifica lo stato di connessione
+        checkConnectionState()
 
         // Imposta il listener per il pulsante indietro
         backButton.setOnClickListener { finish() }
 
-        // Imposta il listener per il pulsante di connessione
-        connectButton.setOnClickListener { connectToServer() }
+        // Imposta il listener per il pulsante di discovery
+        discoverButton.setOnClickListener { discoverServers() }
 
         // Imposta il listener per il pulsante di disconnessione
         disconnectButton.setOnClickListener { disconnectFromServer() }
-
-        // Imposta il listener per il pulsante di discovery
-        discoverButton.setOnClickListener { discoverServers() }
     }
-
     /**
      * Disconnetti dal server
      */
     private fun disconnectFromServer() {
         // Modifica lo stato di connessione
         isConnected = false
+
+        // Salva lo stato nelle preferenze
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_IS_CONNECTED, false).apply()
 
         // Aggiorna lo stato dei pulsanti
         updateConnectionButtonsState(false)
@@ -82,19 +86,57 @@ class ServerUrlActivity : AppCompatActivity() {
     /**
      * Aggiorna lo stato dei pulsanti di connessione
      */
+    /**
+     * Aggiorna lo stato dei pulsanti di connessione
+     */
     private fun updateConnectionButtonsState(connected: Boolean) {
         isConnected = connected
 
         if (connected) {
             // Se connesso, abilita Disconnetti e modifica Connetti
             disconnectButton.isEnabled = true
-            connectButton.isEnabled = false
-            connectButton.text = "Connesso"
+            connectButton.isEnabled = true
+            connectButton.text = "Vai al server"
+            connectButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_color)))
+            connectButton.setTextColor(Color.WHITE)
+
+            // Configura il pulsante per andare alla dashboard
+            connectButton.setOnClickListener {
+                val intent = Intent(this, DashboardActivity::class.java)
+                intent.putExtra("server_url", serverUrlInput.text.toString())
+                startActivity(intent)
+            }
         } else {
             // Se disconnesso, disabilita Disconnetti e ripristina Connetti
             disconnectButton.isEnabled = false
             connectButton.isEnabled = true
             connectButton.text = "Connetti"
+            connectButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_color)))
+            connectButton.setTextColor(Color.WHITE)
+
+            // Configura il pulsante per connettersi
+            connectButton.setOnClickListener { connectToServer() }
+        }
+    }
+
+    private fun checkConnectionState() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val isConnected = prefs.getBoolean(KEY_IS_CONNECTED, false)
+
+        // Aggiorna lo stato dei pulsanti
+        updateConnectionButtonsState(isConnected)
+
+        // Se è connesso, configura il pulsante Connect per andare alla dashboard
+        if (isConnected) {
+            connectButton.setOnClickListener {
+                // Avvia la DashboardActivity
+                val intent = Intent(this, DashboardActivity::class.java)
+                intent.putExtra("server_url", serverUrlInput.text.toString())
+                startActivity(intent)
+            }
+        } else {
+            // Se non è connesso, configura il pulsante per connettersi
+            connectButton.setOnClickListener { connectToServer() }
         }
     }
 
@@ -163,11 +205,15 @@ class ServerUrlActivity : AppCompatActivity() {
                         // Connessione riuscita
                         Toast.makeText(this, "Connessione riuscita", Toast.LENGTH_SHORT).show()
 
+                        // Salva lo stato di connessione
+                        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean(KEY_IS_CONNECTED, true)
+                            .putString(KEY_SERVER_URL, serverUrl)
+                            .apply()
+
                         // Aggiorna lo stato dei pulsanti
                         updateConnectionButtonsState(true)
-
-                        // Salva l'URL
-                        saveServerUrl(serverUrl)
 
                         // Avvia l'activity della dashboard
                         val intent = Intent(this, DashboardActivity::class.java)
@@ -185,8 +231,7 @@ class ServerUrlActivity : AppCompatActivity() {
                 }
             }
         }.start()
-    }
-    /**
+    }    /**
      * Cerca server disponibili sulla rete locale tramite UDP broadcast
      */
     private fun discoverServers() {

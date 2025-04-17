@@ -8,197 +8,172 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:text="@string/settings"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <!-- Sezione Modalità Operativa -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/operation_mode"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <RadioGroup
-        android:id="@+id/radio_group_mode"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp">
-
-        <RadioButton
-            android:id="@+id/radio_mode_1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/mode_1_desc" />
-
-        <RadioButton
-            android:id="@+id/radio_mode_2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/mode_2_desc" />
-
-        <RadioButton
-            android:id="@+id/radio_mode_3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/mode_3_desc" />
-
-        <RadioButton
-            android:id="@+id/radio_mode_4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/mode_4_desc" />
-    </RadioGroup>
-
-    <!-- Sezione Timer T1 -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/timer_t1"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btn_decrease_t1"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="-"
-            android:textSize="18sp" />
 
         <TextView
-            android:id="@+id/tv_t1_value"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="20s"
-            android:textSize="18sp" />
+            android:layout_marginBottom="16dp"
+            android:text="@string/settings"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_increase_t1"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="+"
-            android:textSize="18sp" />
-    </LinearLayout>
-
-    <!-- Sezione Timer T2 -->
-    <TextView
-        android:id="@+id/tv_timer_t2_label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/timer_t2"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <LinearLayout
-        android:id="@+id/layout_timer_t2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/btn_decrease_t2"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="-"
-            android:textSize="18sp" />
-
+        <!-- Sezione Numero Tavolo (spostata in alto) -->
         <TextView
-            android:id="@+id/tv_t2_value"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="30s"
-            android:textSize="18sp" />
-
-        <Button
-            android:id="@+id/btn_increase_t2"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="+"
-            android:textSize="18sp" />
-    </LinearLayout>
-
-    <!-- Sezione Buzzer -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/buzzer_sounds"
+            android:layout_marginTop="8dp"
+            android:text="@string/table_number"
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <Switch
-            android:id="@+id/switch_buzzer"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:checked="true" />
-    </LinearLayout>
-    <!-- Sezione Numero Tavolo -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/table_number"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+            <Button
+                android:id="@+id/btn_decrease_table"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="-"
+                android:textSize="18sp" />
 
-        <Button
-            android:id="@+id/btn_decrease_table"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="-"
-            android:textSize="18sp" />
+            <TextView
+                android:id="@+id/tv_table_number"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="1"
+                android:textSize="18sp" />
 
+            <Button
+                android:id="@+id/btn_increase_table"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="+"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <!-- Sezione Timer T1 -->
         <TextView
-            android:id="@+id/tv_table_number"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="1"
-            android:textSize="18sp" />
+            android:layout_marginTop="16dp"
+            android:text="@string/timer_t1"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_increase_table"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:text="+"
-            android:textSize="18sp" />
-    </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_decrease_t1"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="-"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_t1_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="20s"
+                android:textSize="18sp" />
+
+            <Button
+                android:id="@+id/btn_increase_t1"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="+"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <!-- Sezione Timer T2 -->
+        <TextView
+            android:id="@+id/tv_timer_t2_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/timer_t2"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/layout_timer_t2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_decrease_t2"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="-"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_t2_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="30s"
+                android:textSize="18sp" />
+
+            <Button
+                android:id="@+id/btn_increase_t2"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="+"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <!-- Sezione Buzzer -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/buzzer_sounds"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Switch
+                android:id="@+id/switch_buzzer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:theme="@style/WhiteSwitch" />
+        </LinearLayout>
 
         <!-- Sezione Configurazione Server -->
         <TextView
@@ -226,8 +201,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:drawableStart="@drawable/ic_wifi"
             android:drawablePadding="8dp"
+            android:drawableTint="@color/white"
             android:text="Cerca server sulla rete" />
 
         <LinearLayout
@@ -242,6 +220,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginEnd="4dp"
+                android:backgroundTint="@color/status_color"
+                android:textColor="@color/white"
                 android:text="Connetti" />
 
             <Button
@@ -250,7 +230,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
-                android:backgroundTint="#F44336"
+                android:backgroundTint="@color/error_color"
+                android:textColor="@color/white"
                 android:text="Disconnetti" />
         </LinearLayout>
     </LinearLayout>

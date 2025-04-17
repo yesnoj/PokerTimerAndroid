@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    
+
     <item
         android:id="@+id/action_filter"
         android:icon="@drawable/ic_filter"
         android:title="Filtra timer"
         app:showAsAction="ifRoom" />
-    
+
     <item
         android:id="@+id/action_refresh"
         android:icon="@drawable/ic_refresh"
         android:title="Aggiorna"
-        app:showAsAction="ifRoom" />
-    
+        app:showAsAction="always" />
+
     <item
         android:id="@+id/action_clear_timers"
+        android:icon="@drawable/ic_delete"
         android:title="Cancella tutti i timer"
-        app:showAsAction="never" />
+        app:showAsAction="always" />
 </menu>

@@ -43,7 +43,7 @@ import android.provider.Settings
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import android.app.Notification
-
+import android.widget.Switch
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
  */
@@ -160,7 +160,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         emptyStateView = findViewById(R.id.emptyStateView)
         errorStateView = findViewById(R.id.errorStateView)
         loadingStateView = findViewById(R.id.loadingStateView)
-        val refreshButton = findViewById<Button>(R.id.refreshButton)
         val errorRetryButton = findViewById<Button>(R.id.errorRetryButton)
         errorMessageText = findViewById(R.id.errorMessageText)
 
@@ -188,7 +187,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         swipeRefreshLayout.setOnRefreshListener { refreshTimerData(true) }
 
         // Configura i pulsanti di refresh
-        refreshButton.setOnClickListener { refreshTimerData(true) }
         errorRetryButton.setOnClickListener { refreshTimerData(true) }
 
         // Verifica l'intent iniziale per eventuali azioni di notifica
@@ -831,12 +829,12 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             showEmptyState()
         } else if (filteredTimerList.isEmpty()) {
             showEmptyState()
-            Toast.makeText(this, "Nessun timer corrisponde al filtro selezionato", Toast.LENGTH_SHORT).show()
+            // Rimuovi questo toast che appare ogni secondo
+            // Toast.makeText(this, "Nessun timer corrisponde al filtro selezionato", Toast.LENGTH_SHORT).show()
         } else {
             showTimersList()
         }
     }
-
     /**
      * Aggiorna il contatore dei timer filtrati
      */
@@ -887,14 +885,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         // Imposta il titolo con il numero del tavolo
         val titleText = dialogView.findViewById<TextView>(R.id.dialogTitleText)
-        titleText.text = "Impostazioni Timer - Tavolo ${timer.tableNumber}"
+        titleText.text = "Impostazioni Timer";
 
-        // Inizializza riferimenti alle viste
-        val modeRadioGroup = dialogView.findViewById<RadioGroup>(R.id.modeRadioGroup)
-        val mode1Radio = dialogView.findViewById<RadioButton>(R.id.modeRadio1)
-        val mode2Radio = dialogView.findViewById<RadioButton>(R.id.modeRadio2)
-        val mode3Radio = dialogView.findViewById<RadioButton>(R.id.modeRadio3)
-        val mode4Radio = dialogView.findViewById<RadioButton>(R.id.modeRadio4)
 
         val t1ValueText = dialogView.findViewById<TextView>(R.id.t1ValueText)
         val t2ValueText = dialogView.findViewById<TextView>(R.id.t2ValueText)
@@ -904,7 +896,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val decreaseTableButton = dialogView.findViewById<Button>(R.id.decreaseTableButton)
         val increaseTableButton = dialogView.findViewById<Button>(R.id.increaseTableButton)
 
-        val buzzerSwitch = dialogView.findViewById<android.widget.Switch>(R.id.buzzerSwitch)
+        val buzzerSwitch = dialogView.findViewById<Switch>(R.id.buzzerSwitch)
 
         val decreaseT1Button = dialogView.findViewById<Button>(R.id.decreaseT1Button)
         val increaseT1Button = dialogView.findViewById<Button>(R.id.increaseT1Button)
@@ -915,41 +907,19 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val saveSettingsButton = dialogView.findViewById<Button>(R.id.saveSettingsButton)
 
         // Valori correnti delle impostazioni
-        var currentMode = timer.operationMode
+        var currentMode = 1  // Fissiamo il valore a 1 dato che c'è solo una modalità ora
         var currentT1 = timer.timerT1
         var currentT2 = timer.timerT2
         var currentBuzzer = timer.buzzerEnabled
         var currentTableNumber = timer.tableNumber
 
-        // Imposta i valori iniziali
-        when (currentMode) {
-            1 -> mode1Radio.isChecked = true
-            2 -> mode2Radio.isChecked = true
-            3 -> mode3Radio.isChecked = true
-            4 -> mode4Radio.isChecked = true
-        }
 
         t1ValueText.text = currentT1.toString()
         t2ValueText.text = currentT2.toString()
         tableNumberText.text = currentTableNumber.toString()
         buzzerSwitch.isChecked = currentBuzzer
 
-        // Mostra/nascondi T2 in base alla modalità
-        updateT2Visibility(currentMode, t2Container)
 
-        // Listener per il RadioGroup della modalità
-        modeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            currentMode = when (checkedId) {
-                R.id.modeRadio1 -> 1
-                R.id.modeRadio2 -> 2
-                R.id.modeRadio3 -> 3
-                R.id.modeRadio4 -> 4
-                else -> 1 // Default
-            }
-
-            // Aggiorna la visibilità di T2
-            updateT2Visibility(currentMode, t2Container)
-        }
 
         // Listener per i pulsanti T1
         decreaseT1Button.setOnClickListener {
@@ -976,7 +946,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         increaseT2Button.setOnClickListener {
             if (currentT2 < 95) {
-
                 currentT2 += 5
                 t2ValueText.text = currentT2.toString()
             }
@@ -1007,7 +976,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             // Conferma con un dialog
             AlertDialog.Builder(this)
                 .setTitle("Factory Reset")
-                .setMessage("Sei sicuro di voler ripristinare tutte le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- Modalità 1\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0")
+                .setMessage("Sei sicuro di voler ripristinare tutte le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0")
                 .setPositiveButton("Factory Reset") { _, _ ->
                     // Ripristina i valori predefiniti
                     val defaultMode = 1
@@ -1077,7 +1046,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         // Mostra il dialogo
         dialog.show()
     }
-
     /**
      * Aggiorna la visibilità del container T2 in base alla modalità
      */
@@ -1190,6 +1158,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             else -> super.onOptionsItemSelected(item)
         }
     }
+
     /**
      * Cancella tutti i timer dalla lista locale
      */

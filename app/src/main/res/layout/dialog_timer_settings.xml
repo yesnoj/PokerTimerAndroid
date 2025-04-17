@@ -32,6 +32,8 @@
             android:id="@+id/decreaseTableButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:text="-" />
 
         <TextView
@@ -47,54 +49,18 @@
             android:id="@+id/increaseTableButton"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:text="+" />
     </LinearLayout>
 
-    <!-- Sezione Modalità Operativa -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Modalità operativa"
-        android:textStyle="bold" />
-
-    <RadioGroup
-        android:id="@+id/modeRadioGroup"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="16dp">
-
-        <RadioButton
-            android:id="@+id/modeRadio1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 1: T1/T2 con avvio automatico" />
-
-        <RadioButton
-            android:id="@+id/modeRadio2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 2: T1/T2 con avvio manuale" />
-
-        <RadioButton
-            android:id="@+id/modeRadio3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 3: Solo T1 con avvio automatico" />
-
-        <RadioButton
-            android:id="@+id/modeRadio4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità 4: Solo T1 con avvio manuale" />
-
-    </RadioGroup>
+    <!-- Rimuoviamo la sezione Modalità Operativa che conteneva i 4 RadioButton -->
 
     <!-- Sezione Timer T1 -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Timer T1 (secondi)"
+        android:text="Timer T1"
         android:textStyle="bold" />
 
     <LinearLayout
@@ -108,6 +74,8 @@
             android:id="@+id/decreaseT1Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:text="-" />
 
         <TextView
@@ -123,6 +91,8 @@
             android:id="@+id/increaseT1Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:text="+" />
     </LinearLayout>
 
@@ -137,7 +107,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Timer T2 (secondi)"
+            android:text="Timer T2"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -150,6 +120,8 @@
                 android:id="@+id/decreaseT2Button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
                 android:text="-" />
 
             <TextView
@@ -165,6 +137,8 @@
                 android:id="@+id/increaseT2Button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
                 android:text="+" />
         </LinearLayout>
     </LinearLayout>
@@ -187,7 +161,8 @@
             android:id="@+id/buzzerSwitch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true" />
+            android:checked="true"
+            android:theme="@style/WhiteSwitch" />
     </LinearLayout>
 
     <!-- Sezione pulsanti azione -->
@@ -202,7 +177,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            android:backgroundTint="#F44336"
+            android:backgroundTint="@color/error_color"
+            android:textColor="@color/white"
             android:text="FACTORY RESET" />
 
         <Button
@@ -210,6 +186,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
             android:text="Salva" />
     </LinearLayout>
 </LinearLayout>

@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/background_color"
     android:keepScreenOn="true"
+    android:id="@+id/main_container"
     tools:context=".MainActivity">
 
     <!-- Container principale per l'orientamento orizzontale -->
@@ -13,29 +14,28 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Parte sinistra con il timer -->
-        <LinearLayout
+        <!-- Parte sinistra con il timer - MASSIMIZZATA -->
+        <FrameLayout
             android:id="@+id/timer_container"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="8dp"
+            android:padding="0dp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/controls_container"
-            app:layout_constraintWidth_percent="0.65">
+            app:layout_constraintEnd_toStartOf="@id/info_container"
+            app:layout_constraintWidth_percent="0.85">
 
-            <!-- Display principale del timer -->
-
-            <!-- Label "secondi" -->
+            <!-- Display principale del timer - ESTREMAMENTE GRANDE -->
             <TextView
                 android:id="@+id/tv_timer"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:autoSizeMaxTextSize="550sp"
-                android:autoSizeMinTextSize="150sp"
-                android:autoSizeStepGranularity="10sp"
+                android:layout_height="match_parent"
+                android:layout_marginTop="-50dp"
+                android:layout_marginBottom="-30dp"
+                android:layout_marginStart="-30dp"
+                android:layout_marginEnd="-30dp"
+                android:autoSizeMaxTextSize="1500sp"
+                android:autoSizeMinTextSize="200sp"
+                android:autoSizeStepGranularity="50sp"
                 android:autoSizeTextType="uniform"
                 android:gravity="center"
                 android:includeFontPadding="false"
@@ -45,125 +45,98 @@
                 android:textColor="@color/white"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tv_seconds_label"
+            <!-- Layout per i testi sotto il timer -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/seconds"
-                android:textColor="@color/white"
-                android:textSize="24sp"
-                android:layout_gravity="center_horizontal" />
+                android:orientation="vertical"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="8dp">
 
-            <!-- Stato del timer -->
-            <TextView
-                android:id="@+id/tv_timer_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/status_color"
-                android:textSize="20sp"
-                android:layout_gravity="center_horizontal"
-                tools:text="Running" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/tv_seconds_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/seconds"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    android:layout_gravity="center_horizontal" />
 
-        <!-- Parte destra con i controlli e le info -->
+                <!-- Stato del timer -->
+                <TextView
+                    android:id="@+id/tv_timer_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/status_color"
+                    android:textSize="20sp"
+                    android:layout_gravity="center_horizontal"
+                    tools:text="Running" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Parte destra con le info - ANCORA PIÙ RIDOTTA -->
         <LinearLayout
-            android:id="@+id/controls_container"
+            android:id="@+id/info_container"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:padding="8dp"
+            android:padding="4dp"
             app:layout_constraintStart_toEndOf="@id/timer_container"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintWidth_percent="0.35">
+            app:layout_constraintWidth_percent="0.15">
 
-            <!-- Info sul timer e tavolo spostati qui -->
+            <!-- Info sul timer e tavolo -->
             <LinearLayout
                 android:id="@+id/timer_info_top"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:gravity="center"
-                android:layout_marginBottom="16dp">
+                android:gravity="center">
 
                 <TextView
                     android:id="@+id/tv_active_timer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/white"
-                    android:textSize="24sp"
+                    android:textSize="16sp"
                     tools:text="Timer T1" />
 
                 <TextView
                     android:id="@+id/tv_table_number"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:textColor="@color/white"
-                    android:textSize="16sp"
+                    android:textSize="12sp"
                     tools:text="Tavolo 1" />
 
                 <!-- Bottone per selezionare i giocatori -->
                 <ImageButton
                     android:id="@+id/btn_players_selection"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_marginTop="12dp"
                     android:background="@drawable/bg_circular_button"
                     android:contentDescription="Seleziona giocatori"
-                    android:padding="12dp"
+                    android:padding="10dp"
+                    android:scaleType="fitCenter"
                     android:src="@drawable/ic_players"
                     app:tint="@color/white" />
             </LinearLayout>
 
-            <!-- Pulsanti di controllo -->
-            <Button
-                android:id="@+id/btn_start_pause"
+            <!-- Istruzioni di gesto - SEMPLIFICATE -->
+            <TextView
+                android:id="@+id/gesture_instructions"
                 android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:backgroundTint="@color/primary_color"
-                android:text="@string/start"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
-
-            <Button
-                android:id="@+id/btn_stop"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:backgroundTint="@color/error_color"
-                android:text="@string/stop"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
-
-            <Button
-                android:id="@+id/btn_reset"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:backgroundTint="@color/secondary_color"
-                android:text="@string/reset"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp" />
-
-            <Button
-                android:id="@+id/btn_switch"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:backgroundTint="@color/secondary_color"
-                android:text="@string/switch_timer"
-                android:textColor="@color/white"
-                android:textSize="16sp" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/white_70"
+                android:textSize="10sp"
+                android:gravity="center"
+                android:text="Swipe per cambiare\nTap per avviare\nDoppio tap ferma"
+                android:lineSpacingExtra="1dp"/>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

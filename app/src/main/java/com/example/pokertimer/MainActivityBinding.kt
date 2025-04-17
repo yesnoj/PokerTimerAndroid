@@ -1,6 +1,5 @@
 package com.example.pokertimer
 
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 
@@ -8,10 +7,12 @@ import android.widget.TextView
  * Classe di binding personalizzata per tenere i riferimenti alle viste
  */
 class MainActivityBinding {
-    lateinit var btnStartPause: Button
-    lateinit var btnReset: Button
-    lateinit var btnSwitch: Button
-    lateinit var btnStop: Button
+    // Rimuoviamo i riferimenti ai pulsanti che non esistono più
+    // lateinit var btnStartPause: Button
+    // lateinit var btnReset: Button
+    // lateinit var btnSwitch: Button
+    // lateinit var btnStop: Button
+
     lateinit var tvTimer: TextView
     lateinit var tvActiveTimer: TextView
     lateinit var tvTableNumber: TextView
@@ -23,17 +24,19 @@ class MainActivityBinding {
         fun bind(activity: MainActivity): MainActivityBinding {
             val binding = MainActivityBinding()
 
-            // Riferimenti alle viste principali
-            binding.btnStartPause = activity.findViewById(R.id.btn_start_pause)
-            binding.btnReset = activity.findViewById(R.id.btn_reset)
-            binding.btnSwitch = activity.findViewById(R.id.btn_switch)
-            binding.btnStop = activity.findViewById(R.id.btn_stop)
+            // Riferimenti alle viste principali - rimuoviamo i bottoni che non esistono più
+            // binding.btnStartPause = activity.findViewById(R.id.btn_start_pause)
+            // binding.btnReset = activity.findViewById(R.id.btn_reset)
+            // binding.btnSwitch = activity.findViewById(R.id.btn_switch)
+            // binding.btnStop = activity.findViewById(R.id.btn_stop)
+
             binding.tvTimer = activity.findViewById(R.id.tv_timer)
             binding.tvActiveTimer = activity.findViewById(R.id.tv_active_timer)
             binding.tvTableNumber = activity.findViewById(R.id.tv_table_number)
             binding.tvTimerStatus = activity.findViewById(R.id.tv_timer_status)
             binding.tvSecondsLabel = activity.findViewById(R.id.tv_seconds_label)
             binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
+
             return binding
         }
     }

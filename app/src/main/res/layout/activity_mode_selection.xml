@@ -135,6 +135,8 @@
         android:layout_height="wrap_content"
         android:text="Aiuto"
         android:layout_marginTop="24dp"
+        android:backgroundTint="@android:color/white"
+        android:textColor="@color/colorPrimaryDark"
         app:layout_constraintTop_toBottomOf="@id/dashboardModeCard"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
