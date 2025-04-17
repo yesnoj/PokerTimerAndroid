@@ -452,9 +452,57 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     // Parsa i timer dal JSON
                     val parsedTimers = jsonResponse.parseTimers()
 
+                    // Creiamo una mappa dei timer esistenti per id per un accesso più rapido
+                    val existingTimersMap = allTimerList.associateBy { it.deviceId }
+
+                    // Aggiorna la lista principale dei timer, ma conserva le informazioni sui posti
+                    val updatedTimers = parsedTimers.map { newTimer ->
+                        // Cerca il timer esistente corrispondente
+                        val existingTimer = existingTimersMap[newTimer.deviceId]
+
+                        if (existingTimer != null && existingTimer.hasSeatOpenInfo()) {
+                            // Se il timer esistente ha info sui posti liberi
+                            val existingSeatInfo = existingTimer.seatOpenInfo ?: ""
+
+                            // Verifica se ci sono nuove informazioni sui posti
+                            if (newTimer.hasSeatOpenInfo()) {
+                                val newSeatInfo = newTimer.seatOpenInfo ?:
+                                (if (newTimer.pendingCommand?.startsWith("seat_open:") == true)
+                                    newTimer.pendingCommand.substringAfter("seat_open:").trim()
+                                else "")
+
+                                if (newSeatInfo.isNotEmpty()) {
+                                    // Combina le informazioni sui posti (esistenti + nuovi)
+                                    val combinedSeats = combineSeats(existingSeatInfo, newSeatInfo)
+
+                                    // Crea una copia del nuovo timer con le informazioni sui posti combinate
+                                    newTimer.copy(
+                                        seatOpenInfo = combinedSeats,
+                                        // Rimuovi pendingCommand per evitare duplicati
+                                        pendingCommand = null
+                                    )
+                                } else {
+                                    // Mantieni le informazioni sui posti esistenti
+                                    newTimer.copy(
+                                        seatOpenInfo = existingSeatInfo,
+                                        pendingCommand = null
+                                    )
+                                }
+                            } else {
+                                // Mantieni le informazioni sui posti esistenti
+                                newTimer.copy(
+                                    seatOpenInfo = existingSeatInfo
+                                )
+                            }
+                        } else {
+                            // Nessuna informazione precedente sui posti, usa i nuovi dati così come sono
+                            newTimer
+                        }
+                    }
+
                     // Aggiorna la lista principale dei timer
                     allTimerList.clear()
-                    allTimerList.addAll(parsedTimers)
+                    allTimerList.addAll(updatedTimers)
 
                     // Log per debug - verifica le informazioni sui posti liberi
                     for (timer in allTimerList) {
@@ -503,6 +551,28 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
     }
+
+    /**
+     * Combina le informazioni sui posti esistenti con quelle nuove
+     * evitando duplicati e mantenendo il formato corretto
+     */
+    private fun combineSeats(existingSeats: String, newSeats: String): String {
+        // Controlla se ci sono dati da combinare
+        if (existingSeats.isEmpty()) return newSeats
+        if (newSeats.isEmpty()) return existingSeats
+
+        // Converti le stringhe in liste di numeri
+        val existingList = existingSeats.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val newList = newSeats.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+        // Combina le liste evitando duplicati
+        val combinedList = (existingList + newList).distinct()
+
+        // Riconverti in stringa con formato "1, 2, 3"
+        return combinedList.joinToString(", ")
+    }
+
+
 
     /**
      * Funzione di supporto per il fetch dei dati
