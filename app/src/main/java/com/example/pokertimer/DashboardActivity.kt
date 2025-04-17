@@ -1339,69 +1339,35 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                         )
                         allTimerList[index] = updatedTimer
 
-                        // Dopo il reset, invia un comando clear_seats al client per cancellare i posti selezionati
-                        val deviceId = allTimerList[index].deviceId
-                        val commandUrl = URL("$serverUrl/api/command/$deviceId")
-                        android.util.Log.d("DashboardActivity", "Sending clear_seats command to: $commandUrl")
+                        // Dopo il reset, invia un comando clear_seats al client - SPOSTA QUESTO CODICE
+                        // in un withContext(Dispatchers.IO) o usa networkManager.sendCommand
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val deviceId = allTimerList[index].deviceId
+                                val commandUrl = URL("$serverUrl/api/command/$deviceId")
 
-                        try {
-                            val commandConnection = commandUrl.openConnection() as HttpURLConnection
-                            commandConnection.requestMethod = "POST"
-                            commandConnection.doOutput = true
-                            commandConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                                val commandConnection = commandUrl.openConnection() as HttpURLConnection
+                                commandConnection.requestMethod = "POST"
+                                commandConnection.doOutput = true
+                                commandConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
 
-                            // Payload JSON con il comando clear_seats
-                            val jsonPayload = """
-                        {
-                            "command": "clear_seats"
-                        }
-                        """.trimIndent()
+                                val jsonPayload = """{"command": "clear_seats"}"""
 
-                            android.util.Log.d("DashboardActivity", "Sending payload: $jsonPayload")
+                                val outputStream = commandConnection.outputStream
+                                outputStream.write(jsonPayload.toByteArray())
+                                outputStream.close()
 
-                            val outputStream = commandConnection.outputStream
-                            outputStream.write(jsonPayload.toByteArray())
-                            outputStream.close()
+                                val cmdResponseCode = commandConnection.responseCode
+                                android.util.Log.d("DashboardActivity", "Clear seats response code: $cmdResponseCode")
 
-                            val cmdResponseCode = commandConnection.responseCode
-                            android.util.Log.d("DashboardActivity", "Clear seats response code: $cmdResponseCode")
-
-                            if (cmdResponseCode == HttpURLConnection.HTTP_OK) {
-                                val cmdInputStream = commandConnection.inputStream
-                                val cmdResponseBody = cmdInputStream.bufferedReader().use { it.readText() }
-                                android.util.Log.d("DashboardActivity", "Server response: $cmdResponseBody")
+                                commandConnection.disconnect()
+                            } catch (e: Exception) {
+                                android.util.Log.e("DashboardActivity", "Error sending clear_seats command: ${e.message}", e)
                             }
-
-                            commandConnection.disconnect()
-                        } catch (e: Exception) {
-                            android.util.Log.e("DashboardActivity", "Error sending clear_seats command: ${e.message}", e)
                         }
                     }
 
-                    // Aggiorna anche la lista filtrata
-                    val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
-                    if (filteredIndex >= 0) {
-                        val updatedTimer = filteredTimerList[filteredIndex].copy(
-                            seatOpenInfo = null,
-                            pendingCommand = null
-                        )
-                        filteredTimerList[filteredIndex] = updatedTimer
-                    }
-
-                    // Notifica l'adapter del cambiamento
-                    timerAdapter.updateTimers(filteredTimerList)
-
-                    // Aggiorna anche la UI immediatamente
-                    val viewHolder = timersRecyclerView.findViewHolderForAdapterPosition(filteredIndex) as? TimerAdapter.TimerViewHolder
-                    viewHolder?.itemView?.findViewById<TextView>(R.id.seatInfoText)?.let { textView ->
-                        textView.visibility = View.GONE
-                    }
-
-                    // Rimuovi il tracker per questo timer
-                    SeatNotificationTracker.clearNotification(timer.deviceId)
-
-                    // Ricarica i dati dal server dopo un ritardo
-                    delayedRefreshTimerData(false, 1500)
+                    // Il resto del codice...
                 } else {
                     Toast.makeText(this@DashboardActivity, "Errore nel reset dei posti liberi", Toast.LENGTH_SHORT).show()
                 }
@@ -1410,4 +1376,5 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 Toast.makeText(this@DashboardActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
-    }}
+    }
+}
