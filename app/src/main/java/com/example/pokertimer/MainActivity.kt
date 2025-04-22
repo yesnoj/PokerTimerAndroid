@@ -48,6 +48,7 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 import android.content.pm.ActivityInfo
+import androidx.constraintlayout.widget.ConstraintLayout
 
 
 class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
@@ -288,6 +289,10 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val window = dialog.window
         window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
 
+        // CODICE CORRETTO: Ottieni la vista principale del dialogo e ruotala
+        val mainContainer = dialog.findViewById<ConstraintLayout>(R.id.dialog_main_container)
+        mainContainer.rotation = 180f
+
         // Ottieni il numero del tavolo corrente
         val currentState = viewModel.timerState.value
         val tableNumber = currentState?.tableNumber ?: 1
@@ -344,17 +349,17 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             // Invia la richiesta al server
             sendSeatRequestToServer(seatRequest)
 
-            // MODIFICA: Salva una copia vuota nel ViewModel per deselezionare tutti i posti
+            // Salva una copia vuota nel ViewModel per deselezionare tutti i posti
             viewModel.saveSelectedSeats(emptyList())
 
-            // MODIFICA: Svuota la lista locale
+            // Svuota la lista locale
             selectedPlayerSeats.clear()
 
             // Chiudi il dialogo
             dialog.dismiss()
 
-            // MODIFICA: Mostra una conferma all'utente
-            //Toast.makeText(this, "Posti inviati e deselezionati", Toast.LENGTH_SHORT).show()
+            // Mostra una conferma all'utente
+            Toast.makeText(this, "Posti inviati e deselezionati", Toast.LENGTH_SHORT).show()
         }
 
         cancelButton.setOnClickListener {
