@@ -47,6 +47,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import android.content.pm.ActivityInfo
+
 
 class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
 
@@ -66,6 +68,9 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Forza l'orientamento landscape
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
         super.onCreate(savedInstanceState)
 
         // Nascondi la barra delle notifiche (status bar)
@@ -77,13 +82,8 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         // Nascondi l'action bar
         supportActionBar?.hide()
 
-        // Determina l'orientamento attuale e carica il layout appropriato
-        val orientation = resources.configuration.orientation
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            setContentView(R.layout.activity_main_landscape)
-        } else {
-            setContentView(R.layout.activity_main_portrait)
-        }
+        // Usa sempre il layout landscape
+        setContentView(R.layout.activity_main_landscape)
 
         // Inizializza il binding personalizzato
         binding = MainActivityBinding.bind(this)
@@ -151,14 +151,8 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        // Cambia il layout in base al nuovo orientamento
-        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            Log.d("MainActivity", "Switching to landscape layout")
-            setContentView(R.layout.activity_main_landscape)
-        } else {
-            Log.d("MainActivity", "Switching to portrait layout")
-            setContentView(R.layout.activity_main_portrait)
-        }
+        // Manteniamo sempre il layout landscape, quindi non è necessario cambiare layout
+        // Ma dobbiamo reinizializzare alcuni elementi
 
         // Re-inizializza il binding
         binding = MainActivityBinding.bind(this)
@@ -350,8 +344,17 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             // Invia la richiesta al server
             sendSeatRequestToServer(seatRequest)
 
+            // MODIFICA: Salva una copia vuota nel ViewModel per deselezionare tutti i posti
+            viewModel.saveSelectedSeats(emptyList())
+
+            // MODIFICA: Svuota la lista locale
+            selectedPlayerSeats.clear()
+
             // Chiudi il dialogo
             dialog.dismiss()
+
+            // MODIFICA: Mostra una conferma all'utente
+            //Toast.makeText(this, "Posti inviati e deselezionati", Toast.LENGTH_SHORT).show()
         }
 
         cancelButton.setOnClickListener {

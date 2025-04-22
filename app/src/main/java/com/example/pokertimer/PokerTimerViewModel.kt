@@ -330,6 +330,28 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             override fun run() {
                 val currentState = _timerState.value ?: return
 
+                // Verifica se i secondi rimanenti sono 0 prima del decremento
+                // per riprodurre il suono finale esattamente quando mostriamo lo 0
+                if (secondsRemaining == 0) {
+                    // Timer terminato
+                    if (currentState.buzzerEnabled) {
+                        soundPool.play(soundEnd, 1.0f, 1.0f, 1, 0, 1.0f)
+                    }
+
+                    _timerState.value = currentState.copy(
+                        currentTimer = 0,
+                        isRunning = false,
+                        isPaused = false,
+                        isExpired = true
+                    )
+
+                    // Invia lo stato al server
+                    sendTimerStatusToServer()
+
+                    // Non programmare ulteriori esecuzioni
+                    return
+                }
+
                 if (secondsRemaining >= 0) {
                     // Aggiorna lo stato con i secondi rimanenti
                     _timerState.value = currentState.copy(currentTimer = secondsRemaining)
@@ -349,21 +371,6 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
 
                     // Pianifica la prossima esecuzione tra 1 secondo
                     timerHandler?.postDelayed(this, 1000)
-                } else {
-                    // Timer terminato
-                    if (currentState.buzzerEnabled) {
-                        soundPool.play(soundEnd, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-
-                    _timerState.value = currentState.copy(
-                        currentTimer = 0,
-                        isRunning = false,
-                        isPaused = false,
-                        isExpired = true
-                    )
-
-                    // Invia lo stato al server
-                    sendTimerStatusToServer()
                 }
             }
         }
