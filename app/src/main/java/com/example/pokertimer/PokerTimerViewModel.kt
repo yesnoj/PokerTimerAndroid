@@ -507,7 +507,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
      * Salva le impostazioni del timer
      */
     fun saveSettings(timerT1: Int, timerT2: Int, operationMode: Int, buzzerEnabled: Boolean,
-                     tableNumber: Int, serverUrl: String) {
+                     tableNumber: Int, serverUrl: String, playersCount: Int = 10) {
 
         preferences.saveTimerSettings(
             timerT1,
@@ -515,7 +515,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             operationMode,
             buzzerEnabled,
             tableNumber,
-            serverUrl
+            serverUrl,
+            playersCount
         )
 
         val currentState = _timerState.value ?: return
@@ -537,6 +538,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             buzzerEnabled = buzzerEnabled,
             tableNumber = tableNumber,
             serverUrl = serverUrl,
+            playersCount = playersCount,
             // Aggiorna anche il timer corrente se necessario
             currentTimer = if (!currentState.isRunning && !currentState.isPaused) {
                 if (currentState.isT1Active) timerT1 else timerT2

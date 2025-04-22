@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorPrimaryDark">
 
     <LinearLayout
+        android:id="@+id/main_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -15,7 +17,8 @@
             android:layout_marginBottom="16dp"
             android:text="@string/settings"
             android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <!-- Sezione Numero Tavolo (spostata in alto) -->
         <TextView
@@ -24,7 +27,8 @@
             android:layout_marginTop="8dp"
             android:text="@string/table_number"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -49,10 +53,57 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="1"
-                android:textSize="18sp" />
+                android:textSize="18sp"
+                android:textColor="@color/white" />
 
             <Button
                 android:id="@+id/btn_increase_table"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="+"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <!-- Nuova sezione Numero Giocatori -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Numero Giocatori"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/white" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_decrease_players"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="-"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_players_number"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="10"
+                android:textSize="18sp"
+                android:textColor="@color/white" />
+
+            <Button
+                android:id="@+id/btn_increase_players"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:backgroundTint="@color/primary_color"
@@ -68,7 +119,8 @@
             android:layout_marginTop="16dp"
             android:text="@string/timer_t1"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -93,7 +145,8 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="20s"
-                android:textSize="18sp" />
+                android:textSize="18sp"
+                android:textColor="@color/white" />
 
             <Button
                 android:id="@+id/btn_increase_t1"
@@ -113,7 +166,8 @@
             android:layout_marginTop="16dp"
             android:text="@string/timer_t2"
             android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <LinearLayout
             android:id="@+id/layout_timer_t2"
@@ -139,7 +193,8 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="30s"
-                android:textSize="18sp" />
+                android:textSize="18sp"
+                android:textColor="@color/white" />
 
             <Button
                 android:id="@+id/btn_increase_t2"
@@ -165,7 +220,8 @@
                 android:layout_weight="1"
                 android:text="@string/buzzer_sounds"
                 android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:textColor="@color/white" />
 
             <Switch
                 android:id="@+id/switch_buzzer"
@@ -193,7 +249,10 @@
             android:layout_marginTop="8dp"
             android:hint="@string/server_url_hint"
             android:inputType="textUri"
-            android:padding="8dp" />
+            android:padding="8dp"
+            android:textColor="@color/white"
+            android:textColorHint="#80FFFFFF"
+            android:backgroundTint="@color/white" />
 
         <!-- Nuovo pulsante di discovery -->
         <Button
@@ -233,6 +292,34 @@
                 android:backgroundTint="@color/error_color"
                 android:textColor="@color/white"
                 android:text="Disconnetti" />
+        </LinearLayout>
+
+        <!-- Aggiunti pulsanti Salva e Annulla -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+
+            <Button
+                android:id="@+id/custom_cancel_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="@color/primary_color"
+                android:textColor="@color/white"
+                android:text="Annulla" />
+
+            <Button
+                android:id="@+id/custom_save_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="@color/status_color"
+                android:textColor="@color/white"
+                android:text="Salva" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

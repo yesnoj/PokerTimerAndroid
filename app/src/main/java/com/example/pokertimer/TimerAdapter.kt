@@ -72,6 +72,7 @@ class TimerAdapter(
 
     class TimerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tableNumberText: TextView = itemView.findViewById(R.id.tableNumberText)
+        private val playersCountText: TextView = itemView.findViewById(R.id.playersCountText) // Aggiungi questa riga
         private val timerStatusText: TextView = itemView.findViewById(R.id.timerStatusText)
         private val timerValueText: TextView = itemView.findViewById(R.id.timerValueText)
         private val activeTimerText: TextView = itemView.findViewById(R.id.activeTimerText)
@@ -86,13 +87,19 @@ class TimerAdapter(
         private val startButton: Button = itemView.findViewById(R.id.startButton)
         private val pauseButton: Button = itemView.findViewById(R.id.pauseButton)
         private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
-        // Il resetButton non viene più usato, ma lo manteniamo nella dichiarazione
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
         private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
+
+
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
             tableNumberText.text = "Tavolo ${timer.tableNumber}"
+
+            // Aggiungi il numero di giocatori
+            android.util.Log.d("TimerAdapter", "Binding timer ${timer.deviceId}: playersCount=${timer.playersCount}")
+            playersCountText.text = "• ${timer.playersCount ?: 10} giocatori"
+
             timerValueText.text = formatTimerValue(timer.currentTimer)
 
             // Timer attivo

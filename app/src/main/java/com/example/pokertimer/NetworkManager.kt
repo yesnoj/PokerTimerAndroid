@@ -56,20 +56,21 @@ class NetworkManager(private val context: Context) {
                 android.util.Log.d("NetworkManager", "Using device ID: $deviceId")
 
                 val jsonPayload = """
-            {
-                "device_id": "$deviceId",
-                "table_number": ${timerState.tableNumber},
-                "is_running": ${timerState.isRunning},
-                "is_paused": ${timerState.isPaused},
-                "current_timer": ${timerState.currentTimer},
-                "time_expired": ${timerState.isExpired},
-                "mode": ${timerState.operationMode},
-                "t1_value": ${timerState.timerT1},
-                "t2_value": ${timerState.timerT2},
-                "battery_level": 100,
-                "voltage": 5.0
-            }
-            """.trimIndent()
+                {
+                    "device_id": "$deviceId",
+                    "table_number": ${timerState.tableNumber},
+                    "is_running": ${timerState.isRunning},
+                    "is_paused": ${timerState.isPaused},
+                    "current_timer": ${timerState.currentTimer},
+                    "time_expired": ${timerState.isExpired},
+                    "mode": ${timerState.operationMode},
+                    "t1_value": ${timerState.timerT1},
+                    "t2_value": ${timerState.timerT2},
+                    "battery_level": 100,
+                    "voltage": 5.0,
+                    "players_count": ${timerState.playersCount}
+                }
+                """.trimIndent()
 
                 android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
 

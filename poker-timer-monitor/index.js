@@ -68,6 +68,11 @@ app.post('/api/status', (req, res) => {
     const ipAddress = req.socket.remoteAddress;
     timerData.ip_address = ipAddress ? ipAddress.replace(/^.*:/, '') : '';
 
+    // Salva il numero di giocatori se inviato dal client
+    if (timerData.players_count !== undefined) {
+        console.log(`Received players count: ${timerData.players_count} for device ${deviceId}`);
+    }
+
     // Memorizza lo stato aggiornato
     timers[deviceId] = {
         ...timers[deviceId],
@@ -133,6 +138,8 @@ app.post('/api/settings/:deviceId', (req, res) => {
     timers[deviceId].t2_value = settings.t2;
     timers[deviceId].table_number = settings.tableNumber;
     timers[deviceId].buzzer = settings.buzzer;
+    timers[deviceId].players_count = settings.playersCount;
+
 
     // Imposta il comando in sospeso
     timers[deviceId].pending_command = "settings";

@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@color/colorPrimaryDark">
 
     <TextView
         android:id="@+id/dialogTitleText"
@@ -12,6 +13,7 @@
         android:text="Impostazioni Timer - Tavolo X"
         android:textSize="18sp"
         android:textStyle="bold"
+        android:textColor="@color/white"
         android:layout_marginBottom="16dp"/>
 
     <!-- Sezione Numero Tavolo -->
@@ -19,7 +21,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Numero Tavolo"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:textColor="@color/white"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -43,7 +46,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="1"
-            android:textSize="18sp" />
+            android:textSize="18sp"
+            android:textColor="@color/white" />
 
         <Button
             android:id="@+id/increaseTableButton"
@@ -54,14 +58,55 @@
             android:text="+" />
     </LinearLayout>
 
-    <!-- Rimuoviamo la sezione Modalità Operativa che conteneva i 4 RadioButton -->
+    <!-- Nuova sezione Numero Giocatori -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Numero Giocatori"
+        android:textStyle="bold"
+        android:textColor="@color/white"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/decreasePlayersButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
+            android:text="-" />
+
+        <TextView
+            android:id="@+id/playersNumberText"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="10"
+            android:textSize="18sp"
+            android:textColor="@color/white" />
+
+        <Button
+            android:id="@+id/increasePlayersButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
+            android:text="+" />
+    </LinearLayout>
 
     <!-- Sezione Timer T1 -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Timer T1"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:textColor="@color/white" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -85,7 +130,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="20"
-            android:textSize="18sp" />
+            android:textSize="18sp"
+            android:textColor="@color/white" />
 
         <Button
             android:id="@+id/increaseT1Button"
@@ -108,7 +154,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Timer T2"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -131,7 +178,8 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="30"
-                android:textSize="18sp" />
+                android:textSize="18sp"
+                android:textColor="@color/white" />
 
             <Button
                 android:id="@+id/increaseT2Button"
@@ -155,7 +203,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Buzzer"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:textColor="@color/white" />
 
         <Switch
             android:id="@+id/buzzerSwitch"
@@ -172,14 +221,14 @@
         android:orientation="horizontal">
 
         <Button
-            android:id="@+id/resetDefaultsButton"
+            android:id="@+id/cancelButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            android:backgroundTint="@color/error_color"
+            android:backgroundTint="@color/primary_color"
             android:textColor="@color/white"
-            android:text="FACTORY RESET" />
+            android:text="Annulla" />
 
         <Button
             android:id="@+id/saveSettingsButton"
@@ -190,4 +239,14 @@
             android:textColor="@color/white"
             android:text="Salva" />
     </LinearLayout>
+
+    <!-- Factory Reset pulsante separato -->
+    <Button
+        android:id="@+id/resetDefaultsButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:backgroundTint="@color/error_color"
+        android:textColor="@color/white"
+        android:text="FACTORY RESET" />
 </LinearLayout>

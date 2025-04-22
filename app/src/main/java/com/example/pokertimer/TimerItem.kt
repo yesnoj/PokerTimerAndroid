@@ -20,7 +20,8 @@ data class TimerItem(
     val ipAddress: String? = null,
     val buzzerEnabled: Boolean = true,
     val pendingCommand: String? = null,
-    val seatOpenInfo: String? = null  // Nuova proprietà per i posti liberi
+    val seatOpenInfo: String? = null,
+    val playersCount: Int
 ) {
     /**
      * Verifica se ci sono posti liberi da visualizzare

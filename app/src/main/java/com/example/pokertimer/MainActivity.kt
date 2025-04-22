@@ -38,9 +38,11 @@ import java.net.SocketTimeoutException
 import kotlin.math.abs
 import androidx.core.content.ContextCompat
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Vibrator
 import android.os.VibrationEffect
 import android.os.Build
+import android.view.Window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -368,9 +370,21 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     }
 
     private fun showSettingsDialog() {
-        // Modifica il codice per rimuovere il riferimento alle 4 modalità
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
         val currentState = viewModel.timerState.value ?: return
+
+        // Creiamo un dialog completamente personalizzato invece di un AlertDialog
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Imposta le dimensioni del dialogo
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        dialog.window?.attributes = layoutParams
 
         // Inizializza le viste del dialogo
         val timerT1Value = dialogView.findViewById<TextView>(R.id.tv_t1_value)
@@ -391,10 +405,22 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val decreaseTableButton = dialogView.findViewById<Button>(R.id.btn_decrease_table)
         val increaseTableButton = dialogView.findViewById<Button>(R.id.btn_increase_table)
 
+        // Nuovo: Valori per players_number
+        val playersNumberText = dialogView.findViewById<TextView>(R.id.tv_players_number)
+        var playersCount = currentState.playersCount
+        playersNumberText.text = playersCount.toString()
+
+        val decreasePlayersButton = dialogView.findViewById<Button>(R.id.btn_decrease_players)
+        val increasePlayersButton = dialogView.findViewById<Button>(R.id.btn_increase_players)
+
         // Server URL e pulsanti di connessione
         val serverUrlInput = dialogView.findViewById<EditText>(R.id.et_server_url)
         val connectButton = dialogView.findViewById<Button>(R.id.btn_connect)
         val disconnectButton = dialogView.findViewById<Button>(R.id.btn_disconnect)
+
+        // Pulsanti personalizzati
+        val saveButton = dialogView.findViewById<Button>(R.id.custom_save_button)
+        val cancelButton = dialogView.findViewById<Button>(R.id.custom_cancel_button)
 
         // Header dello stato del server
         val serverStatusHeader = dialogView.findViewById<TextView>(R.id.server_status_header)
@@ -427,6 +453,21 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             if (tableNumber < 99) {
                 tableNumber++
                 tableNumberText.text = tableNumber.toString()
+            }
+        }
+
+        // Listener per i pulsanti di incremento/decremento del numero di giocatori
+        decreasePlayersButton.setOnClickListener {
+            if (playersCount > 1) {
+                playersCount--
+                playersNumberText.text = playersCount.toString()
+            }
+        }
+
+        increasePlayersButton.setOnClickListener {
+            if (playersCount < 10) {
+                playersCount++
+                playersNumberText.text = playersCount.toString()
             }
         }
 
@@ -518,12 +559,25 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             discoverServers(serverUrlInput)
         }
 
-        // Crea il dialogo con i listener temporaneamente a null
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setPositiveButton(R.string.save, null) // Impostato temporaneamente a null
-            .setNegativeButton(R.string.cancel, null) // Impostato temporaneamente a null
-            .create()
+        // Listener per il pulsante Salva
+        saveButton.setOnClickListener {
+            // Salva le impostazioni usando sempre la modalità 1 (l'unica disponibile ora)
+            viewModel.saveSettings(
+                timerT1 = t1Value,
+                timerT2 = t2Value,
+                operationMode = 1, // Manteniamo solo la modalità 1
+                buzzerEnabled = buzzerSwitch.isChecked,
+                tableNumber = tableNumber,
+                serverUrl = serverUrlInput.text.toString(),
+                playersCount = playersCount
+            )
+            dialog.dismiss()
+        }
+
+        // Listener per il pulsante Annulla
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
 
         // Osserva cambiamenti nello stato del timer mentre il dialogo è aperto
         val serverStatusObserver = Observer<PokerTimerState> { state ->
@@ -542,29 +596,8 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
 
         // Mostra il dialogo
         dialog.show()
-
-        // Ottieni i pulsanti e imposta il colore e i listener
-        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        positiveButton.setTextColor(ContextCompat.getColor(this, R.color.white))
-        positiveButton.setOnClickListener {
-            // Salva le impostazioni usando sempre la modalità 1 (l'unica disponibile ora)
-            viewModel.saveSettings(
-                timerT1 = t1Value,
-                timerT2 = t2Value,
-                operationMode = 1, // Manteniamo solo la modalità 1
-                buzzerEnabled = buzzerSwitch.isChecked,
-                tableNumber = tableNumber,
-                serverUrl = serverUrlInput.text.toString()
-            )
-            dialog.dismiss()
-        }
-
-        val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-        negativeButton.setTextColor(ContextCompat.getColor(this, R.color.white))
-        negativeButton.setOnClickListener {
-            dialog.dismiss()
-        }
     }
+
 
     private fun updateServerStatusHeader(headerView: TextView, isConnected: Boolean) {
         if (isConnected) {

@@ -15,10 +15,9 @@ data class PokerTimerState(
     val buzzerEnabled: Boolean = true, // Se i suoni sono abilitati
     val tableNumber: Int = 1,        // Numero del tavolo
     val serverUrl: String = "http://192.168.4.1", // URL del server
-    val isConnectedToServer: Boolean = false // Stato connessione
+    val isConnectedToServer: Boolean = false, // Stato connessione
+    val playersCount: Int = 10      // Numero di giocatori (default a 10)
 ) {
-    // Rimossi i metodi isT1OnlyMode e isAutoStartMode perché non sono più necessari
-    
     // Manteniamo questa costante per compatibilità con il codice esistente
     companion object {
         const val MODE_1 = 1

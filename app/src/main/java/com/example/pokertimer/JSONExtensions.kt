@@ -16,6 +16,9 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             // Estrai i dati dal JSON con gestione dei tipi e valori predefiniti
             val deviceId = timerJson.optString("device_id", key)
             val tableNumber = timerJson.optInt("table_number", 0)
+            val playersCount = timerJson.optInt("players_count", 10)
+            android.util.Log.d("JSONExtensions", "Parsing timer ${deviceId}: players_count=${playersCount}")
+
 
             // Gestione dei valori booleani che potrebbero essere 0/1 invece di true/false
             val isRunning = when (val runVal = timerJson.opt("is_running")) {
@@ -155,6 +158,9 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             }
 
             // Crea un oggetto TimerItem e aggiungilo alla lista
+
+            android.util.Log.d("JSONExtensions", "Creating TimerItem with playersCount=${playersCount}")
+
             val timerItem = TimerItem(
                 deviceId = deviceId,
                 tableNumber = tableNumber,
@@ -172,7 +178,8 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 ipAddress = ipAddress,
                 buzzerEnabled = buzzerEnabled,
                 pendingCommand = pendingCommand,
-                seatOpenInfo = seatOpenInfo
+                seatOpenInfo = seatOpenInfo,
+                playersCount = playersCount
             )
 
             // Log per debug se ci sono informazioni sui posti

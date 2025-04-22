@@ -24,6 +24,19 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Tavolo 1" />
 
+        <!-- Aggiunta TextView per il numero di giocatori -->
+        <TextView
+            android:id="@+id/playersCountText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="14sp"
+            android:textStyle="italic"
+            app:layout_constraintStart_toEndOf="@id/tableNumberText"
+            app:layout_constraintTop_toTopOf="@id/tableNumberText"
+            app:layout_constraintBottom_toBottomOf="@id/tableNumberText"
+            tools:text="• 10 giocatori" />
+
         <TextView
             android:id="@+id/timerStatusText"
             android:layout_width="wrap_content"

@@ -39,4 +39,7 @@
 
     <color name="colorError">@color/error_color</color>
     <color name="brown">#795548</color>
+
+    <color name="dialog_background">#2D2D2D</color>
+
 </resources>

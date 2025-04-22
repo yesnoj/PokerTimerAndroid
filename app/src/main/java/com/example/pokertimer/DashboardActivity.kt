@@ -1,5 +1,6 @@
 package com.example.pokertimer
 
+import android.app.Dialog
 import android.graphics.Color
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -44,6 +45,9 @@ import android.net.Uri
 import androidx.core.app.NotificationCompat
 import android.app.Notification
 import android.graphics.PorterDuff
+import android.graphics.drawable.ColorDrawable
+import android.view.Window
+import android.view.WindowManager
 import android.widget.Switch
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
@@ -951,15 +955,21 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private fun showTimerSettingsDialog(timer: TimerItem) {
         // Crea un dialogo personalizzato con il layout delle impostazioni
         val dialogView = layoutInflater.inflate(R.layout.dialog_timer_settings, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Assicura che il dialogo occupi la maggior parte della larghezza dello schermo
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        layoutParams.width = WindowManager.LayoutParams.MATCH_PARENT
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        dialog.window?.attributes = layoutParams
 
         // Imposta il titolo con il numero del tavolo
         val titleText = dialogView.findViewById<TextView>(R.id.dialogTitleText)
-        titleText.text = "Impostazioni Timer";
-
+        titleText.text = "Impostazioni Timer - Tavolo ${timer.tableNumber}"
 
         val t1ValueText = dialogView.findViewById<TextView>(R.id.t1ValueText)
         val t2ValueText = dialogView.findViewById<TextView>(R.id.t2ValueText)
@@ -969,6 +979,11 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val decreaseTableButton = dialogView.findViewById<Button>(R.id.decreaseTableButton)
         val increaseTableButton = dialogView.findViewById<Button>(R.id.increaseTableButton)
 
+        // Controlli per il numero giocatori
+        val playersNumberText = dialogView.findViewById<TextView>(R.id.playersNumberText)
+        val decreasePlayersButton = dialogView.findViewById<Button>(R.id.decreasePlayersButton)
+        val increasePlayersButton = dialogView.findViewById<Button>(R.id.increasePlayersButton)
+
         val buzzerSwitch = dialogView.findViewById<Switch>(R.id.buzzerSwitch)
 
         val decreaseT1Button = dialogView.findViewById<Button>(R.id.decreaseT1Button)
@@ -976,8 +991,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val decreaseT2Button = dialogView.findViewById<Button>(R.id.decreaseT2Button)
         val increaseT2Button = dialogView.findViewById<Button>(R.id.increaseT2Button)
 
+        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+        val saveButton = dialogView.findViewById<Button>(R.id.saveSettingsButton)
         val resetDefaultsButton = dialogView.findViewById<Button>(R.id.resetDefaultsButton)
-        val saveSettingsButton = dialogView.findViewById<Button>(R.id.saveSettingsButton)
 
         // Valori correnti delle impostazioni
         var currentMode = 1  // Fissiamo il valore a 1 dato che c'è solo una modalità ora
@@ -985,14 +1001,15 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         var currentT2 = timer.timerT2
         var currentBuzzer = timer.buzzerEnabled
         var currentTableNumber = timer.tableNumber
+        // Ottieni il numero di giocatori o usa un valore predefinito se non disponibile
+        var currentPlayersCount = timer.playersCount ?: 10
 
-
+        // Imposta i valori iniziali nei controlli
         t1ValueText.text = currentT1.toString()
         t2ValueText.text = currentT2.toString()
         tableNumberText.text = currentTableNumber.toString()
+        playersNumberText.text = currentPlayersCount.toString()
         buzzerSwitch.isChecked = currentBuzzer
-
-
 
         // Listener per i pulsanti T1
         decreaseT1Button.setOnClickListener {
@@ -1039,9 +1056,29 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
 
+        // Listener per i pulsanti del numero giocatori
+        decreasePlayersButton.setOnClickListener {
+            if (currentPlayersCount > 1) {
+                currentPlayersCount--
+                playersNumberText.text = currentPlayersCount.toString()
+            }
+        }
+
+        increasePlayersButton.setOnClickListener {
+            if (currentPlayersCount < 10) {
+                currentPlayersCount++
+                playersNumberText.text = currentPlayersCount.toString()
+            }
+        }
+
         // Listener per il buzzer
         buzzerSwitch.setOnCheckedChangeListener { _, isChecked ->
             currentBuzzer = isChecked
+        }
+
+        // Listener per il pulsante Annulla
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
         }
 
         // Listener per il pulsante di factory reset
@@ -1049,7 +1086,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             // Conferma con un dialog
             AlertDialog.Builder(this)
                 .setTitle("Factory Reset")
-                .setMessage("Sei sicuro di voler ripristinare tutte le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0")
+                .setMessage("Sei sicuro di voler ripristinare tutte le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0\n- Giocatori = 10")
                 .setPositiveButton("Factory Reset") { _, _ ->
                     // Ripristina i valori predefiniti
                     val defaultMode = 1
@@ -1057,6 +1094,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     val defaultT2 = 30
                     val defaultBuzzer = true
                     val defaultTableNumber = 0
+                    val defaultPlayersCount = 10
 
                     // Ferma l'aggiornamento automatico temporaneamente
                     stopAutoRefresh()
@@ -1069,6 +1107,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                         defaultT2,
                         defaultBuzzer,
                         defaultTableNumber,
+                        defaultPlayersCount,
                         forceFactoryReset = true
                     )
 
@@ -1084,7 +1123,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                                 timerT1 = defaultT1,
                                 timerT2 = defaultT2,
                                 buzzerEnabled = defaultBuzzer,
-                                tableNumber = defaultTableNumber
+                                tableNumber = defaultTableNumber,
+                                playersCount = defaultPlayersCount
                             )
                         }
                     }
@@ -1108,9 +1148,17 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         }
 
         // Listener per il pulsante di salvataggio
-        saveSettingsButton.setOnClickListener {
+        saveButton.setOnClickListener {
             // Salva e applica le impostazioni
-            applyTimerSettings(timer.deviceId, currentMode, currentT1, currentT2, currentBuzzer, currentTableNumber)
+            applyTimerSettings(
+                timer.deviceId,
+                currentMode,
+                currentT1,
+                currentT2,
+                currentBuzzer,
+                currentTableNumber,
+                currentPlayersCount
+            )
 
             // Chiudi il dialogo
             dialog.dismiss()
@@ -1119,6 +1167,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         // Mostra il dialogo
         dialog.show()
     }
+
+
     /**
      * Aggiorna la visibilità del container T2 in base alla modalità
      */
@@ -1129,7 +1179,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
     /**
      * Applica le impostazioni al timer e invia al server
-     * @param forceFactoryReset Se true, forza l'applicazione delle impostazioni e disabilita l'aggiornamento automatico
      */
     private fun applyTimerSettings(
         deviceId: String,
@@ -1138,6 +1187,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         t2: Int,
         buzzerEnabled: Boolean,
         tableNumber: Int? = null,
+        playersCount: Int = 10,  // Assicurati che questo parametro sia presente
         forceFactoryReset: Boolean = false
     ) {
         // URL per le impostazioni
@@ -1153,6 +1203,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             put("t2", t2)
             put("tableNumber", finalTableNumber)
             put("buzzer", if (buzzerEnabled) 1 else 0)
+            put("playersCount", playersCount)  // Aggiungi questo
         }
 
         // Log per debugging
@@ -1174,6 +1225,26 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                         if (forceFactoryReset) "Factory Reset completato" else "Impostazioni salvate con successo",
                         Toast.LENGTH_SHORT
                     ).show()
+
+                    val updatedTimer = allTimerList.find { it.deviceId == deviceId }
+                    updatedTimer?.let {
+                        val index = allTimerList.indexOf(it)
+                        if (index >= 0) {
+                            val newTimer = it.copy(
+                                operationMode = mode,
+                                timerT1 = t1,
+                                timerT2 = t2,
+                                buzzerEnabled = buzzerEnabled,
+                                tableNumber = finalTableNumber,
+                                playersCount = playersCount
+                            )
+                            android.util.Log.d("DashboardActivity", "Updating timer locally: playersCount=${newTimer.playersCount}")
+                            allTimerList[index] = newTimer
+                        }
+                    }
+
+                    // Aggiorna la lista filtrata
+                    updateFilteredList()
 
                     // Aggiorna i dati, ma solo se non è un factory reset (per evitare che venga sovrascritto)
                     if (!forceFactoryReset) {
