@@ -40,6 +40,11 @@ class NetworkManager(private val context: Context) {
      * Invia lo stato del timer al server e riceve eventuali comandi
      * @return Coppia (successo, comando)
      */
+
+    /**
+     * Invia lo stato del timer al server e riceve eventuali comandi
+     * @return Coppia (successo, comando)
+     */
     suspend fun sendTimerStatus(serverUrl: String, timerState: PokerTimerState): Pair<Boolean, Command?> {
         return withContext(Dispatchers.IO) {
             try {
@@ -56,21 +61,21 @@ class NetworkManager(private val context: Context) {
                 android.util.Log.d("NetworkManager", "Using device ID: $deviceId")
 
                 val jsonPayload = """
-                {
-                    "device_id": "$deviceId",
-                    "table_number": ${timerState.tableNumber},
-                    "is_running": ${timerState.isRunning},
-                    "is_paused": ${timerState.isPaused},
-                    "current_timer": ${timerState.currentTimer},
-                    "time_expired": ${timerState.isExpired},
-                    "mode": ${timerState.operationMode},
-                    "t1_value": ${timerState.timerT1},
-                    "t2_value": ${timerState.timerT2},
-                    "battery_level": 100,
-                    "voltage": 5.0,
-                    "players_count": ${timerState.playersCount}
-                }
-                """.trimIndent()
+            {
+                "device_id": "$deviceId",
+                "table_number": ${timerState.tableNumber},
+                "is_running": ${timerState.isRunning},
+                "is_paused": ${timerState.isPaused},
+                "current_timer": ${timerState.currentTimer},
+                "time_expired": ${timerState.isExpired},
+                "mode": ${timerState.operationMode},
+                "t1_value": ${timerState.timerT1},
+                "t2_value": ${timerState.timerT2},
+                "battery_level": 100,
+                "voltage": 5.0,
+                "players_count": ${timerState.playersCount}
+            }
+            """.trimIndent()
 
                 android.util.Log.d("NetworkManager", "Sending payload: $jsonPayload")
 
@@ -113,6 +118,9 @@ class NetworkManager(private val context: Context) {
                                         val mode = settings.mode ?: timerState.operationMode
                                         val tableNumber = settings.tableNumber ?: timerState.tableNumber
 
+                                        // Controlla se è presente il parametro playersCount nelle impostazioni
+                                        val playersCount = settings.playersCount ?: timerState.playersCount
+
                                         // Gestione migliorata del buzzer
                                         val buzzerEnabled = when {
                                             settings.buzzer == null -> timerState.buzzerEnabled
@@ -133,9 +141,10 @@ class NetworkManager(private val context: Context) {
                                         }
 
                                         android.util.Log.d("NetworkManager", "Buzzer setting: ${settings.buzzer} (${settings.buzzer?.javaClass?.simpleName}), parsed as: $buzzerEnabled")
+                                        android.util.Log.d("NetworkManager", "Players count: $playersCount")
 
                                         return@withContext Pair(true, Command.SETTINGS(
-                                            t1, t2, mode, tableNumber, buzzerEnabled
+                                            t1, t2, mode, tableNumber, buzzerEnabled, playersCount
                                         ))
                                     }
                                 }
@@ -156,6 +165,7 @@ class NetworkManager(private val context: Context) {
             }
         }
     }
+
     // Classe per rappresentare la risposta del server
     data class ServerResponse(
         val status: String,
@@ -169,7 +179,8 @@ class NetworkManager(private val context: Context) {
         val t2: Int? = null,
         val mode: Int? = null,
         val tableNumber: Int? = null,
-        val buzzer: Any? = null  // Cambiato da Boolean? a Any? per gestire sia Int che Boolean
+        val buzzer: Any? = null,
+        val playersCount: Int? = null
     )
 
     // Enum per rappresentare i comandi
@@ -182,7 +193,8 @@ class NetworkManager(private val context: Context) {
             val t2: Int,
             val mode: Int,
             val tableNumber: Int,
-            val buzzerEnabled: Boolean
+            val buzzerEnabled: Boolean,
+            val playersCount: Int = 10 // Aggiungi parametro playersCount con default 10
         ) : Command()
         data class SEAT_OPEN(val seats: String) : Command()
         object CLEAR_SEATS : Command()

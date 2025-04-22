@@ -421,7 +421,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                                 operationMode = command.mode,
                                 buzzerEnabled = command.buzzerEnabled,
                                 tableNumber = command.tableNumber,
-                                serverUrl = currentState.serverUrl
+                                serverUrl = currentState.serverUrl,
+                                playersCount = command.playersCount
                             )
                         }
                         // Gestisci il comando CLEAR_SEATS
