@@ -722,12 +722,25 @@
       updateDashboard();
     }
 
+    // Funzione per combinare i posti esistenti con quelli nuovi
+    function combineSeats(existingSeats, newSeats) {
+      // Se non ci sono posti esistenti, usa solo i nuovi
+      if (!existingSeats || existingSeats.length === 0) return newSeats;
+      
+      // Se non ci sono posti nuovi, usa solo quelli esistenti
+      if (!newSeats || newSeats.length === 0) return existingSeats;
+      
+      // Combina i due array ed elimina i duplicati
+      const combinedSeats = [...existingSeats, ...newSeats];
+      return [...new Set(combinedSeats)].sort((a, b) => a - b);
+    }
 
     let timers = {};
     let autoRefreshInterval;
     const autoRefreshCheckbox = document.getElementById('auto-refresh');
     let factoryResetDeviceId = null;
     let currentDetailDeviceId = null;
+    let shownNotifications = [];
     
     // Funzione per aggiornare lo stato dell'auto-refresh
     autoRefreshCheckbox.addEventListener('change', function() {
@@ -756,7 +769,51 @@
       fetch('/api/timers')
         .then(response => response.json())
         .then(data => {
-          timers = data;
+          // Elabora i dati dei timer
+          const processedData = {};
+          
+          Object.entries(data).forEach(([deviceId, newTimer]) => {
+            const existingTimer = timers[deviceId];
+            
+            // Se questo timer esiste già e ha informazioni sui posti
+            if (existingTimer && existingTimer.seat_info && 
+                existingTimer.seat_info.open_seats && 
+                existingTimer.seat_info.open_seats.length > 0) {
+              
+              // Se il nuovo timer ha anche informazioni sui posti
+              if (newTimer.seat_info && newTimer.seat_info.open_seats && 
+                  newTimer.seat_info.open_seats.length > 0) {
+                
+                // Combina i posti esistenti con quelli nuovi
+                const combinedSeats = combineSeats(
+                  existingTimer.seat_info.open_seats,
+                  newTimer.seat_info.open_seats
+                );
+                
+                // Aggiorna il nuovo timer con i posti combinati
+                newTimer.seat_info.open_seats = combinedSeats;
+                
+                // Preserva il flag di notifica se è necessario
+                if (!existingTimer.seat_info.needs_web_notification && newTimer.seat_info.needs_web_notification) {
+                  // Preserva il flag di notifica dal nuovo timer
+                } else {
+                  // Altrimenti usa quello esistente
+                  newTimer.seat_info.needs_web_notification = existingTimer.seat_info.needs_web_notification;
+                }
+              } else {
+                // Se il nuovo timer non ha posti ma l'esistente sì,
+                // mantieni le informazioni esistenti
+                newTimer.seat_info = {
+                  ...existingTimer.seat_info
+                };
+              }
+            }
+            
+            processedData[deviceId] = newTimer;
+          });
+          
+          // Aggiorna la collezione di timer
+          timers = processedData;
           updateDashboard();
           updateDetailModalIfOpen();
         })
@@ -767,215 +824,213 @@
         });
     }
     
-// Aggiungi questa variabile all'inizio dello script, fuori dalle funzioni
-let shownNotifications = [];
+    function updateDashboard() {
+      console.log('Updating dashboard with timers:', timers);
 
-function updateDashboard() {
-  console.log('Updating dashboard with timers:', timers);
-
-  const container = document.getElementById('timer-container');
-  
-  // Prima filtra i timer nascosti
-  let timerValues = Object.entries(timers)
-    .filter(([deviceId]) => !hiddenTimers.includes(deviceId))
-    .map(([, timer]) => timer);
-  
-  // Applica il filtro corrente (all/online/offline)
-  if (currentFilter === 'online') {
-    timerValues = timerValues.filter(timer => isTimerOnline(timer));
-  } else if (currentFilter === 'offline') {
-    timerValues = timerValues.filter(timer => !isTimerOnline(timer));
-  }
-  
-  // Aggiorna il contatore dei timer filtrati visibili
-  document.getElementById('timer-count').textContent = `${timerValues.length} timer visualizzati`;
- 
-  
-  if (timerValues.length === 0) {
-    container.innerHTML = `
-      <div class="no-timers">
-        <p>No timers connected</p>
-        <p>Make sure your Poker Timers are connected to WiFi and properly configured.</p>
-        ${hiddenTimers.length > 0 ? `<button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>` : ''}
-      </div>
-    `;
-    
-    // Aggiungi event listener per il pulsante "Show all"
-    if (hiddenTimers.length > 0) {
-      setTimeout(() => {
-        document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
-      }, 0);
-    }
-    return;
-  }
-  
-  // Ordina per numero tavolo
-  const sortedTimers = timerValues.sort((a, b) => a.table_number - b.table_number);
-  
-  // Genera le card
-  container.innerHTML = '';
-  
-  // Aggiungi il pulsante "Show All" se ci sono timer nascosti
-  if (hiddenTimers.length > 0) {
-    const showAllDiv = document.createElement('div');
-    showAllDiv.className = 'show-all-container';
-    showAllDiv.innerHTML = `
-      <button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>
-    `;
-    container.appendChild(showAllDiv);
-  }
-  
-  // Array per tenere traccia dei timer con notifiche da mostrare
-  const timersWithNotifications = [];
-  
-  // Genera le card per ciascun timer
-  sortedTimers.forEach(timer => {
-    // Verifica se il timer è online (ultimi 10 secondi)
-    const lastUpdate = new Date(timer.last_update);
-    const now = new Date();
-    const isOnline = (now - lastUpdate) < 10000; // 10 secondi
-    
-    // Determina lo stato del timer
-    let statusClass = 'status-stopped';
-    let statusText = 'Stopped';
-    
-    if (timer.is_running && !timer.is_paused) {
-      statusClass = 'status-running';
-      statusText = 'Running';
-    } else if (timer.is_paused) {
-      statusClass = 'status-paused';
-      statusText = 'Paused';
-    }
-    
-    // Determina lo stato della batteria
-    const batteryClass = timer.battery_level < 20 ? 'battery-low' : 'battery-ok';
-    
-    // Formatta l'ora dell'ultimo aggiornamento
-    const formattedLastUpdate = formatDate(lastUpdate);
-    
-    const card = document.createElement('div');
-    card.className = 'timer-card';
-    card.setAttribute('data-device-id', timer.device_id);
-    card.onclick = function() { openTimerDetailModal(timer.device_id); };
-    
-    // Aggiungi la X per rimuovere solo se il timer è offline
-    const removeButton = !isOnline ? `
-      <button class="remove-timer-btn" onclick="hideTimer('${timer.device_id}'); event.stopPropagation();">
-        ×
-      </button>
-    ` : '';
-    
-    // Determina se ci sono informazioni sui posti liberi da mostrare
-    // Sostituisci con questo nuovo codice
-    let seatInfoHTML = '';
-    if (timer.seat_info && timer.seat_info.open_seats && timer.seat_info.open_seats.length > 0) {
-      const formattedSeats = timer.seat_info.open_seats.join(', ');
-      seatInfoHTML = `
-        <div class="seat-info" onclick="resetSeatInfo('${timer.device_id}', ${timer.table_number}, '${formattedSeats}'); event.stopPropagation();" 
-             style="margin-top: 8px; margin-bottom: 15px; display: inline-block; padding: 4px 8px; background-color: #fde68a; color: #854d0e; border-radius: 4px; font-weight: bold; cursor: pointer;">
-          SEAT OPEN: ${formattedSeats}
-        </div>
-      `;
+      const container = document.getElementById('timer-container');
       
-      // Se il timer ha una notifica di posti da mostrare, aggiungerlo alla lista
-      if (timer.seat_info.needs_web_notification) {
-        timersWithNotifications.push(timer);
-      }
-    }
-    
-    card.innerHTML = `
-      <div class="timer-header">
-        <h2 class="timer-title">Table ${timer.table_number}</h2>
-        <span class="timer-status ${statusClass}">${statusText}</span>
-        ${removeButton}
-      </div>
+      // Prima filtra i timer nascosti
+      let timerValues = Object.entries(timers)
+        .filter(([deviceId]) => !hiddenTimers.includes(deviceId))
+        .map(([, timer]) => timer);
       
-      <div class="timer-time">
-        ${timer.current_timer} seconds
-      </div>
-      
-      ${seatInfoHTML}
-      
-      <div class="timer-info">
-        <span class="info-item">Mode: ${timer.mode}</span>
-        <span class="info-item">T1: ${timer.t1_value}s</span>
-        <span class="info-item">T2: ${timer.t2_value}s</span>
-        <span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>
-        <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-        <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
-        <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
-      </div>
-      
-      <div class="button-group">
-        <button onclick="sendCommand('${timer.device_id}', 'start'); event.stopPropagation();" 
-                ${(timer.is_running && !timer.is_paused) ? 'disabled' : ''}>
-          Start
-        </button>
-        <button onclick="sendCommand('${timer.device_id}', 'pause'); event.stopPropagation();"
-                ${(!timer.is_running || timer.is_paused) ? 'disabled' : ''}>
-          Pause
-        </button>
-      </div>
-      
-      <div class="last-update">
-        <span class="${isOnline ? 'online-marker' : 'offline-marker'}"></span>
-        ${isOnline ? 'Online' : 'Offline'} | Last update: ${formattedLastUpdate}
-      </div>
-    `;
-    
-    container.appendChild(card);
-  });
-  
-  // Mostra notifiche per i timer che lo richiedono (una alla volta)
-  if (timersWithNotifications.length > 0) {
-    // Prendi il primo timer con notifica
-    const timerWithNotification = timersWithNotifications[0];
-    
-    // Crea un ID unico per questa notifica
-    const notificationId = `${timerWithNotification.device_id}_${timerWithNotification.seat_info.timestamp}`;
-    
-    // Verifica se questa notifica è già stata mostrata
-    if (!shownNotifications.includes(notificationId)) {
-      // Aggiungi alla lista delle notifiche mostrate
-      shownNotifications.push(notificationId);
-      
-      // Limita la dimensione dell'array (opzionale)
-      if (shownNotifications.length > 100) {
-        shownNotifications.shift(); // Rimuove l'elemento più vecchio
+      // Applica il filtro corrente (all/online/offline)
+      if (currentFilter === 'online') {
+        timerValues = timerValues.filter(timer => isTimerOnline(timer));
+      } else if (currentFilter === 'offline') {
+        timerValues = timerValues.filter(timer => !isTimerOnline(timer));
       }
       
-      const formattedSeats = timerWithNotification.seat_info.open_seats.join(', ');
+      // Aggiorna il contatore dei timer filtrati visibili
+      document.getElementById('timer-count').textContent = `${timerValues.length} timer visualizzati`;
+     
       
-      // Rimuovi immediatamente il flag dalla copia locale
-      if (timers[timerWithNotification.device_id] && 
-          timers[timerWithNotification.device_id].seat_info) {
-        timers[timerWithNotification.device_id].seat_info.needs_web_notification = false;
-      }
-      
-      // Mostra l'alert con un piccolo ritardo
-      setTimeout(() => {
-        alert(`Richiesta Posti Liberi\nTavolo ${timerWithNotification.table_number} - SEAT OPEN\nPosti: ${formattedSeats}`);
+      if (timerValues.length === 0) {
+        container.innerHTML = `
+          <div class="no-timers">
+            <p>No timers connected</p>
+            <p>Make sure your Poker Timers are connected to WiFi and properly configured.</p>
+            ${hiddenTimers.length > 0 ? `<button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>` : ''}
+          </div>
+        `;
         
-        // Invia la conferma al server
-        fetch(`/api/acknowledge_seat_notification/${timerWithNotification.device_id}`, {
-          method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Notification acknowledged on server:', data);
-        })
-        .catch(error => console.error('Error acknowledging notification:', error));
-      }, 300);
+        // Aggiungi event listener per il pulsante "Show all"
+        if (hiddenTimers.length > 0) {
+          setTimeout(() => {
+            document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
+          }, 0);
+        }
+        return;
+      }
+      
+      // Ordina per numero tavolo
+      const sortedTimers = timerValues.sort((a, b) => a.table_number - b.table_number);
+      
+      // Genera le card
+      container.innerHTML = '';
+      
+      // Aggiungi il pulsante "Show All" se ci sono timer nascosti
+      if (hiddenTimers.length > 0) {
+        const showAllDiv = document.createElement('div');
+        showAllDiv.className = 'show-all-container';
+        showAllDiv.innerHTML = `
+          <button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>
+        `;
+        container.appendChild(showAllDiv);
+      }
+      
+      // Array per tenere traccia dei timer con notifiche da mostrare
+      const timersWithNotifications = [];
+      
+      // Genera le card per ciascun timer
+      sortedTimers.forEach(timer => {
+        // Verifica se il timer è online (ultimi 10 secondi)
+        const lastUpdate = new Date(timer.last_update);
+        const now = new Date();
+        const isOnline = (now - lastUpdate) < 10000; // 10 secondi
+        
+        // Determina lo stato del timer
+        let statusClass = 'status-stopped';
+        let statusText = 'Stopped';
+        
+        if (timer.is_running && !timer.is_paused) {
+          statusClass = 'status-running';
+          statusText = 'Running';
+        } else if (timer.is_paused) {
+          statusClass = 'status-paused';
+          statusText = 'Paused';
+        }
+        
+        // Determina lo stato della batteria
+        const batteryClass = timer.battery_level < 20 ? 'battery-low' : 'battery-ok';
+        
+        // Formatta l'ora dell'ultimo aggiornamento
+        const formattedLastUpdate = formatDate(lastUpdate);
+        
+        const card = document.createElement('div');
+        card.className = 'timer-card';
+        card.setAttribute('data-device-id', timer.device_id);
+        card.onclick = function() { openTimerDetailModal(timer.device_id); };
+        
+        // Aggiungi la X per rimuovere solo se il timer è offline
+        const removeButton = !isOnline ? `
+          <button class="remove-timer-btn" onclick="hideTimer('${timer.device_id}'); event.stopPropagation();">
+            ×
+          </button>
+        ` : '';
+        
+        // Determina se ci sono informazioni sui posti liberi da mostrare
+        let seatInfoHTML = '';
+        if (timer.seat_info && timer.seat_info.open_seats && timer.seat_info.open_seats.length > 0) {
+          // Converti l'array in una stringa di posti (1, 2, 3, ...)
+          const formattedSeats = timer.seat_info.open_seats.join(', ');
+          
+          seatInfoHTML = `
+            <div class="seat-info" onclick="resetSeatInfo('${timer.device_id}', ${timer.table_number}, '${formattedSeats}'); event.stopPropagation();" 
+                 style="margin-top: 8px; margin-bottom: 15px; display: inline-block; padding: 4px 8px; background-color: #fde68a; color: #854d0e; border-radius: 4px; font-weight: bold; cursor: pointer;">
+              SEAT OPEN: ${formattedSeats}
+            </div>
+          `;
+          
+          // Se il timer ha una notifica di posti da mostrare, aggiungerlo alla lista
+          if (timer.seat_info.needs_web_notification) {
+            timersWithNotifications.push(timer);
+          }
+        }
+        
+        card.innerHTML = `
+          <div class="timer-header">
+            <h2 class="timer-title">Table ${timer.table_number}</h2>
+            <span class="timer-status ${statusClass}">${statusText}</span>
+            ${removeButton}
+          </div>
+          
+          <div class="timer-time">
+            ${timer.current_timer} seconds
+          </div>
+          
+          ${seatInfoHTML}
+          
+          <div class="timer-info">
+            <span class="info-item">Mode: ${timer.mode}</span>
+            <span class="info-item">T1: ${timer.t1_value}s</span>
+            <span class="info-item">T2: ${timer.t2_value}s</span>
+            <span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>
+            <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
+            <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
+            <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
+          </div>
+          
+          <div class="button-group">
+            <button onclick="sendCommand('${timer.device_id}', 'start'); event.stopPropagation();" 
+                    ${(timer.is_running && !timer.is_paused) ? 'disabled' : ''}>
+              Start
+            </button>
+            <button onclick="sendCommand('${timer.device_id}', 'pause'); event.stopPropagation();"
+                    ${(!timer.is_running || timer.is_paused) ? 'disabled' : ''}>
+              Pause
+            </button>
+          </div>
+          
+          <div class="last-update">
+            <span class="${isOnline ? 'online-marker' : 'offline-marker'}"></span>
+            ${isOnline ? 'Online' : 'Offline'} | Last update: ${formattedLastUpdate}
+          </div>
+        `;
+        
+        container.appendChild(card);
+      });
+      
+      // Mostra notifiche per i timer che lo richiedono (una alla volta)
+      if (timersWithNotifications.length > 0) {
+        // Prendi il primo timer con notifica
+        const timerWithNotification = timersWithNotifications[0];
+        
+        // Crea un ID unico per questa notifica
+        const notificationId = `${timerWithNotification.device_id}_${timerWithNotification.seat_info.timestamp}`;
+        
+        // Verifica se questa notifica è già stata mostrata
+        if (!shownNotifications.includes(notificationId)) {
+          // Aggiungi alla lista delle notifiche mostrate
+          shownNotifications.push(notificationId);
+          
+          // Limita la dimensione dell'array (opzionale)
+          if (shownNotifications.length > 100) {
+            shownNotifications.shift(); // Rimuove l'elemento più vecchio
+          }
+          
+          const formattedSeats = timerWithNotification.seat_info.open_seats.join(', ');
+          
+          // Rimuovi immediatamente il flag dalla copia locale
+          if (timers[timerWithNotification.device_id] && 
+              timers[timerWithNotification.device_id].seat_info) {
+            timers[timerWithNotification.device_id].seat_info.needs_web_notification = false;
+          }
+          
+          // Mostra l'alert con un piccolo ritardo
+          setTimeout(() => {
+            alert(`Richiesta Posti Liberi\nTavolo ${timerWithNotification.table_number} - SEAT OPEN\nPosti: ${formattedSeats}`);
+            
+            // Invia la conferma al server
+            fetch(`/api/acknowledge_seat_notification/${timerWithNotification.device_id}`, {
+              method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Notification acknowledged on server:', data);
+            })
+            .catch(error => console.error('Error acknowledging notification:', error));
+          }, 300);
+        }
+      }
+      
+      // Aggiungi event listener per il pulsante "Show all"
+      if (hiddenTimers.length > 0) {
+        setTimeout(() => {
+          document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
+        }, 0);
+      }
     }
-  }
-  
-  // Aggiungi event listener per il pulsante "Show all"
-  if (hiddenTimers.length > 0) {
-    setTimeout(() => {
-      document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
-    }, 0);
-  }
-}
     
     function formatDate(date) {
       const hours = date.getHours().toString().padStart(2, '0');
@@ -1378,7 +1433,8 @@ function updateDashboard() {
           console.log('Seat info reset successfully:', data);
           
           // Aggiorna immediatamente lo stato del timer locale
-          if (timers[deviceId] && timers[deviceId].seat_info) {
+          if (timers[deviceId]) {
+            // Rimuovi completamente la proprietà seat_info invece di solo svuotarla
             delete timers[deviceId].seat_info;
           }
           
@@ -1394,7 +1450,6 @@ function updateDashboard() {
         });
       }
     }
-
     
     // Gestione della chiusura dei modali cliccando fuori
     window.onclick = function(event) {
