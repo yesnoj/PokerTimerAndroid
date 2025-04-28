@@ -343,25 +343,51 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                 return@setOnClickListener
             }
 
-            // Crea l'oggetto richiesta
-            val seatRequest = PlayerSeatRequest(tableNumber, selectedPlayerSeats)
+            // Log per debug
+            Log.d("MainActivity", "Invio posti selezionati: $selectedPlayerSeats")
 
-            // Invia la richiesta al server
-            sendSeatRequestToServer(seatRequest)
+            // Crea l'oggetto richiesta - fai una copia della lista per sicurezza
+            val seatsList = ArrayList(selectedPlayerSeats) // crea una copia sicura
+            val seatRequest = PlayerSeatRequest(tableNumber, seatsList)
 
-            // Salva una copia vuota nel ViewModel per deselezionare tutti i posti
-            viewModel.saveSelectedSeats(emptyList())
+            // Mostra un dialogo di caricamento
+            val progressDialog = ProgressDialog(this).apply {
+                setMessage("Invio richiesta posti in corso...")
+                setCancelable(false)
+                show()
+            }
 
-            // Svuota la lista locale
-            selectedPlayerSeats.clear()
+            // Utilizza una coroutine per la chiamata di rete
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    val networkManager = NetworkManager(applicationContext)
 
-            // Chiudi il dialogo
-            dialog.dismiss()
+                    // Invia la richiesta usando il NetworkManager
+                    val success = networkManager.sendSeatRequest(currentState?.serverUrl ?: "", seatRequest)
 
-            // Mostra una conferma all'utente
-            Toast.makeText(this, "Posti inviati e deselezionati", Toast.LENGTH_SHORT).show()
+                    // Nascondi il dialogo di caricamento
+                    progressDialog.dismiss()
+
+                    // Gestisci la risposta
+                    if (success) {
+                        // Solo ora svuota la lista e chiudi il dialogo
+                        selectedPlayerSeats.clear()
+                        viewModel.saveSelectedSeats(emptyList())
+                        dialog.dismiss()
+
+                        Toast.makeText(applicationContext, "Posti inviati con successo", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(applicationContext, "Errore nell'invio della richiesta", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    // Nascondi il dialogo di caricamento in caso di errore
+                    progressDialog.dismiss()
+
+                    Log.e("MainActivity", "Errore nell'invio dei posti: ${e.message}", e)
+                    Toast.makeText(applicationContext, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-
         cancelButton.setOnClickListener {
             // Ripristina la lista originale
             selectedPlayerSeats.clear()
