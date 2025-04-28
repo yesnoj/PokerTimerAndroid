@@ -730,9 +730,10 @@
       // Se non ci sono posti nuovi, usa solo quelli esistenti
       if (!newSeats || newSeats.length === 0) return existingSeats;
       
-      // Combina i due array ed elimina i duplicati
-      const combinedSeats = [...existingSeats, ...newSeats];
-      return [...new Set(combinedSeats)].sort((a, b) => a - b);
+      // Combina i due array, mantiene l'ordine ma elimina i duplicati
+      // Prima converte in Set per eliminare i duplicati, poi riconverte in array
+      const combinedSeatsSet = new Set([...existingSeats, ...newSeats]);
+      return Array.from(combinedSeatsSet);
     }
 
     let timers = {};
@@ -765,65 +766,74 @@
       startAutoRefresh();
     }
     
-    function fetchTimerData() {
-      fetch('/api/timers')
-        .then(response => response.json())
-        .then(data => {
-          // Elabora i dati dei timer
-          const processedData = {};
+function fetchTimerData() {
+  fetch('/api/timers')
+    .then(response => response.json())
+    .then(data => {
+      // Crea una copia dei dati originali prima di modificarli
+      const processedData = {};
+      
+      // Prima passa attraverso i dati per combinare i posti liberi
+      Object.entries(data).forEach(([deviceId, newTimer]) => {
+        const existingTimer = timers[deviceId];
+        
+        // Deep clone del nuovo timer per evitare modifiche in posizioni indesiderate
+        const processedTimer = JSON.parse(JSON.stringify(newTimer));
+        
+        // Se il timer esistente ha informazioni sui posti
+        if (existingTimer && existingTimer.seat_info && 
+            existingTimer.seat_info.open_seats && 
+            existingTimer.seat_info.open_seats.length > 0) {
           
-          Object.entries(data).forEach(([deviceId, newTimer]) => {
-            const existingTimer = timers[deviceId];
-            
-            // Se questo timer esiste già e ha informazioni sui posti
-            if (existingTimer && existingTimer.seat_info && 
-                existingTimer.seat_info.open_seats && 
-                existingTimer.seat_info.open_seats.length > 0) {
-              
-              // Se il nuovo timer ha anche informazioni sui posti
-              if (newTimer.seat_info && newTimer.seat_info.open_seats && 
-                  newTimer.seat_info.open_seats.length > 0) {
-                
-                // Combina i posti esistenti con quelli nuovi
-                const combinedSeats = combineSeats(
-                  existingTimer.seat_info.open_seats,
-                  newTimer.seat_info.open_seats
-                );
-                
-                // Aggiorna il nuovo timer con i posti combinati
-                newTimer.seat_info.open_seats = combinedSeats;
-                
-                // Preserva il flag di notifica se è necessario
-                if (!existingTimer.seat_info.needs_web_notification && newTimer.seat_info.needs_web_notification) {
-                  // Preserva il flag di notifica dal nuovo timer
-                } else {
-                  // Altrimenti usa quello esistente
-                  newTimer.seat_info.needs_web_notification = existingTimer.seat_info.needs_web_notification;
-                }
-              } else {
-                // Se il nuovo timer non ha posti ma l'esistente sì,
-                // mantieni le informazioni esistenti
-                newTimer.seat_info = {
-                  ...existingTimer.seat_info
-                };
-              }
-            }
-            
-            processedData[deviceId] = newTimer;
-          });
+          // Inizializza seat_info nel timer processato se non esiste
+          if (!processedTimer.seat_info) {
+            processedTimer.seat_info = { open_seats: [] };
+          } else if (!processedTimer.seat_info.open_seats) {
+            processedTimer.seat_info.open_seats = [];
+          }
           
-          // Aggiorna la collezione di timer
-          timers = processedData;
-          updateDashboard();
-          updateDetailModalIfOpen();
-        })
-        .catch(error => {
-          console.error('Error fetching timer data:', error);
-          document.getElementById('timer-container').innerHTML = 
-            '<div class="no-timers"><p>Error connecting to server</p><p>Please check if the server is running.</p></div>';
-        });
-    }
-    
+          // Combina sempre i posti esistenti con quelli nuovi
+          const combinedSeats = combineSeats(
+            existingTimer.seat_info.open_seats,
+            processedTimer.seat_info.open_seats || []
+          );
+          
+          // Aggiorna il nuovo timer con i posti combinati
+          processedTimer.seat_info.open_seats = combinedSeats;
+          
+          // Conserva altri campi importanti di seat_info
+          if (existingTimer.seat_info.timestamp) {
+            processedTimer.seat_info.timestamp = existingTimer.seat_info.timestamp;
+          }
+          
+          // Preserva il flag di notifica se necessario
+          if (processedTimer.seat_info.needs_web_notification === undefined && 
+              existingTimer.seat_info.needs_web_notification !== undefined) {
+            processedTimer.seat_info.needs_web_notification = existingTimer.seat_info.needs_web_notification;
+          }
+        }
+        
+        // Se il timer ha una property 'reset_seat_info' vera, rimuovi tutte le informazioni sui posti
+        if (processedTimer.seat_info_reset === true) {
+          delete processedTimer.seat_info;
+          delete processedTimer.seat_info_reset;
+        }
+        
+        processedData[deviceId] = processedTimer;
+      });
+      
+      // Aggiorna la collezione di timer
+      timers = processedData;
+      updateDashboard();
+      updateDetailModalIfOpen();
+    })
+    .catch(error => {
+      console.error('Error fetching timer data:', error);
+      document.getElementById('timer-container').innerHTML = 
+        '<div class="no-timers"><p>Error connecting to server</p><p>Please check if the server is running.</p></div>';
+    });
+}
+
     function updateDashboard() {
       console.log('Updating dashboard with timers:', timers);
 
