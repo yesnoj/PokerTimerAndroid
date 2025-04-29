@@ -1345,6 +1345,27 @@ function fetchTimerData() {
         // Mostra il numero di giocatori (se disponibile)
         const playersCount = timer.players_count || 10;
         
+        // Determina lo stato del buzzer
+        const buzzerStatus = timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A";
+        
+        // Crea un array di elementi info in base al tipo di dispositivo
+        const infoItems = [];
+        
+        // Modalità solo per dispositivi non Android
+        if (!isAndroid) {
+          infoItems.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+        }
+        
+        // Elementi comuni
+        infoItems.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+        infoItems.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+        infoItems.push(`<span class="info-item">Giocatori: ${playersCount}</span>`);
+        infoItems.push(`<span class="info-item">Buzzer: ${buzzerStatus}</span>`);
+        infoItems.push(`<span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>`);
+        infoItems.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+        infoItems.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+        infoItems.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+        
         card.innerHTML = `
           <div class="timer-header">
             <h2 class="timer-title">Table ${timer.table_number} ${deviceTypeIcon}</h2>
@@ -1359,14 +1380,7 @@ function fetchTimerData() {
           ${seatInfoHTML}
           
           <div class="timer-info">
-            <span class="info-item">Mode: ${timer.mode}</span>
-            <span class="info-item">T1: ${timer.t1_value}s</span>
-            <span class="info-item">T2: ${timer.t2_value}s</span>
-            <span class="info-item">Giocatori: ${playersCount}</span>
-            <span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>
-            <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-            <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
-            <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
+            ${infoItems.join('')}
           </div>
           
           <div class="button-group">
@@ -1444,6 +1458,8 @@ function fetchTimerData() {
         }, 0);
       }
     }
+
+
     
     function formatDate(date) {
       const hours = date.getHours().toString().padStart(2, '0');
@@ -1576,19 +1592,27 @@ function fetchTimerData() {
       document.getElementById('detail-start-button').disabled = (timer.is_running && !timer.is_paused);
       document.getElementById('detail-pause-button').disabled = (!timer.is_running || timer.is_paused);
       
+      // Definisci gli elementi info in base al tipo di dispositivo
+      const infoElements = [];
+      
+      // Modalità solo per dispositivi non Android
+      if (!isAndroidTimer(deviceId)) {
+        infoElements.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+      }
+      
+      // Elementi comuni
+      infoElements.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+      infoElements.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+      infoElements.push(`<span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>`);
+      infoElements.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+      infoElements.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+      infoElements.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+      infoElements.push(`<span class="info-item">Giocatori: ${timer.players_count || 10}</span>`);
+      infoElements.push(`<span class="info-item">Buzzer: ${timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A"}</span>`);
+      infoElements.push(`<span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>`);
+      
       // Aggiorna info dettagliate
-      const infoHTML = `
-        <span class="info-item">Mode: ${timer.mode}</span>
-        <span class="info-item">T1: ${timer.t1_value}s</span>
-        <span class="info-item">T2: ${timer.t2_value}s</span>
-        <span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>
-        <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
-        <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
-        <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-        <span class="info-item">Giocatori: ${timer.players_count || 10}</span>
-        <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
-      `;
-      document.getElementById('detail-timer-info').innerHTML = infoHTML;
+      document.getElementById('detail-timer-info').innerHTML = infoElements.join('');
       
       // Tab Settings
       document.getElementById('detail-mode').value = timer.mode;
@@ -1630,19 +1654,27 @@ function fetchTimerData() {
           document.getElementById('detail-start-button').disabled = (timer.is_running && !timer.is_paused);
           document.getElementById('detail-pause-button').disabled = (!timer.is_running || timer.is_paused);
           
+          // Definisci gli elementi info in base al tipo di dispositivo
+          const infoElements = [];
+          
+          // Modalità solo per dispositivi non Android
+          if (!isAndroidTimer(currentDetailDeviceId)) {
+            infoElements.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+          }
+          
+          // Elementi comuni
+          infoElements.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+          infoElements.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+          infoElements.push(`<span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>`);
+          infoElements.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+          infoElements.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+          infoElements.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+          infoElements.push(`<span class="info-item">Giocatori: ${timer.players_count || 10}</span>`);
+          infoElements.push(`<span class="info-item">Buzzer: ${timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A"}</span>`);
+          infoElements.push(`<span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>`);
+          
           // Aggiorna le info dettagliate
-          const infoHTML = `
-            <span class="info-item">Mode: ${timer.mode}</span>
-            <span class="info-item">T1: ${timer.t1_value}s</span>
-            <span class="info-item">T2: ${timer.t2_value}s</span>
-            <span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>
-            <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
-            <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
-            <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-            <span class="info-item">Giocatori: ${timer.players_count || 10}</span>
-            <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
-          `;
-          document.getElementById('detail-timer-info').innerHTML = infoHTML;
+          document.getElementById('detail-timer-info').innerHTML = infoElements.join('');
         }
       }
     }
