@@ -656,7 +656,7 @@
 <body>
   <h1>Poker Timer Monitor</h1>
   
-<div class="control-panel">
+  <div class="control-panel">
   <div class="control-panel-content">
     <div class="filter-controls">
       <label for="timer-filter">Visualizza: </label>
@@ -671,6 +671,8 @@
     <div class="refresh-controls">
       <label for="auto-refresh">Auto Refresh: </label>
       <input type="checkbox" id="auto-refresh" checked>
+      <label for="sound-enabled" style="margin-left: 15px;">Suono: </label>
+      <input type="checkbox" id="sound-enabled" checked>
       <button onclick="fetchTimerData()" class="refresh-btn">Refresh Now</button>
     </div>
   </div>
@@ -968,6 +970,143 @@
     let factoryResetDeviceId = null;
     let currentDetailDeviceId = null;
     let shownNotifications = [];
+    let notificationSound;
+    let soundEnabled = true;
+    
+    // Inizializzazione del suono di notifica
+    function initNotificationSound() {
+      // Creiamo un elemento audio per la notifica
+      notificationSound = new Audio();
+      
+      // Utilizziamo un suono più squillante (formato URI data)
+      notificationSound.src = 'data:audio/wav;base64,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';
+      
+      // Impostiamo il volume più alto per essere sicuri
+      notificationSound.volume = 1.0; // volume massimo
+      
+      // Precarica il suono per una riproduzione più veloce
+      notificationSound.load();
+      
+      try {
+        // Creiamo anche un suono di backup utilizzando l'API Web Audio
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        window.audioContext = audioContext; // Salviamo per debug
+        
+        // Funzione alternativa per riprodurre un beep squillante
+        window.playBeep = function() {
+          console.log("Tentativo di riproduzione beep con Web Audio API");
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Impostazioni per un suono più squillante
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1200, audioContext.currentTime); // frequenza più alta (1200Hz)
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1); // cala dopo 100ms
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            setTimeout(() => {
+              oscillator.stop();
+              console.log("Beep completato");
+            }, 300); // durata maggiore (300ms)
+            
+            return true;
+          } catch (e) {
+            console.error("Errore nel riprodurre beep:", e);
+            return false;
+          }
+        };
+      } catch (e) {
+        console.warn("Web Audio API non supportata:", e);
+      }
+      
+      // Test del suono con un click dell'utente (necessario per alcuni browser)
+      const soundTestButton = document.createElement('button');
+      soundTestButton.textContent = 'Test Suono';
+      soundTestButton.style.marginLeft = '10px';
+      soundTestButton.onclick = function() {
+        // Riproduci entrambi i suoni per test
+        playNotificationSound();
+        if (window.playBeep) window.playBeep();
+        
+        setTimeout(() => {
+          alert("Se non hai sentito alcun suono, potresti avere problemi di riproduzione audio nel browser. Controlla le impostazioni del browser e del dispositivo.");
+        }, 500); // Ritardo l'alert per permettere al suono di essere riprodotto prima
+      };
+      
+      // Aggiungiamo il pulsante accanto alla checkbox del suono
+      const soundControl = document.querySelector('label[for="sound-enabled"]').parentNode;
+      soundControl.appendChild(soundTestButton);
+      
+      // Inizializza lo stato del suono basato sulla checkbox
+      soundEnabled = document.getElementById('sound-enabled').checked;
+      
+      // Aggiungi event listener per la checkbox del suono
+      document.getElementById('sound-enabled').addEventListener('change', function() {
+        soundEnabled = this.checked;
+        // Salva la preferenza in localStorage
+        localStorage.setItem('soundEnabled', soundEnabled);
+        
+        console.log("Stato audio cambiato:", soundEnabled ? "Attivo" : "Disattivo");
+      });
+      
+      // Carica la preferenza del suono da localStorage se disponibile
+      const savedSoundPreference = localStorage.getItem('soundEnabled');
+      if (savedSoundPreference !== null) {
+        soundEnabled = savedSoundPreference === 'true';
+        document.getElementById('sound-enabled').checked = soundEnabled;
+      }
+      
+      // Log di debug
+      console.log("Sistema audio inizializzato:", { 
+        soundEnabled, 
+        audioElement: notificationSound instanceof HTMLAudioElement,
+        webAudioSupported: !!window.audioContext
+      });
+    }
+    
+    // Funzione per riprodurre il suono di notifica
+    function playNotificationSound() {
+      console.log("Riproduzione suono richiesta. Audio abilitato:", soundEnabled);
+      
+      if (soundEnabled) {
+        // Prima prova con l'elemento Audio standard
+        try {
+          console.log("Tentativo riproduzione con elemento Audio");
+          notificationSound.currentTime = 0;
+          
+          // Prima proviamo il metodo play standard
+          const playPromise = notificationSound.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log("Riproduzione audio avviata con successo");
+            }).catch(error => {
+              console.warn("Errore nell'avvio della riproduzione:", error);
+              
+              // Se fallisce, prova con Web Audio come fallback
+              if (window.playBeep) {
+                console.log("Tentativo fallback con Web Audio API");
+                window.playBeep();
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("Errore nel tentativo di riproduzione audio:", error);
+          
+          // Fallback al beep se disponibile
+          if (window.playBeep) window.playBeep();
+        }
+      } else {
+        console.log("Riproduzione audio saltata perché disabilitata dall'utente");
+      }
+    }
     
     // Funzione per aggiornare lo stato dell'auto-refresh
     autoRefreshCheckbox.addEventListener('change', function() {
@@ -1276,8 +1415,13 @@ function fetchTimerData() {
             timers[timerWithNotification.device_id].seat_info.needs_web_notification = false;
           }
           
-          // Mostra l'alert con un piccolo ritardo
+          // Riproduci il suono di notifica PRIMA di mostrare l'alert
+          console.log("Rilevata nuova notifica Seat Open, tentativo di riprodurre suono");
+          playNotificationSound();
+          
+          // Ritarda leggermente l'alert per consentire l'inizio della riproduzione del suono
           setTimeout(() => {
+            // Mostra la notifica all'utente
             alert(`Richiesta Posti Liberi\nTavolo ${timerWithNotification.table_number} - SEAT OPEN\nPosti: ${formattedSeats}`);
             
             // Invia la conferma al server
@@ -1289,7 +1433,7 @@ function fetchTimerData() {
               console.log('Notification acknowledged on server:', data);
             })
             .catch(error => console.error('Error acknowledging notification:', error));
-          }, 300);
+          }, 500);
         }
       }
       
@@ -1775,6 +1919,8 @@ function confirmFactoryReset() {
     
     // Carica i timer nascosti da localStorage
     loadHiddenTimers();
+    // Inizializza il suono di notifica
+    initNotificationSound();
     // Carica i dati all'avvio
     fetchTimerData();
   </script>
