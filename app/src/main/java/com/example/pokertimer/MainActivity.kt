@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         private const val SWIPE_THRESHOLD = 100
         private const val SWIPE_VELOCITY_THRESHOLD = 100
         private const val DISCOVERY_PORT = 8888
-        private const val DISCOVERY_TIMEOUT_MS = 3000
+        private const val DISCOVERY_TIMEOUT_MS = 8000
         private const val TAG = "MainActivity"
     }
 
@@ -848,10 +848,20 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                     DISCOVERY_PORT
                 )
 
-                Log.d(TAG, "Sending discovery broadcast")
+                Log.d(TAG, "Sending discovery broadcasts")
 
-                // Invia il broadcast
-                socket.send(packet)
+                // Invia più pacchetti di broadcast per aumentare le possibilità di successo
+                // Invia 3 pacchetti con un intervallo di 300ms tra l'uno e l'altro
+                for (i in 0 until 3) {
+                    // Invia il broadcast
+                    socket.send(packet)
+                    Log.d(TAG, "Sent discovery broadcast #${i+1}")
+
+                    // Breve pausa tra i pacchetti
+                    if (i < 2) { // Non dormiamo dopo l'ultimo pacchetto
+                        Thread.sleep(300)
+                    }
+                }
 
                 // Prepara per ricevere le risposte
                 val buffer = ByteArray(1024)
@@ -886,7 +896,7 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                     }
                 } catch (e: SocketTimeoutException) {
                     // Timeout raggiunto, abbiamo finito la discovery
-                    Log.d(TAG, "Discovery timeout reached")
+                    Log.d(TAG, "Discovery timeout reached after ${DISCOVERY_TIMEOUT_MS}ms")
                 }
 
                 // Chiudi il socket
@@ -916,7 +926,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }.start()
     }
-
     /**
      * Mostra un dialogo con i server scoperti
      */

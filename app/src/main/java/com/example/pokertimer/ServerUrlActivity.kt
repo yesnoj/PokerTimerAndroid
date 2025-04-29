@@ -29,7 +29,7 @@ class ServerUrlActivity : AppCompatActivity() {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_IS_CONNECTED = "is_connected"
         private const val DISCOVERY_PORT = 8888
-        private const val DISCOVERY_TIMEOUT_MS = 3000
+        private const val DISCOVERY_TIMEOUT_MS = 8000
         private const val TAG = "ServerUrlActivity"
     }
 
@@ -257,10 +257,20 @@ class ServerUrlActivity : AppCompatActivity() {
                     DISCOVERY_PORT
                 )
 
-                Log.d(TAG, "Sending discovery broadcast to port $DISCOVERY_PORT")
+                Log.d(TAG, "Sending discovery broadcasts to port $DISCOVERY_PORT")
 
-                // Invia il broadcast
-                socket.send(packet)
+                // Invia più pacchetti di broadcast per aumentare le possibilità di successo
+                // Invia 3 pacchetti con un intervallo di 300ms tra l'uno e l'altro
+                for (i in 0 until 3) {
+                    // Invia il broadcast
+                    socket.send(packet)
+                    Log.d(TAG, "Sent discovery broadcast #${i+1}")
+
+                    // Breve pausa tra i pacchetti
+                    if (i < 2) { // Non dormiamo dopo l'ultimo pacchetto
+                        Thread.sleep(300)
+                    }
+                }
 
                 // Prepara per ricevere le risposte
                 val buffer = ByteArray(1024)
@@ -295,7 +305,7 @@ class ServerUrlActivity : AppCompatActivity() {
                     }
                 } catch (e: SocketTimeoutException) {
                     // Timeout raggiunto, abbiamo finito la discovery
-                    Log.d(TAG, "Discovery timeout reached")
+                    Log.d(TAG, "Discovery timeout reached after ${DISCOVERY_TIMEOUT_MS}ms")
                 }
 
                 // Chiudi il socket
@@ -325,7 +335,6 @@ class ServerUrlActivity : AppCompatActivity() {
             }
         }.start()
     }
-
     /**
      * Mostra un dialogo con i server scoperti
      */

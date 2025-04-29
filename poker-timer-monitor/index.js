@@ -38,8 +38,28 @@ discoveryServer.on('message', (msg, rinfo) => {
     if (message.trim() === 'POKER_TIMER_DISCOVERY') {
         console.log(`Sending discovery response to ${rinfo.address}:${rinfo.port}`);
         // Invia una risposta con le informazioni del server
+        // Inviamo 2 risposte con una breve pausa per aumentare le probabilità di ricezione
         const response = Buffer.from('POKER_TIMER_SERVER');
-        discoveryServer.send(response, 0, response.length, rinfo.port, rinfo.address);
+        
+        // Prima risposta immediata
+        discoveryServer.send(response, 0, response.length, rinfo.port, rinfo.address, (err) => {
+            if (err) {
+                console.error(`Error sending first discovery response: ${err}`);
+            } else {
+                console.log(`First discovery response sent successfully to ${rinfo.address}:${rinfo.port}`);
+                
+                // Seconda risposta dopo 100ms
+                setTimeout(() => {
+                    discoveryServer.send(response, 0, response.length, rinfo.port, rinfo.address, (err) => {
+                        if (err) {
+                            console.error(`Error sending second discovery response: ${err}`);
+                        } else {
+                            console.log(`Second discovery response sent successfully to ${rinfo.address}:${rinfo.port}`);
+                        }
+                    });
+                }, 100);
+            }
+        });
     }
 });
 
@@ -49,6 +69,7 @@ discoveryServer.on('listening', () => {
     console.log(`Discovery server listening on ${address.address}:${address.port}`);
     // Abilita il broadcast
     discoveryServer.setBroadcast(true);
+    console.log('UDP broadcast enabled for discovery service');
 });
 
 // Bind del socket di discovery
