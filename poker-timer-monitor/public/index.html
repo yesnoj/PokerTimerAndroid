@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Poker Timer Monitor</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -516,6 +517,140 @@
       }
     }
 
+    /* Stili aggiunti per le nuove funzionalità */
+    .device-type-icon {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    
+    .android-timer {
+      color: #a4c639; /* Colore verde Android */
+    }
+    
+    .hardware-timer {
+      color: #00adef; /* Colore blu Arduino/ESP */
+    }
+    
+    /* MODIFICATO: Controlli per numeri con + e - rettangolari */
+    .number-control {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    /* MODIFICATO: Stile migliorato per i pulsanti + e - */
+    .number-control button {
+      width: 40px;
+      height: 34px;
+      border-radius: 4px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 5px; /* Aggiunto spazio tra i pulsanti */
+    }
+    
+    .number-control span {
+      margin: 0 15px;
+      font-size: 16px;
+      min-width: 30px;
+      text-align: center;
+    }
+    
+    .field-control {
+      display: flex;
+      align-items: center;
+    }
+    
+    .field-control input {
+      width: calc(100% - 100px);
+      margin-right: 10px;
+    }
+    
+    .field-control .number-control {
+      margin: 0;
+    }
+
+    /* NUOVO: Stile per lo switch/toggle per il buzzer */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #4CAF50;
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #4CAF50;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    /* AGGIORNATO: Stile per il pulsante di chiusura del timer detail */
+    .close-detail-btn {
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .close-detail-btn:hover {
+      background-color: #5a6268 !important;
+    }
+
+    /* Modifica per allineare il layout del numero giocatori con quello del numero tavolo */
+    .player-count-field {
+      display: flex;
+      align-items: center;
+    }
+
+    .player-count-display {
+      width: calc(100% - 100px);
+      margin-right: 10px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      background-color: #f8f9fa;
+    }
   </style>
 </head>
 <body>
@@ -551,8 +686,7 @@
   <!-- Modal per la gestione dettagliata del timer -->
   <div id="timer-detail-modal" class="modal">
     <div class="modal-content">
-      <span class="modal-close" onclick="closeTimerDetailModal()">&times;</span>
-      <h2 class="modal-title" id="timer-detail-title">Timer Details</h2>
+      <h2 class="modal-title" id="timer-detail-title">Timer Details <i id="deviceTypeIcon" class="fas fa-question-circle device-type-icon"></i></h2>
       
       <div class="timer-time" id="detail-timer-time">00 seconds</div>
       <div class="button-group">
@@ -572,7 +706,56 @@
       <!-- Tab Settings -->
       <div id="settings-tab" class="tab-content active">
         <h3>Timer Settings</h3>
+        
+        <!-- Nuovo ordine: Numero tavolo, Numero Giocatori, Timer T1, Timer T2, Buzzer -->
         <div class="form-row">
+          <label for="detail-table-number">Numero Tavolo:</label>
+          <div class="field-control">
+            <input type="number" id="detail-table-number" name="tableNumber" min="0" max="99">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-table-number', 0, 99)">-</button>
+              <button type="button" onclick="incrementField('detail-table-number', 0, 99)">+</button>
+            </div>
+          </div>
+          <small class="error-message">Table number must be between 0 and 99</small>
+        </div>
+
+        <div class="form-row" id="playersCountSection">
+          <label for="playersCount">Numero Giocatori:</label>
+          <div class="field-control">
+            <div class="player-count-display" id="playersCountValue">3</div>
+            <div class="number-control">
+              <button type="button" onclick="decrementPlayerCount()">-</button>
+              <button type="button" onclick="incrementPlayerCount()">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="detail-t1">Timer T1:</label>
+          <div class="field-control">
+            <input type="number" id="detail-t1" name="t1" min="5" max="95" step="5">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-t1', 5, 95, 5)">-</button>
+              <button type="button" onclick="incrementField('detail-t1', 5, 95, 5)">+</button>
+            </div>
+          </div>
+          <small class="error-message">T1 must be between 5 and 95 and a multiple of 5</small>
+        </div>
+
+        <div class="form-row" id="detail-t2-group">
+          <label for="detail-t2">Timer T2:</label>
+          <div class="field-control">
+            <input type="number" id="detail-t2" name="t2" min="5" max="95" step="5">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-t2', 5, 95, 5)">-</button>
+              <button type="button" onclick="incrementField('detail-t2', 5, 95, 5)">+</button>
+            </div>
+          </div>
+          <small class="error-message">T2 must be between 5 and 95 and a multiple of 5</small>
+        </div>
+        
+        <div class="form-row" id="detail-mode-group">
           <label for="detail-mode">Operation Mode:</label>
           <select id="detail-mode" name="mode">
             <option value="1">Mode 1: T1/T2 with automatic start</option>
@@ -583,32 +766,17 @@
         </div>
 
         <div class="form-row">
-          <label for="detail-t1">T1 Value (seconds):</label>
-          <input type="number" id="detail-t1" name="t1" min="5" max="95" step="5">
-          <small class="error-message">T1 must be between 5 and 95 and a multiple of 5</small>
-        </div>
-
-        <div class="form-row" id="detail-t2-group">
-          <label for="detail-t2">T2 Value (seconds):</label>
-          <input type="number" id="detail-t2" name="t2" min="5" max="95" step="5">
-          <small class="error-message">T2 must be between 5 and 95 and a multiple of 5</small>
-        </div>
-
-        <div class="form-row">
-          <label for="detail-table-number">Table Number (0-99):</label>
-          <input type="number" id="detail-table-number" name="tableNumber" min="0" max="99">
-          <small class="error-message">Table number must be between 0 and 99</small>
-        </div>
-
-        <div class="form-row">
           <label for="detail-buzzer">Buzzer:</label>
-          <select id="detail-buzzer" name="buzzer">
-            <option value="1">Enabled</option>
-            <option value="0">Disabled</option>
-          </select>
+          <label class="switch">
+            <input type="checkbox" id="detail-buzzer" name="buzzer">
+            <span class="slider"></span>
+          </label>
         </div>
 
-        <button id="save-settings-btn" onclick="saveSettings()">Save Settings</button>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button id="save-settings-btn" onclick="saveSettings()">Save Settings</button>
+          <button class="close-detail-btn" onclick="closeTimerDetailModal()" style="background-color: #6c757d; flex: 1;">Chiudi</button>
+        </div>
       </div>
       
       <!-- Tab Advanced -->
@@ -698,6 +866,16 @@
       }
     }
 
+    // Funzione per determinare se un timer è Android basato sul device_id
+    function isAndroidTimer(deviceId) {
+      return deviceId && deviceId.startsWith('android_');
+    }
+    
+    // Funzione per determinare se un timer è hardware (ESP32/Arduino) basato sul device_id
+    function isHardwareTimer(deviceId) {
+      return deviceId && deviceId.startsWith('arduino_');
+    }
+
     // Funzione per salvare i timer nascosti in localStorage
     function saveHiddenTimers() {
       localStorage.setItem('hiddenTimers', JSON.stringify(hiddenTimers));
@@ -734,6 +912,54 @@
       // Prima converte in Set per eliminare i duplicati, poi riconverte in array
       const combinedSeatsSet = new Set([...existingSeats, ...newSeats]);
       return Array.from(combinedSeatsSet);
+    }
+
+    // Funzioni per incrementare/decrementare i campi numerici
+    function incrementField(fieldId, min, max, step = 1) {
+      const field = document.getElementById(fieldId);
+      let currentValue = parseInt(field.value);
+      if (isNaN(currentValue)) currentValue = min;
+      
+      let newValue = currentValue + step;
+      if (newValue > max) newValue = max;
+      
+      field.value = newValue;
+      field.dispatchEvent(new Event('input')); // Trigger validation
+    }
+    
+    function decrementField(fieldId, min, max, step = 1) {
+      const field = document.getElementById(fieldId);
+      let currentValue = parseInt(field.value);
+      if (isNaN(currentValue)) currentValue = min;
+      
+      let newValue = currentValue - step;
+      if (newValue < min) newValue = min;
+      
+      field.value = newValue;
+      field.dispatchEvent(new Event('input')); // Trigger validation
+    }
+
+    // NUOVO: Funzioni per incrementare/decrementare il conteggio giocatori
+    function incrementPlayerCount() {
+      const countDisplay = document.getElementById('playersCountValue');
+      let count = parseInt(countDisplay.textContent);
+      if (isNaN(count)) count = 1;
+      
+      if (count < 10) {
+        count++;
+        countDisplay.textContent = count;
+      }
+    }
+    
+    function decrementPlayerCount() {
+      const countDisplay = document.getElementById('playersCountValue');
+      let count = parseInt(countDisplay.textContent);
+      if (isNaN(count)) count = 1;
+      
+      if (count > 1) {
+        count--;
+        countDisplay.textContent = count;
+      }
     }
 
     let timers = {};
@@ -842,7 +1068,10 @@ function fetchTimerData() {
       // Prima filtra i timer nascosti
       let timerValues = Object.entries(timers)
         .filter(([deviceId]) => !hiddenTimers.includes(deviceId))
-        .map(([, timer]) => timer);
+        .map(([deviceId, timer]) => {
+          // Aggiungi l'ID del dispositivo all'oggetto timer per riferimenti futuri
+          return { ...timer, device_id: deviceId };
+        });
       
       // Applica il filtro corrente (all/online/offline)
       if (currentFilter === 'online') {
@@ -920,7 +1149,33 @@ function fetchTimerData() {
         const card = document.createElement('div');
         card.className = 'timer-card';
         card.setAttribute('data-device-id', timer.device_id);
-        card.onclick = function() { openTimerDetailModal(timer.device_id); };
+
+        // Usa un approccio più semplice con onclick diretto
+        const deviceId = timer.device_id; // Importante: salva l'ID in una variabile locale
+        card.onclick = function(e) {
+          // Verifica se il click è direttamente sulla card o su un elemento che non ha stopPropagation
+          const target = e.target;
+          
+          // Se il click è su un bottone o su elementi noti, non aprire il modal
+          if (target.tagName === 'BUTTON' || 
+              target.closest('.seat-info') || 
+              target.closest('.remove-timer-btn') ||
+              target.closest('button')) {
+            return; // Non fare nulla se il click è su uno di questi elementi
+          }
+          
+          // Altrimenti apri il modal, passando esplicitamente l'ID salvato
+          openTimerDetailModal(deviceId);
+        };
+
+        // Determina l'icona del tipo di dispositivo
+        const isAndroid = isAndroidTimer(timer.device_id);
+        const isHardware = isHardwareTimer(timer.device_id);
+        const deviceTypeIcon = isAndroid ? 
+            '<i class="fas fa-mobile-alt device-type-icon android-timer" title="Android App"></i>' :
+            (isHardware ? 
+                '<i class="fas fa-microchip device-type-icon hardware-timer" title="Hardware Timer"></i>' :
+                '<i class="fas fa-question-circle device-type-icon" title="Unknown Device"></i>');
         
         // Aggiungi la X per rimuovere solo se il timer è offline
         const removeButton = !isOnline ? `
@@ -947,10 +1202,13 @@ function fetchTimerData() {
             timersWithNotifications.push(timer);
           }
         }
+
+        // Mostra il numero di giocatori (se disponibile)
+        const playersCount = timer.players_count || 10;
         
         card.innerHTML = `
           <div class="timer-header">
-            <h2 class="timer-title">Table ${timer.table_number}</h2>
+            <h2 class="timer-title">Table ${timer.table_number} ${deviceTypeIcon}</h2>
             <span class="timer-status ${statusClass}">${statusText}</span>
             ${removeButton}
           </div>
@@ -965,6 +1223,7 @@ function fetchTimerData() {
             <span class="info-item">Mode: ${timer.mode}</span>
             <span class="info-item">T1: ${timer.t1_value}s</span>
             <span class="info-item">T2: ${timer.t2_value}s</span>
+            <span class="info-item">Players: ${playersCount}</span>
             <span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>
             <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
             <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
@@ -1133,9 +1392,38 @@ function fetchTimerData() {
         alert('Error: Timer data not found');
         return;
       }
-    
-      // Imposta il titolo
-      document.getElementById('timer-detail-title').textContent = `Timer Details - Table ${timer.table_number}`;
+
+      // Imposta il titolo del modal
+      const titleElement = document.getElementById('timer-detail-title');
+      titleElement.textContent = `Timer Details - Table ${timer.table_number} `;
+      
+      // Crea una nuova icona e aggiungila al titolo
+      const iconElement = document.createElement('i');
+      iconElement.id = 'deviceTypeIcon';
+      
+      // Imposta la classe e il titolo in base al tipo di dispositivo
+      if (isAndroidTimer(deviceId)) {
+        iconElement.className = 'fas fa-mobile-alt device-type-icon android-timer';
+        iconElement.title = 'Android App';
+        
+        // Nascondi la sezione Operation Mode per i dispositivi Android
+        document.getElementById('detail-mode-group').style.display = 'none';
+      } else if (isHardwareTimer(deviceId)) {
+        iconElement.className = 'fas fa-microchip device-type-icon hardware-timer';
+        iconElement.title = 'Hardware Timer';
+        
+        // Mostra la sezione Operation Mode per i dispositivi hardware
+        document.getElementById('detail-mode-group').style.display = 'block';
+      } else {
+        iconElement.className = 'fas fa-question-circle device-type-icon';
+        iconElement.title = 'Unknown Device Type';
+        
+        // Mostra la sezione Operation Mode per dispositivi sconosciuti
+        document.getElementById('detail-mode-group').style.display = 'block';
+      }
+      
+      // Aggiungi l'icona al titolo
+      titleElement.appendChild(iconElement);
       
       // Aggiorna informazioni correnti
       document.getElementById('detail-timer-time').textContent = `${timer.current_timer} seconds`;
@@ -1153,6 +1441,7 @@ function fetchTimerData() {
         <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
         <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
         <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
+        <span class="info-item">Players: ${timer.players_count || 10}</span>
         <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
       `;
       document.getElementById('detail-timer-info').innerHTML = infoHTML;
@@ -1162,7 +1451,12 @@ function fetchTimerData() {
       document.getElementById('detail-t1').value = timer.t1_value;
       document.getElementById('detail-t2').value = timer.t2_value;
       document.getElementById('detail-table-number').value = timer.table_number;
-      document.getElementById('detail-buzzer').value = timer.buzzer || "1";
+      
+      // Aggiorna lo switch del buzzer
+      document.getElementById('detail-buzzer').checked = timer.buzzer ? true : false;
+      
+      // Aggiorna il numero di giocatori
+      document.getElementById('playersCountValue').textContent = timer.players_count || 10;
       
       // Imposta la visibilità di T2 in base alla modalità
       toggleT2VisibilityInModal();
@@ -1201,6 +1495,7 @@ function fetchTimerData() {
             <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
             <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
             <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
+            <span class="info-item">Players: ${timer.players_count || 10}</span>
             <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
           `;
           document.getElementById('detail-timer-info').innerHTML = infoHTML;
@@ -1283,115 +1578,118 @@ function fetchTimerData() {
       sendCommand(currentDetailDeviceId, command);
     }
     
-    function saveSettings() {
-      // Controllo dispositivo corrente
-      if (!currentDetailDeviceId) {
-        console.error('No device selected');
-        alert('Errore: Nessun dispositivo selezionato');
-        return;
-      }
-      
-      // Recupera i valori dai campi
-      const mode = document.getElementById('detail-mode').value;
-      const t1 = parseInt(document.getElementById('detail-t1').value);
-      const t2 = parseInt(document.getElementById('detail-t2').value);
-      const tableNumber = parseInt(document.getElementById('detail-table-number').value);
-      const buzzer = document.getElementById('detail-buzzer').value;
-      
-      // Validazione dei campi
-      validateTimerSettings();
-      
-      // Controlla il bottone di salvataggio
-      const saveButton = document.querySelector('#save-settings-btn');
-      if (saveButton.disabled) {
-        console.warn('Save button is disabled');
-        return;
-      }
+function saveSettings() {
+  // Controllo dispositivo corrente
+  if (!currentDetailDeviceId) {
+    console.error('No device selected');
+    alert('Errore: Nessun dispositivo selezionato');
+    return;
+  }
+  
+  // Recupera i valori dai campi
+  const mode = document.getElementById('detail-mode').value;
+  const t1 = parseInt(document.getElementById('detail-t1').value);
+  const t2 = parseInt(document.getElementById('detail-t2').value);
+  const tableNumber = parseInt(document.getElementById('detail-table-number').value);
+  const buzzer = document.getElementById('detail-buzzer').checked ? 1 : 0;
+  const playersCount = parseInt(document.getElementById('playersCountValue').textContent);
+  
+  // Validazione dei campi
+  validateTimerSettings();
+  
+  // Controlla il bottone di salvataggio
+  const saveButton = document.querySelector('#save-settings-btn');
+  if (saveButton.disabled) {
+    console.warn('Save button is disabled');
+    return;
+  }
 
-      // Preparazione dei dati da inviare
-      const settingsToSave = {
-        mode: parseInt(mode),
-        t1: parseInt(t1),
-        t2: parseInt(t2),
-        tableNumber: parseInt(tableNumber),
-        buzzer: parseInt(buzzer)
+  // Preparazione dei dati da inviare
+  const settingsToSave = {
+    mode: parseInt(mode),
+    t1: parseInt(t1),
+    t2: parseInt(t2),
+    tableNumber: parseInt(tableNumber),
+    buzzer: buzzer,
+    playersCount: playersCount
+  };
+
+  // Log dettagliato dei dati che si stanno salvando
+  console.log('Saving settings for device:', currentDetailDeviceId);
+  console.log('Settings to save:', settingsToSave);
+
+  // Disabilita il bottone durante il salvataggio
+  saveButton.disabled = true;
+  saveButton.textContent = 'Saving...';
+
+  // Invio dei dati al server
+  fetch(`/api/settings/${currentDetailDeviceId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(settingsToSave)
+  })
+  .then(response => {
+    // Verifica la risposta del server
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    // Log del risultato del salvataggio
+    console.log('Settings saved on server:', data);
+    
+    // Aggiorna immediatamente lo stato del timer locale
+    if (timers[currentDetailDeviceId]) {
+      timers[currentDetailDeviceId] = {
+        ...timers[currentDetailDeviceId],
+        mode: settingsToSave.mode,
+        t1_value: settingsToSave.t1,
+        t2_value: settingsToSave.t2,
+        table_number: settingsToSave.tableNumber,
+        buzzer: settingsToSave.buzzer,
+        players_count: settingsToSave.playersCount
       };
-
-      // Log dettagliato dei dati che si stanno salvando
-      console.log('Saving settings for device:', currentDetailDeviceId);
-      console.log('Settings to save:', settingsToSave);
-
-      // Disabilita il bottone durante il salvataggio
-      saveButton.disabled = true;
-      saveButton.textContent = 'Saving...';
-
-      // Invio dei dati al server
-      fetch(`/api/settings/${currentDetailDeviceId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(settingsToSave)
-      })
-      .then(response => {
-        // Verifica la risposta del server
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        // Log del risultato del salvataggio
-        console.log('Settings saved on server:', data);
-        
-        // Aggiorna immediatamente lo stato del timer locale
-        if (timers[currentDetailDeviceId]) {
-          timers[currentDetailDeviceId] = {
-            ...timers[currentDetailDeviceId],
-            mode: settingsToSave.mode,
-            t1_value: settingsToSave.t1,
-            t2_value: settingsToSave.t2,
-            table_number: settingsToSave.tableNumber,
-            buzzer: settingsToSave.buzzer
-          };
-        }
-        
-        // MODIFICA: Invia un comando di applicazione immediata al timer
-        return fetch(`/api/command/${currentDetailDeviceId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ command: 'apply_settings' })
-        });
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Error applying settings: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(() => {
-        // Aggiorna la visualizzazione
-        updateDashboard();
-        updateDetailModalIfOpen();
-        
-        // Mostra messaggio di successo
-        alert('Impostazioni salvate e applicate con successo!');
-      })
-      .catch(error => {
-        // Gestione degli errori
-        console.error('Errore nel salvataggio o applicazione delle impostazioni:', error);
-        alert(`Errore: ${error.message}`);
-      })
-      .finally(() => {
-        // Riabilita il bottone
-        saveButton.disabled = false;
-        saveButton.textContent = 'Save Settings';
-      });
     }
     
-    function confirmFactoryReset() {
+    // Invia un comando di applicazione immediata al timer
+    return fetch(`/api/command/${currentDetailDeviceId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ command: 'apply_settings' })
+    });
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Error applying settings: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(() => {
+    // Aggiorna la visualizzazione
+    updateDashboard();
+    updateDetailModalIfOpen();
+    
+    // Mostra messaggio di successo
+    alert('Impostazioni salvate e applicate con successo!');
+  })
+  .catch(error => {
+    // Gestione degli errori
+    console.error('Errore nel salvataggio o applicazione delle impostazioni:', error);
+    alert(`Errore: ${error.message}`);
+  })
+  .finally(() => {
+    // Riabilita il bottone
+    saveButton.disabled = false;
+    saveButton.textContent = 'Save Settings';
+  });
+}
+
+function confirmFactoryReset() {
       if (!currentDetailDeviceId) return;
       
       factoryResetDeviceId = currentDetailDeviceId;
