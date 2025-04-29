@@ -49,6 +49,11 @@ import android.graphics.drawable.ColorDrawable
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Switch
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.ImageView
+import android.widget.Spinner
+
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
  */
@@ -952,6 +957,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     /**
      * Mostra il dialogo per modificare le impostazioni di un timer specifico
      */
+    /**
+     * Mostra il dialogo per modificare le impostazioni di un timer specifico
+     */
     private fun showTimerSettingsDialog(timer: TimerItem) {
         // Crea un dialogo personalizzato con il layout delle impostazioni
         val dialogView = layoutInflater.inflate(R.layout.dialog_timer_settings, null)
@@ -970,6 +978,50 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         // Imposta il titolo con il numero del tavolo
         val titleText = dialogView.findViewById<TextView>(R.id.dialogTitleText)
         titleText.text = "Impostazioni Timer - Tavolo ${timer.tableNumber}"
+
+        // Imposta l'icona del tipo di dispositivo
+        val deviceTypeIcon = dialogView.findViewById<ImageView>(R.id.deviceTypeIconInDialog)
+        val modeContainer = dialogView.findViewById<LinearLayout>(R.id.modeContainer)
+        val modeSpinner = dialogView.findViewById<Spinner>(R.id.modeSpinner)
+
+        // Configura le opzioni per lo spinner della modalità
+        val modeOptions = arrayOf(
+            "Mode 1: T1/T2 con avvio automatico",
+            "Mode 2: T1/T2 con avvio manuale",
+            "Mode 3: Solo T1 con avvio automatico",
+            "Mode 4: Solo T1 con avvio manuale"
+        )
+        val modeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, modeOptions)
+        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        modeSpinner.adapter = modeAdapter
+
+        // Verifica il tipo di dispositivo
+        val isAndroid = timer.deviceId.startsWith("android_")
+        val isHardware = timer.deviceId.startsWith("arduino_")
+
+        if (isAndroid) {
+            // Configurazione per dispositivi Android
+            deviceTypeIcon.setImageResource(R.drawable.ic_android)
+            deviceTypeIcon.contentDescription = "Timer Android"
+            // Nascondi la sezione modalità per dispositivi Android
+            modeContainer.visibility = View.GONE
+        } else if (isHardware) {
+            // Configurazione per dispositivi Arduino/Hardware
+            deviceTypeIcon.setImageResource(R.drawable.ic_hardware)
+            deviceTypeIcon.contentDescription = "Timer Arduino"
+            // Mostra la sezione modalità per dispositivi hardware
+            modeContainer.visibility = View.VISIBLE
+            // Seleziona la modalità corrente
+            modeSpinner.setSelection(timer.operationMode - 1) // -1 perché le modalità iniziano da 1
+        } else {
+            // Per dispositivi sconosciuti, usiamo l'icona hardware
+            deviceTypeIcon.setImageResource(R.drawable.ic_hardware)
+            deviceTypeIcon.contentDescription = "Timer sconosciuto"
+            // Mostra la sezione modalità anche per dispositivi sconosciuti
+            modeContainer.visibility = View.VISIBLE
+            // Seleziona la modalità corrente
+            modeSpinner.setSelection(timer.operationMode - 1)
+        }
 
         val t1ValueText = dialogView.findViewById<TextView>(R.id.t1ValueText)
         val t2ValueText = dialogView.findViewById<TextView>(R.id.t2ValueText)
@@ -996,7 +1048,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val resetDefaultsButton = dialogView.findViewById<Button>(R.id.resetDefaultsButton)
 
         // Valori correnti delle impostazioni
-        var currentMode = 1  // Fissiamo il valore a 1 dato che c'è solo una modalità ora
+        var currentMode = timer.operationMode
         var currentT1 = timer.timerT1
         var currentT2 = timer.timerT2
         var currentBuzzer = timer.buzzerEnabled
@@ -1010,6 +1062,32 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         tableNumberText.text = currentTableNumber.toString()
         playersNumberText.text = currentPlayersCount.toString()
         buzzerSwitch.isChecked = currentBuzzer
+
+        // Funzione per aggiornare la visibilità di T2 in base alla modalità
+        fun updateT2Visibility() {
+            // Nascondi T2 solo se la modalità è 3 o 4 (T1 only)
+            if (currentMode == 3 || currentMode == 4) {
+                t2Container.visibility = View.GONE
+            } else {
+                t2Container.visibility = View.VISIBLE
+            }
+        }
+
+        // Aggiorna la visibilità iniziale di T2
+        updateT2Visibility()
+
+        // Listener per lo spinner della modalità
+        modeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                // La modalità è la posizione + 1
+                currentMode = position + 1
+                updateT2Visibility()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Non fare nulla
+            }
+        }
 
         // Listener per i pulsanti T1
         decreaseT1Button.setOnClickListener {
@@ -1167,7 +1245,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         // Mostra il dialogo
         dialog.show()
     }
-
 
     /**
      * Aggiorna la visibilità del container T2 in base alla modalità

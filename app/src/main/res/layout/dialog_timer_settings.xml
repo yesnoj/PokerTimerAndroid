@@ -6,15 +6,32 @@
     android:padding="16dp"
     android:background="@color/colorPrimaryDark">
 
-    <TextView
-        android:id="@+id/dialogTitleText"
+    <LinearLayout
+        android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Impostazioni Timer - Tavolo X"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="@color/white"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="horizontal"
+        android:gravity="start|center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/dialogTitleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Impostazioni Timer - Tavolo X"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"/>
+
+        <!-- Icona per visualizzare il tipo di dispositivo -->
+        <ImageView
+            android:id="@+id/deviceTypeIconInDialog"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_android"
+            android:contentDescription="Tipo dispositivo"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
 
     <!-- Sezione Numero Tavolo -->
     <TextView
@@ -98,6 +115,29 @@
             android:backgroundTint="@color/primary_color"
             android:textColor="@color/white"
             android:text="+" />
+    </LinearLayout>
+
+    <!-- Sezione Modalità (Visibile solo per dispositivi Arduino) -->
+    <LinearLayout
+        android:id="@+id/modeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità Operativa"
+            android:textStyle="bold"
+            android:textColor="@color/white"/>
+
+        <Spinner
+            android:id="@+id/modeSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/white"/>
     </LinearLayout>
 
     <!-- Sezione Timer T1 -->

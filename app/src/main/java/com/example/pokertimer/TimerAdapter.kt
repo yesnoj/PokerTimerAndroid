@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -72,7 +73,8 @@ class TimerAdapter(
 
     class TimerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tableNumberText: TextView = itemView.findViewById(R.id.tableNumberText)
-        private val playersCountText: TextView = itemView.findViewById(R.id.playersCountText) // Aggiungi questa riga
+        private val deviceTypeIcon: ImageView = itemView.findViewById(R.id.deviceTypeIcon)
+        private val playersCountText: TextView = itemView.findViewById(R.id.playersCountText)
         private val timerStatusText: TextView = itemView.findViewById(R.id.timerStatusText)
         private val timerValueText: TextView = itemView.findViewById(R.id.timerValueText)
         private val activeTimerText: TextView = itemView.findViewById(R.id.activeTimerText)
@@ -90,11 +92,47 @@ class TimerAdapter(
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
         private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
 
+        /**
+         * Verifica se un timer è un dispositivo Android basato sul device_id
+         */
+        private fun isAndroidTimer(deviceId: String): Boolean {
+            return deviceId.startsWith("android_")
+        }
 
+        /**
+         * Verifica se un timer è un dispositivo hardware (Arduino/ESP) basato sul device_id
+         */
+        private fun isHardwareTimer(deviceId: String): Boolean {
+            return deviceId.startsWith("arduino_")
+        }
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
             // Informazioni di base
             tableNumberText.text = "Tavolo ${timer.tableNumber}"
+
+            // Determina il tipo di dispositivo e mostra l'icona appropriata
+            val isAndroid = isAndroidTimer(timer.deviceId)
+            val isHardware = isHardwareTimer(timer.deviceId)
+
+            if (isAndroid) {
+                deviceTypeIcon.setImageResource(R.drawable.ic_android)
+                deviceTypeIcon.contentDescription = "Timer Android"
+                // Nascondi la modalità per i dispositivi Android
+                modeInfoText.visibility = View.GONE
+            } else if (isHardware) {
+                deviceTypeIcon.setImageResource(R.drawable.ic_hardware)
+                deviceTypeIcon.contentDescription = "Timer Arduino"
+                // Mostra la modalità per i dispositivi hardware
+                modeInfoText.visibility = View.VISIBLE
+                modeInfoText.text = "Modo: ${timer.operationMode}"
+            } else {
+                // Per dispositivi sconosciuti, usiamo comunque l'icona hardware
+                deviceTypeIcon.setImageResource(R.drawable.ic_hardware)
+                deviceTypeIcon.contentDescription = "Timer sconosciuto"
+                // E mostriamo la modalità
+                modeInfoText.visibility = View.VISIBLE
+                modeInfoText.text = "Modo: ${timer.operationMode}"
+            }
 
             // Aggiungi il numero di giocatori
             android.util.Log.d("TimerAdapter", "Binding timer ${timer.deviceId}: playersCount=${timer.playersCount}")
@@ -128,7 +166,6 @@ class TimerAdapter(
             timerStatusText.background.setTint(statusBgColor)
 
             // Dettagli timer
-            modeInfoText.text = "Modo: ${timer.operationMode}"
             t1InfoText.text = "T1: ${timer.timerT1}s"
             t2InfoText.text = "T2: ${timer.timerT2}s"
             buzzerInfoText.text = "Buzzer: ${if (timer.buzzerEnabled) "On" else "Off"}"

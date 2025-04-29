@@ -14,15 +14,34 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <TextView
-            android:id="@+id/tableNumberText"
+        <!-- Layout per titolo e icona del tipo di dispositivo -->
+        <LinearLayout
+            android:id="@+id/tableTitleLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:textStyle="bold"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Tavolo 1" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/tableNumberText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                tools:text="Tavolo 1" />
+
+            <!-- Icona per il tipo di dispositivo (Android/Arduino) -->
+            <ImageView
+                android:id="@+id/deviceTypeIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_android"
+                android:visibility="visible"
+                android:contentDescription="Tipo dispositivo" />
+        </LinearLayout>
 
         <!-- Aggiunta TextView per il numero di giocatori -->
         <TextView
@@ -32,9 +51,8 @@
             android:layout_marginStart="8dp"
             android:textSize="14sp"
             android:textStyle="italic"
-            app:layout_constraintStart_toEndOf="@id/tableNumberText"
-            app:layout_constraintTop_toTopOf="@id/tableNumberText"
-            app:layout_constraintBottom_toBottomOf="@id/tableNumberText"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tableTitleLayout"
             tools:text="• 10 giocatori" />
 
         <TextView
@@ -77,7 +95,7 @@
             android:textStyle="bold"
             android:textColor="@color/primary_color"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tableNumberText"
+            app:layout_constraintTop_toBottomOf="@id/playersCountText"
             tools:text="30s" />
 
         <TextView
@@ -101,6 +119,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/timerValueText">
 
+            <!-- La TextView per la modalità sarà gestita dinamicamente nel codice -->
             <TextView
                 android:id="@+id/modeInfoText"
                 android:layout_width="wrap_content"
