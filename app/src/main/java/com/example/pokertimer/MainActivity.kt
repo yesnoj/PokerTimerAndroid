@@ -334,7 +334,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
 
         // Configura i listener per i pulsanti di azione
         val sendButton = dialog.findViewById<Button>(R.id.sendButton)
-        val cancelButton = dialog.findViewById<Button>(R.id.cancelButton)
 
         sendButton.setOnClickListener {
             // Verifica se ci sono posti selezionati
@@ -388,7 +387,9 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                 }
             }
         }
-        cancelButton.setOnClickListener {
+
+        val closeButton = dialog.findViewById<ImageButton>(R.id.closeButton)
+        closeButton.setOnClickListener {
             // Ripristina la lista originale
             selectedPlayerSeats.clear()
             selectedPlayerSeats.addAll(existingSeats)
@@ -397,10 +398,10 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             dialog.dismiss()
         }
 
+
         dialog.show()
 
         // Cambia il colore del pulsante Cancel a bianco
-        cancelButton.setTextColor(Color.WHITE)
     }
 
     private fun showSettingsDialog() {

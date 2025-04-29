@@ -51,6 +51,7 @@ import android.view.WindowManager
 import android.widget.Switch
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.Spinner
 
@@ -1043,7 +1044,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         val decreaseT2Button = dialogView.findViewById<Button>(R.id.decreaseT2Button)
         val increaseT2Button = dialogView.findViewById<Button>(R.id.increaseT2Button)
 
-        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+
+
         val saveButton = dialogView.findViewById<Button>(R.id.saveSettingsButton)
         val resetDefaultsButton = dialogView.findViewById<Button>(R.id.resetDefaultsButton)
 
@@ -1154,10 +1156,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             currentBuzzer = isChecked
         }
 
-        // Listener per il pulsante Annulla
-        cancelButton.setOnClickListener {
-            dialog.dismiss()
-        }
 
         // Listener per il pulsante di factory reset
         resetDefaultsButton.setOnClickListener {
