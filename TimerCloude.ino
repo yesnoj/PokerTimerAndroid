@@ -638,11 +638,44 @@ void startAPMode() {
     Serial.print("AP IP address: ");
     Serial.println(WiFi.softAPIP());
     
+    // Inizializza il server DNS per il captive portal
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+    captivePortalEnabled = true;
+    Serial.println("Captive portal DNS server started");
+    
     // Inizializza il server web con la nuova interfaccia AP
     setupAPWebServer();
+    setupCaptivePortal();  // Aggiungiamo la configurazione per il captive portal
   } else {
     Serial.println("Failed to start AP - check hardware");
   }
+}
+
+void setupCaptivePortal() {
+  // Gestione di tutte le richieste DNS non riconosciute verso la nostra pagina
+  server.onNotFound([]() {
+    // Reindirizza alla pagina principale
+    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
+    server.send(302, "text/plain", "");
+  });
+  
+  // Risponde alle richieste /generate_204 e simili usate per il rilevamento captive portal
+  server.on("/generate_204", HTTP_GET, []() {
+    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
+    server.send(302, "text/plain", "");
+  });
+  
+  server.on("/fwlink", HTTP_GET, []() {
+    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
+    server.send(302, "text/plain", "");
+  });
+  
+  // Risponde a richieste di Apple CaptiveNetwork Support
+  server.on("/hotspot-detect.html", HTTP_GET, []() {
+    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
+    server.send(302, "text/plain", "");
+  });
 }
 
 
@@ -814,31 +847,6 @@ void setupAPWebServer() {
   Serial.println("AP web server started (styled)");
 }
 
-void setupCaptivePortal() {
-  // Gestione di tutte le richieste DNS non riconosciute verso la nostra pagina
-  server.onNotFound([]() {
-    // Reindirizza alla pagina principale
-    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
-    server.send(302, "text/plain", "");
-  });
-  
-  // Risponde alle richieste /generate_204 e simili usate per il rilevamento captive portal
-  server.on("/generate_204", HTTP_GET, []() {
-    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
-    server.send(302, "text/plain", "");
-  });
-  
-  server.on("/fwlink", HTTP_GET, []() {
-    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
-    server.send(302, "text/plain", "");
-  });
-  
-  // Risponde a richieste di Apple CaptiveNetwork Support
-  server.on("/hotspot-detect.html", HTTP_GET, []() {
-    server.sendHeader("Location", String("http://") + WiFi.softAPIP().toString(), true);
-    server.send(302, "text/plain", "");
-  });
-}
 
 
 // Funzione per configurare le pagine di configurazione WiFi
@@ -1675,8 +1683,7 @@ void report_button(const uint8_t state, const char* const label = NULL) {
 }
 
 
-void loop()
-{
+void loop() {
   // Resetta il watchdog all'inizio di ogni ciclo del loop
   watchdogTriggered = false;
   
@@ -1689,14 +1696,15 @@ void loop()
   currentMillis = millis();
   
   // Gestisci il DNS server per il captive portal con protezione
+  if (wifiEnabled && captivePortalEnabled) {
+    dnsServer.processNextRequest();
+  }
+  
+  // Gestisci il DNS server per il captive portal con protezione
   if (wifiEnabled && wifiSetupInProgress) {
     handleWiFiSetup();
   }
   
-  // Gestisci il WiFi in modo completamente non bloccante
-  if(wifiEnabled && wifiSetupInProgress) {
-    handleWiFiSetup();
-  }
   
   // Controllo per factory reset (15 secondi di pressione)
   if (digitalRead(buttonPin) == 0) {  // Pulsante premuto
