@@ -33,6 +33,29 @@
             android:layout_marginStart="8dp"/>
     </LinearLayout>
 
+    <!-- Sezione Modalità (Visibile solo per dispositivi Arduino) - SPOSTATA IN ALTO -->
+    <LinearLayout
+        android:id="@+id/modeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Modalità Operativa"
+            android:textStyle="bold"
+            android:textColor="@color/white"/>
+
+        <Spinner
+            android:id="@+id/modeSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/white"/>
+    </LinearLayout>
+
     <!-- Sezione Numero Tavolo -->
     <TextView
         android:layout_width="match_parent"
@@ -115,29 +138,6 @@
             android:backgroundTint="@color/primary_color"
             android:textColor="@color/white"
             android:text="+" />
-    </LinearLayout>
-
-    <!-- Sezione Modalità (Visibile solo per dispositivi Arduino) -->
-    <LinearLayout
-        android:id="@+id/modeContainer"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="16dp">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Modalità Operativa"
-            android:textStyle="bold"
-            android:textColor="@color/white"/>
-
-        <Spinner
-            android:id="@+id/modeSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/white"/>
     </LinearLayout>
 
     <!-- Sezione Timer T1 -->

@@ -96,7 +96,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "poker_timer_seats"
         private const val NOTIFICATION_ID = 1001
-        private const val ONLINE_TIMEOUT_MINUTES = 1 // Timeout per considerare un timer online
+        private const val ONLINE_TIMEOUT_MINUTES = 3 // Timeout per considerare un timer online
     }
 
     private lateinit var timersRecyclerView: RecyclerView
@@ -1161,68 +1161,100 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
         // Listener per il pulsante di factory reset
         resetDefaultsButton.setOnClickListener {
-            // Conferma con un dialog
-            AlertDialog.Builder(this)
-                .setTitle("Factory Reset")
-                .setMessage("Sei sicuro di voler ripristinare tutte le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0\n- Giocatori = 10")
-                .setPositiveButton("Factory Reset") { _, _ ->
-                    // Ripristina i valori predefiniti
-                    val defaultMode = 1
-                    val defaultT1 = 20
-                    val defaultT2 = 30
-                    val defaultBuzzer = true
-                    val defaultTableNumber = 0
-                    val defaultPlayersCount = 10
+            // Verifica se è un timer hardware (Arduino) prima di tutto
+            if (timer.deviceId.startsWith("arduino_")) {
+                // Conferma con un dialog specifico per i dispositivi Arduino
+                val arduinoDialog = AlertDialog.Builder(this)
+                    .setTitle("Factory Reset (Arduino)")
+                    .setMessage("Sei sicuro di voler eseguire un factory reset completo su questo dispositivo hardware?\n\nQuesto resetterà completamente il timer, cancellando:\n- Tutte le impostazioni timer\n- Configurazioni WiFi\n- Dati salvati\n\nIl dispositivo si riavvierà e potrebbe disconnettersi dalla rete.")
+                    .setPositiveButton("Factory Reset") { _, _ ->
+                        // Per i timer Arduino, invia il comando factory_reset specifico
+                        sendCommandToTimer(timer.deviceId, "factory_reset")
 
-                    // Ferma l'aggiornamento automatico temporaneamente
-                    stopAutoRefresh()
+                        // Chiudi il dialogo
+                        dialog.dismiss()
 
-                    // Applica le impostazioni di factory reset
-                    applyTimerSettings(
-                        timer.deviceId,
-                        defaultMode,
-                        defaultT1,
-                        defaultT2,
-                        defaultBuzzer,
-                        defaultTableNumber,
-                        defaultPlayersCount,
-                        forceFactoryReset = true
-                    )
-
-                    // Aggiorna manualmente la lista locale immediatamente
-                    // Modifica l'oggetto timer in allTimerList per riflettere il reset
-                    val updatedTimer = allTimerList.find { it.deviceId == timer.deviceId }
-                    updatedTimer?.let {
-                        // Crea una copia aggiornata del timer
-                        val index = allTimerList.indexOf(it)
-                        if (index >= 0) {
-                            allTimerList[index] = it.copy(
-                                operationMode = defaultMode,
-                                timerT1 = defaultT1,
-                                timerT2 = defaultT2,
-                                buzzerEnabled = defaultBuzzer,
-                                tableNumber = defaultTableNumber,
-                                playersCount = defaultPlayersCount
-                            )
-                        }
+                        // Mostra un messaggio di conferma con avviso
+                        Toast.makeText(this, "Factory Reset avviato sul dispositivo Arduino. Il timer si riavvierà.", Toast.LENGTH_LONG).show()
                     }
+                    .setNegativeButton("Annulla", null)
+                    .create()
 
-                    // Aggiorna la lista filtrata
-                    updateFilteredList()
+                // Mostra il dialogo Arduino
+                arduinoDialog.show()
 
-                    // Riavvia l'aggiornamento automatico dopo un breve ritardo
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        startAutoRefresh()
-                    }, 3000) // Ritardo di 3 secondi prima di riprendere l'aggiornamento automatico
+                // Imposta il colore dei pulsanti a bianco
+                arduinoDialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+                arduinoDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+            } else {
+                // Per i timer Android, mostra il dialogo standard con reset parziale
+                val androidDialog = AlertDialog.Builder(this)
+                    .setTitle("Reset Impostazioni")
+                    .setMessage("Sei sicuro di voler ripristinare le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0\n- Giocatori = 10")
+                    .setPositiveButton("Reset") { _, _ ->
+                        // Valori predefiniti per il reset parziale
+                        val defaultMode = 1
+                        val defaultT1 = 20
+                        val defaultT2 = 30
+                        val defaultBuzzer = true
+                        val defaultTableNumber = 0
+                        val defaultPlayersCount = 10
 
-                    // Chiudi il dialogo
-                    dialog.dismiss()
+                        // Ferma l'aggiornamento automatico temporaneamente
+                        stopAutoRefresh()
 
-                    // Mostra un messaggio di conferma
-                    Toast.makeText(this, "Factory Reset completato con successo", Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton("Annulla", null)
-                .show()
+                        // Applica le impostazioni di factory reset
+                        applyTimerSettings(
+                            timer.deviceId,
+                            defaultMode,
+                            defaultT1,
+                            defaultT2,
+                            defaultBuzzer,
+                            defaultTableNumber,
+                            defaultPlayersCount,
+                            forceFactoryReset = true
+                        )
+
+                        // Aggiorna manualmente la lista locale immediatamente
+                        val updatedTimer = allTimerList.find { it.deviceId == timer.deviceId }
+                        updatedTimer?.let {
+                            val index = allTimerList.indexOf(it)
+                            if (index >= 0) {
+                                allTimerList[index] = it.copy(
+                                    operationMode = defaultMode,
+                                    timerT1 = defaultT1,
+                                    timerT2 = defaultT2,
+                                    buzzerEnabled = defaultBuzzer,
+                                    tableNumber = defaultTableNumber,
+                                    playersCount = defaultPlayersCount
+                                )
+                            }
+                        }
+
+                        // Aggiorna la lista filtrata
+                        updateFilteredList()
+
+                        // Riavvia l'aggiornamento automatico dopo un breve ritardo
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            startAutoRefresh()
+                        }, 3000)
+
+                        // Chiudi il dialogo
+                        dialog.dismiss()
+
+                        // Mostra un messaggio di conferma
+                        Toast.makeText(this, "Reset impostazioni completato con successo", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("Annulla", null)
+                    .create()
+
+                // Mostra il dialogo Android
+                androidDialog.show()
+
+                // Imposta il colore dei pulsanti a bianco
+                androidDialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+                androidDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+            }
         }
 
         // Listener per il pulsante di salvataggio

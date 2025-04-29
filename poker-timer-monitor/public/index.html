@@ -826,7 +826,7 @@
   <script>
     let hiddenTimers = [];
     let currentFilter = 'all'; // Filtro predefinito: 'all', 'online', 'offline'
-    const ONLINE_TIMEOUT_MS = 60000; // 60 secondi per considerare un timer online
+    const ONLINE_TIMEOUT_MS = 180000; // 60 secondi per considerare un timer online
 
 
     // Funzione per caricare i timer nascosti da localStorage
@@ -1270,8 +1270,12 @@ function fetchTimerData() {
         // Determina lo stato del timer
         let statusClass = 'status-stopped';
         let statusText = 'Stopped';
-        
-        if (timer.is_running && !timer.is_paused) {
+
+        if (timer.time_expired) {
+          // Se il timer è scaduto, mostra sempre "Stopped" indipendentemente dagli altri flag
+          statusClass = 'status-stopped';
+          statusText = 'Stopped';
+        } else if (timer.is_running && !timer.is_paused) {
           statusClass = 'status-running';
           statusText = 'Running';
         } else if (timer.is_paused) {
