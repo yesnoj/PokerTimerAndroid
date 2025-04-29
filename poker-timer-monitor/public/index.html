@@ -1362,7 +1362,7 @@ function fetchTimerData() {
             <span class="info-item">Mode: ${timer.mode}</span>
             <span class="info-item">T1: ${timer.t1_value}s</span>
             <span class="info-item">T2: ${timer.t2_value}s</span>
-            <span class="info-item">Players: ${playersCount}</span>
+            <span class="info-item">Giocatori: ${playersCount}</span>
             <span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>
             <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
             <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
@@ -1585,7 +1585,7 @@ function fetchTimerData() {
         <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
         <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
         <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-        <span class="info-item">Players: ${timer.players_count || 10}</span>
+        <span class="info-item">Giocatori: ${timer.players_count || 10}</span>
         <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
       `;
       document.getElementById('detail-timer-info').innerHTML = infoHTML;
@@ -1639,7 +1639,7 @@ function fetchTimerData() {
             <span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>
             <span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>
             <span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>
-            <span class="info-item">Players: ${timer.players_count || 10}</span>
+            <span class="info-item">Giocatori: ${timer.players_count || 10}</span>
             <span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>
           `;
           document.getElementById('detail-timer-info').innerHTML = infoHTML;
