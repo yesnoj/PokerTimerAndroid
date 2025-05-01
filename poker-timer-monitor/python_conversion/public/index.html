@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poker Timer Monitor</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .timer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .timer-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+      cursor: pointer;
+    }
+    
+    .timer-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .timer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    .timer-title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin: 0;
+    }
+    
+    .timer-status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .status-running {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .status-paused {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    
+    .status-stopped {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .timer-time {
+      font-size: 2rem;
+      text-align: center;
+      margin: 15px 0;
+      font-weight: bold;
+    }
+    
+    .timer-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .info-item {
+      background-color: #f8f9fa;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    
+    .battery-low {
+      color: #dc3545;
+    }
+    
+    .battery-ok {
+      color: #28a745;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    button:hover {
+      background-color: #0069d9;
+    }
+    
+    button.reset-btn {
+      background-color: #dc3545;
+      font-weight: bold;
+    }
+    
+    button.reset-btn:hover {
+      background-color: #bd2130;
+    }
+    
+    .no-timers {
+      text-align: center;
+      padding: 30px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .last-update {
+      text-align: right;
+      color: #6c757d;
+      font-size: 0.8rem;
+      margin-top: 5px;
+    }
+    
+    .offline-marker {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      background-color: #dc3545;
+    }
+    
+    .online-marker {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      background-color: #28a745;
+    }
+    
+    .control-panel {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .refresh-control {
+      text-align: right;
+    }
+    
+.timer-count {
+  display: flex;
+  align-items: center; /* Questo allinea verticalmente il testo */
+  background-color: #e9ecef;
+  border-radius: 4px;
+  padding: 6px 10px; /* Stesse dimensioni del padding della select */
+  height: 100%; /* Assicura che abbia la stessa altezza */
+  box-sizing: border-box; /* Include padding nel calcolo dell'altezza */
+}
+    
+    .wifi-excellent {
+      color: #28a745;
+    }
+    .wifi-good {
+      color: #5cb85c;
+    }
+    .wifi-fair {
+      color: #ffc107;
+    }
+    .wifi-weak {
+      color: #fd7e14;
+    }
+    .wifi-poor {
+      color: #dc3545;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      overflow-y: auto;
+    }
+    
+    .modal-content {
+      background-color: #fff;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 700px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .modal-title {
+      margin-top: 0;
+      color: #007bff;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+    
+    .modal-cancel {
+      background-color: #6c757d;
+    }
+    
+    .modal-confirm {
+      background-color: #dc3545;
+    }
+    
+    .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 24px;
+      color: #aaa;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .modal-close:hover {
+      color: #000;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-bottom: none;
+      margin-right: 5px;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+    }
+    
+    .tab.active {
+      background-color: #fff;
+      border-bottom: 1px solid #fff;
+      margin-bottom: -1px;
+      font-weight: bold;
+      color: #007bff;
+    }
+    
+    .tab-content {
+      display: none;
+      padding: 15px 0;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .form-row {
+      margin-bottom: 15px;
+    }
+    
+    .form-row label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    .form-row input[type="number"],
+    .form-row input[type="text"],
+    .form-row select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    
+    .upload-form {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px dashed #ddd;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+    }
+    
+    .upload-progress {
+      width: 100%;
+      height: 20px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #4CAF50;
+      text-align: center;
+      line-height: 20px;
+      color: white;
+      transition: width 0.3s;
+    }
+    
+    .alert {
+      padding: 15px;
+      margin-bottom: 20px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+    
+    .alert-danger {
+      color: #721c24;
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    
+    .alert-warning {
+      color: #856404;
+      background-color: #fff3cd;
+      border-color: #ffeeba;
+    }
+    
+    .alert-success {
+      color: #155724;
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    
+    .invalid-input {
+      border: 2px solid #dc3545 !important;
+      background-color: #fff8f8;
+    }
+
+    .form-row small.error-message {
+      color: #dc3545;
+      display: none;
+      margin-top: 5px;
+      font-size: 0.8rem;
+    }
+
+    .invalid-input + small.error-message {
+      display: block;
+    }
+
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .remove-timer-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: #dc3545;
+      color: white;
+      font-size: 18px;
+      line-height: 22px;
+      text-align: center;
+      cursor: pointer;
+      z-index: 10;
+      border: none;
+      padding: 0;
+    }
+
+    .remove-timer-btn:hover {
+      background-color: #bd2130;
+    }
+
+    .timer-card {
+      position: relative;
+    }
+
+    .show-all-btn {
+      margin: 10px 0;
+      background-color: #6c757d;
+      border: none;
+      color: white;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .show-all-btn:hover {
+      background-color: #5a6268;
+    }
+
+    .show-all-container {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+
+    .seat-info:hover {
+      background-color: #f7c948 !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .filter-controls {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .filter-controls select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background-color: white;
+      margin-right: 10px;
+    }
+
+    .filtered-timer {
+      display: none;
+    }
+
+
+    .control-panel-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .filter-controls {
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .filter-controls select {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      background-color: white;
+      margin-right: 10px;
+    }
+
+    .filter-controls {
+      display: flex;
+      align-items: center; /* Questo allinea verticalmente al centro */
+    }
+
+    .filter-controls label {
+      margin-right: 8px;
+    }
+
+    .refresh-controls .refresh-btn {
+      margin-left: 10px;
+    }
+
+    /* Stile per essere sicuri che su schermi piccoli si comporti bene */
+    @media (max-width: 768px) {
+      .control-panel-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .filter-controls, .refresh-controls {
+        margin: 8px 0;
+      }
+    }
+
+    /* Stili aggiunti per le nuove funzionalità */
+    .device-type-icon {
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    
+    .android-timer {
+      color: #a4c639; /* Colore verde Android */
+    }
+    
+    .hardware-timer {
+      color: #00adef; /* Colore blu Arduino/ESP */
+    }
+    
+    /* MODIFICATO: Controlli per numeri con + e - rettangolari */
+    .number-control {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    /* MODIFICATO: Stile migliorato per i pulsanti + e - */
+    .number-control button {
+      width: 40px;
+      height: 34px;
+      border-radius: 4px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 5px; /* Aggiunto spazio tra i pulsanti */
+    }
+    
+    .number-control span {
+      margin: 0 15px;
+      font-size: 16px;
+      min-width: 30px;
+      text-align: center;
+    }
+    
+    .field-control {
+      display: flex;
+      align-items: center;
+    }
+    
+    .field-control input {
+      width: calc(100% - 100px);
+      margin-right: 10px;
+    }
+    
+    .field-control .number-control {
+      margin: 0;
+    }
+
+    /* NUOVO: Stile per lo switch/toggle per il buzzer */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #4CAF50;
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px #4CAF50;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    /* AGGIORNATO: Stile per il pulsante di chiusura del timer detail */
+    .close-detail-btn {
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .close-detail-btn:hover {
+      background-color: #5a6268 !important;
+    }
+
+    /* Modifica per allineare il layout del numero giocatori con quello del numero tavolo */
+    .player-count-field {
+      display: flex;
+      align-items: center;
+    }
+
+    .player-count-display {
+      width: calc(100% - 100px);
+      margin-right: 10px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+      background-color: #f8f9fa;
+    }
+
+    /* Notifiche in-app (toast) */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      max-width: 350px;
+    }
+
+    .toast-notification {
+      background-color: white;
+      border-left: 4px solid #4CAF50;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 15px;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateX(50px);
+      max-width: 350px;
+      display: flex;
+      position: relative;
+    }
+
+    .toast-notification.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .toast-notification.hide {
+      opacity: 0;
+      transform: translateX(100px);
+    }
+
+    .toast-notification.success { border-left-color: #4CAF50; }
+    .toast-notification.warning { border-left-color: #FFC107; }
+    .toast-notification.error { border-left-color: #DC3545; }
+    .toast-notification.info { border-left-color: #0dcaf0; }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 1rem;
+      padding-right: 20px;
+    }
+
+    .toast-body {
+      font-size: 0.9rem;
+      color: #444;
+    }
+
+    .toast-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 16px;
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    .toast-close:hover {
+      color: #333;
+      background-color: #f0f0f0;
+    }
+
+    .toast-icon {
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .toast-success .toast-icon { color: #4CAF50; }
+    .toast-warning .toast-icon { color: #FFC107; }
+    .toast-error .toast-icon { color: #DC3545; }
+    .toast-info .toast-icon { color: #0dcaf0; }
+
+    /* Bottone per richiedere il permesso di notifiche */
+    .notification-permission-btn {
+      padding: 8px 12px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .notification-permission-btn:hover {
+      background-color: #0069d9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Poker Timer Monitor</h1>
+  
+  <div class="control-panel">
+  <div class="control-panel-content">
+    <div class="filter-controls">
+      <label for="timer-filter">Visualizza: </label>
+      <select id="timer-filter" onchange="applyTimerFilter()">
+        <option value="all">Tutti i timer</option>
+        <option value="online">Timer online</option>
+        <option value="offline">Timer offline</option>
+      </select>
+      <span class="timer-count" id="timer-count">0 timer visualizzati</span>
+    </div>
+    
+    <div class="refresh-controls">
+      <label for="auto-refresh">Auto Refresh: </label>
+      <input type="checkbox" id="auto-refresh" checked>
+      <label for="sound-enabled" style="margin-left: 15px;">Suono: </label>
+      <input type="checkbox" id="sound-enabled" checked>
+      <button onclick="fetchTimerData()" class="refresh-btn">Refresh Now</button>
+    </div>
+  </div>
+</div>
+  
+  <div class="timer-grid" id="timer-container">
+    <div class="no-timers">
+      <p>Waiting for timers to connect...</p>
+      <p>Make sure your Poker Timers are connected to WiFi and properly configured.</p>
+    </div>
+  </div>
+  
+  <!-- Modal per la gestione dettagliata del timer -->
+  <div id="timer-detail-modal" class="modal">
+    <div class="modal-content">
+      <h2 class="modal-title" id="timer-detail-title">Timer Details <i id="deviceTypeIcon" class="fas fa-question-circle device-type-icon"></i></h2>
+      
+      <div class="timer-time" id="detail-timer-time">00 seconds</div>
+      <div class="button-group">
+        <button id="detail-start-button" onclick="sendDetailCommand('start')">Start</button>
+        <button id="detail-pause-button" onclick="sendDetailCommand('pause')">Pause</button>
+      </div>
+      
+      <div class="timer-info" style="margin-top: 20px;" id="detail-timer-info">
+        <!-- Informazioni dinamiche qui -->
+      </div>
+      
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('settings')">Settings</div>
+        <div class="tab" onclick="showTab('advanced')">Advanced</div>
+      </div>
+      
+      <!-- Tab Settings -->
+      <div id="settings-tab" class="tab-content active">
+        <h3>Timer Settings</h3>
+        
+        <!-- Nuovo ordine: Numero tavolo, Numero Giocatori, Timer T1, Timer T2, Buzzer -->
+        <div class="form-row">
+          <label for="detail-table-number">Numero Tavolo:</label>
+          <div class="field-control">
+            <input type="number" id="detail-table-number" name="tableNumber" min="0" max="99">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-table-number', 0, 99)">-</button>
+              <button type="button" onclick="incrementField('detail-table-number', 0, 99)">+</button>
+            </div>
+          </div>
+          <small class="error-message">Table number must be between 0 and 99</small>
+        </div>
+
+        <div class="form-row" id="playersCountSection">
+          <label for="playersCount">Numero Giocatori:</label>
+          <div class="field-control">
+            <div class="player-count-display" id="playersCountValue">3</div>
+            <div class="number-control">
+              <button type="button" onclick="decrementPlayerCount()">-</button>
+              <button type="button" onclick="incrementPlayerCount()">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="detail-t1">Timer T1:</label>
+          <div class="field-control">
+            <input type="number" id="detail-t1" name="t1" min="5" max="95" step="5">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-t1', 5, 95, 5)">-</button>
+              <button type="button" onclick="incrementField('detail-t1', 5, 95, 5)">+</button>
+            </div>
+          </div>
+          <small class="error-message">T1 must be between 5 and 95 and a multiple of 5</small>
+        </div>
+
+        <div class="form-row" id="detail-t2-group">
+          <label for="detail-t2">Timer T2:</label>
+          <div class="field-control">
+            <input type="number" id="detail-t2" name="t2" min="5" max="95" step="5">
+            <div class="number-control">
+              <button type="button" onclick="decrementField('detail-t2', 5, 95, 5)">-</button>
+              <button type="button" onclick="incrementField('detail-t2', 5, 95, 5)">+</button>
+            </div>
+          </div>
+          <small class="error-message">T2 must be between 5 and 95 and a multiple of 5</small>
+        </div>
+        
+        <div class="form-row" id="detail-mode-group">
+          <label for="detail-mode">Operation Mode:</label>
+          <select id="detail-mode" name="mode">
+            <option value="1">Mode 1: T1/T2 with automatic start</option>
+            <option value="2">Mode 2: T1/T2 with manual start</option>
+            <option value="3">Mode 3: T1 only with automatic start</option>
+            <option value="4">Mode 4: T1 only with manual start</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="detail-buzzer">Buzzer:</label>
+          <label class="switch">
+            <input type="checkbox" id="detail-buzzer" name="buzzer">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button id="save-settings-btn" onclick="saveSettings()">Save Settings</button>
+          <button class="close-detail-btn" onclick="closeTimerDetailModal()" style="background-color: #6c757d; flex: 1;">Chiudi</button>
+        </div>
+      </div>
+      
+      <!-- Tab Advanced -->
+      <div id="advanced-tab" class="tab-content">
+        <h3>Advanced Options</h3>
+        
+        <div class="alert alert-danger">
+          <strong>Warning:</strong> These options can permanently affect the timer's functionality.
+          Use with caution!
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <h4>Factory Reset</h4>
+          <p>This will restore ALL settings to factory defaults including:</p>
+          <ul>
+            <li>Timer values (T1, T2)</li>
+            <li>Table number</li>
+            <li>Buzzer settings</li>
+            <li>Operation mode</li>
+            <li>WiFi settings</li>
+          </ul>
+          <p>This action cannot be undone.</p>
+          <button class="reset-btn" onclick="confirmFactoryReset()">Factory Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal per conferma factory reset -->
+  <div id="factory-reset-modal" class="modal">
+    <div class="modal-content">
+      <h3 class="modal-title">⚠️ Factory Reset Confirmation</h3>
+      <p>You are about to perform a <strong>FACTORY RESET</strong> on:</p>
+      <p id="reset-table-info" style="font-weight: bold; font-size: 1.2em; text-align: center;"></p>
+      <p>This will restore ALL settings to factory defaults.</p>
+      <p>The timer will disconnect from WiFi and may not reconnect automatically.</p>
+      <p>This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="modal-cancel" onclick="closeFactoryResetModal()">Cancel</button>
+        <button class="modal-confirm" onclick="executeFactoryReset()">Confirm Factory Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="debug-notifications" style="position: fixed; bottom: 60px; left: 10px; z-index: 1000; background-color: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">
+    Debug Notifiche
+  </button>
+  <script>
+    let hiddenTimers = [];
+    let currentFilter = 'all'; // Filtro predefinito: 'all', 'online', 'offline'
+    const ONLINE_TIMEOUT_MS = 180000; // 60 secondi per considerare un timer online
+
+    // Sistema di notifiche
+    let notificationsSupported = ("Notification" in window);
+    let notificationsEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+
+    function debugNotifications() {
+      console.log("=== DEBUG NOTIFICHE ===");
+      console.log("Notifiche supportate:", notificationsSupported);
+      console.log("Notifiche abilitate:", notificationsEnabled);
+      console.log("Stato permesso notifiche:", Notification.permission);
+      
+      // Forza la visualizzazione del bottone di richiesta permesso
+      const permButton = document.getElementById('notification-permission');
+      if (permButton) {
+        permButton.style.display = 'block';
+        console.log("Bottone permesso notifiche mostrato forzatamente");
+      }
+      
+      // Mostra una notifica di test in-app
+      showToast({
+        title: "Test Debug Notifiche",
+        message: "Notifiche supportate: " + notificationsSupported + "\nStato permesso: " + Notification.permission,
+        type: "info"
+      });
+    }
+
+
+    // Inizializzazione del sistema di notifiche
+    function initNotificationSystem() {
+      // Se le notifiche sono supportate, verifica lo stato dei permessi
+      if (notificationsSupported) {
+        console.log("Notifiche supportate, stato permesso:", Notification.permission);
+        
+        if (Notification.permission === "granted") {
+          notificationsEnabled = true;
+          localStorage.setItem('notificationsEnabled', 'true');
+          console.log("Notifiche desktop abilitate");
+        } 
+        else if (Notification.permission !== "denied") {
+          // Mostra il bottone per richiedere il permesso
+          const permButton = document.getElementById('notification-permission');
+          if (permButton) {
+            permButton.style.display = 'block';
+            console.log("Bottone permesso notifiche mostrato");
+          } else {
+            console.warn("Elemento 'notification-permission' non trovato");
+          }
+        } else {
+          console.log("Permesso notifiche già negato dall'utente");
+        }
+      } else {
+        console.log("Notifiche desktop non supportate dal browser");
+      }
+      
+      // Crea il container per le notifiche in-app se non esiste
+      if (!document.getElementById('toastContainer')) {
+        console.log("Creazione container notifiche in-app");
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+      }
+    }
+
+    // Richiedi permesso per le notifiche desktop
+    function requestNotificationPermission() {
+      if (!notificationsSupported) return false;
+      
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          notificationsEnabled = true;
+          localStorage.setItem('notificationsEnabled', 'true');
+          
+          // Nascondi il bottone di richiesta permesso
+          const permButton = document.getElementById('notification-permission');
+          if (permButton) {
+            permButton.style.display = 'none';
+          }
+          
+          // Mostra una notifica di conferma
+          showNotification(
+            "Notifiche Abilitate", 
+            "Le notifiche desktop sono state abilitate con successo!",
+            "success"
+          );
+        }
+      });
+      
+      return Notification.permission === "granted";
+    }
+
+    // Funzione per creare e mostrare una notifica desktop
+    function showDesktopNotification(title, body, icon) {
+      // Verifica se il permesso è stato concesso
+      if (notificationsSupported && Notification.permission === "granted") {
+        try {
+          // Crea e mostra la notifica
+          const notification = new Notification(title, {
+            body: body,
+            icon: icon || '/favicon.ico',
+            tag: 'poker-timer-notification' // Assicura che notifiche simili vengano raggruppate
+          });
+          
+          // Quando l'utente clicca sulla notifica
+          notification.onclick = function() {
+            window.focus(); // Porta il focus sulla finestra dell'applicazione
+            this.close();
+          };
+          
+          // Chiudi automaticamente dopo 8 secondi (più lungo dell'alert standard)
+          setTimeout(() => {
+            notification.close();
+          }, 8000);
+          
+          return true;
+        } catch (error) {
+          console.error("Errore nella creazione della notifica desktop:", error);
+          return false;
+        }
+      }
+      
+      return false;
+    }
+
+    // Funzione per creare e mostrare una notifica in-app (toast)
+    function showToast(options) {
+      // Opzioni predefinite
+      const defaults = {
+        title: 'Notifica',
+        message: 'Questo è un messaggio di notifica',
+        type: 'info', // 'success', 'warning', 'error', 'info'
+        duration: 5000, // Tempo in ms prima che la notifica scompaia
+        sound: true // Riproduce un suono di notifica
+      };
+      
+      // Unisci le opzioni con i valori predefiniti
+      const settings = { ...defaults, ...options };
+      
+      // Ottieni il contenitore delle notifiche
+      const container = document.getElementById('toastContainer');
+      if (!container) return null; // Se il container non esiste, esci
+      
+      // Crea l'elemento della notifica
+      const toast = document.createElement('div');
+      toast.className = `toast-notification ${settings.type}`;
+      
+      // Determina l'icona in base al tipo
+      let iconClass = '';
+      switch (settings.type) {
+        case 'success': iconClass = 'fas fa-check-circle'; break;
+        case 'warning': iconClass = 'fas fa-exclamation-triangle'; break;
+        case 'error': iconClass = 'fas fa-times-circle'; break;
+        default: iconClass = 'fas fa-info-circle';
+      }
+      
+      // Imposta il contenuto HTML
+      toast.innerHTML = `
+        <div class="toast-icon">
+          <i class="${iconClass}"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">${settings.title}</div>
+          <div class="toast-body">${settings.message}</div>
+        </div>
+        <button class="toast-close" aria-label="Chiudi">&times;</button>
+      `;
+      
+      // Aggiungi la notifica al contenitore
+      container.appendChild(toast);
+      
+      // Riproduci suono se abilitato
+      if (settings.sound) {
+        playNotificationSound();
+      }
+      
+      // Gestisci il pulsante di chiusura
+      const closeButton = toast.querySelector('.toast-close');
+      closeButton.addEventListener('click', () => {
+        removeToast(toast);
+      });
+      
+      // Mostra la notifica con un breve ritardo (per l'animazione)
+      setTimeout(() => {
+        toast.classList.add('show');
+      }, 10);
+      
+      // Imposta il timer per rimuovere la notifica
+      const toastTimeout = setTimeout(() => {
+        removeToast(toast);
+      }, settings.duration);
+      
+      // Pausa il timer quando il mouse è sopra la notifica
+      toast.addEventListener('mouseenter', () => {
+        clearTimeout(toastTimeout);
+      });
+      
+      // Riattiva il timer quando il mouse esce dalla notifica
+      toast.addEventListener('mouseleave', () => {
+        setTimeout(() => {
+          removeToast(toast);
+        }, settings.duration / 2); // Dimezza il tempo prima di chiudere
+      });
+      
+      // Funzione per rimuovere la notifica con animazione
+      function removeToast(toastElement) {
+        toastElement.classList.add('hide');
+        toastElement.classList.remove('show');
+        
+        // Rimuovi l'elemento dopo che l'animazione è completata
+        setTimeout(() => {
+          if (toastElement.parentNode === container) {
+            container.removeChild(toastElement);
+          }
+        }, 300); // Tempo dell'animazione
+      }
+      
+      // Restituisci l'elemento toast per riferimenti futuri
+      return toast;
+    }
+
+    // Funzione unificata per mostrare notifiche (usa desktop o in-app come fallback)
+    function showNotification(title, message, type = 'info') {
+      // Prova prima con le notifiche desktop
+      if (notificationsEnabled && notificationsSupported && Notification.permission === "granted") {
+        const success = showDesktopNotification(title, message);
+        if (success) {
+          // Suona anche se la notifica desktop è stata mostrata
+          playNotificationSound();
+          return;
+        }
+      }
+      
+      // Fallback alle notifiche in-app
+      showToast({
+        title: title,
+        message: message,
+        type: type,
+        duration: 8000
+      });
+    }
+
+
+    // Funzione per caricare i timer nascosti da localStorage
+    function loadHiddenTimers() {
+      const saved = localStorage.getItem('hiddenTimers');
+      if (saved) {
+        try {
+          hiddenTimers = JSON.parse(saved);
+        } catch (e) {
+          console.error('Error loading hidden timers:', e);
+          hiddenTimers = [];
+        }
+      }
+    }
+
+    // Funzione per applicare il filtro selezionato
+    function applyTimerFilter() {
+      // Ottieni il valore del filtro selezionato
+      currentFilter = document.getElementById('timer-filter').value;
+      console.log('Applying filter:', currentFilter);
+      
+      // Aggiorna la dashboard con il nuovo filtro
+      updateDashboard();
+    }
+
+    // Controlla se un timer è considerato online in base al timestamp dell'ultimo aggiornamento
+    function isTimerOnline(timer) {
+      try {
+        // Estrai la data dell'ultimo aggiornamento
+        const lastUpdate = new Date(timer.last_update);
+        const now = new Date();
+        
+        // Un timer è considerato online se l'ultimo aggiornamento è avvenuto negli ultimi X secondi
+        return (now - lastUpdate) < ONLINE_TIMEOUT_MS;
+      } catch (e) {
+        // In caso di errore nel parsing della data, considera il timer offline
+        console.error('Error checking timer online status:', e);
+        return false;
+      }
+    }
+
+    // Funzione per determinare se un timer è Android basato sul device_id
+    function isAndroidTimer(deviceId) {
+      return deviceId && deviceId.startsWith('android_');
+    }
+    
+    // Funzione per determinare se un timer è hardware (ESP32/Arduino) basato sul device_id
+    function isHardwareTimer(deviceId) {
+      return deviceId && deviceId.startsWith('arduino_');
+    }
+
+    // Funzione per salvare i timer nascosti in localStorage
+    function saveHiddenTimers() {
+      localStorage.setItem('hiddenTimers', JSON.stringify(hiddenTimers));
+    }
+
+    // Funzione per nascondere un timer
+    function hideTimer(deviceId) {
+      // Aggiungi il dispositivo alla lista dei nascosti
+      if (!hiddenTimers.includes(deviceId)) {
+        hiddenTimers.push(deviceId);
+        saveHiddenTimers();
+      }
+      
+      // Aggiorna la dashboard per riflettere il cambiamento
+      updateDashboard();
+    }
+
+    // Funzione per mostrare tutti i timer nascosti
+    function showAllTimers() {
+      hiddenTimers = [];
+      saveHiddenTimers();
+      updateDashboard();
+    }
+
+    // Funzione per combinare i posti esistenti con quelli nuovi
+    function combineSeats(existingSeats, newSeats) {
+      // Se non ci sono posti esistenti, usa solo i nuovi
+      if (!existingSeats || existingSeats.length === 0) return newSeats;
+      
+      // Se non ci sono posti nuovi, usa solo quelli esistenti
+      if (!newSeats || newSeats.length === 0) return existingSeats;
+      
+      // Combina i due array, mantiene l'ordine ma elimina i duplicati
+      // Prima converte in Set per eliminare i duplicati, poi riconverte in array
+      const combinedSeatsSet = new Set([...existingSeats, ...newSeats]);
+      return Array.from(combinedSeatsSet);
+    }
+
+    // Funzioni per incrementare/decrementare i campi numerici
+    function incrementField(fieldId, min, max, step = 1) {
+      const field = document.getElementById(fieldId);
+      let currentValue = parseInt(field.value);
+      if (isNaN(currentValue)) currentValue = min;
+      
+      let newValue = currentValue + step;
+      if (newValue > max) newValue = max;
+      
+      field.value = newValue;
+      field.dispatchEvent(new Event('input')); // Trigger validation
+    }
+    
+    function decrementField(fieldId, min, max, step = 1) {
+      const field = document.getElementById(fieldId);
+      let currentValue = parseInt(field.value);
+      if (isNaN(currentValue)) currentValue = min;
+      
+      let newValue = currentValue - step;
+      if (newValue < min) newValue = min;
+      
+      field.value = newValue;
+      field.dispatchEvent(new Event('input')); // Trigger validation
+    }
+
+    // NUOVO: Funzioni per incrementare/decrementare il conteggio giocatori
+    function incrementPlayerCount() {
+      const countDisplay = document.getElementById('playersCountValue');
+      let count = parseInt(countDisplay.textContent);
+      if (isNaN(count)) count = 1;
+      
+      if (count < 10) {
+        count++;
+        countDisplay.textContent = count;
+      }
+    }
+    
+    function decrementPlayerCount() {
+      const countDisplay = document.getElementById('playersCountValue');
+      let count = parseInt(countDisplay.textContent);
+      if (isNaN(count)) count = 1;
+      
+      if (count > 1) {
+        count--;
+        countDisplay.textContent = count;
+      }
+    }
+
+    let timers = {};
+    let autoRefreshInterval;
+    const autoRefreshCheckbox = document.getElementById('auto-refresh');
+    let factoryResetDeviceId = null;
+    let currentDetailDeviceId = null;
+    let shownNotifications = [];
+    let notificationSound;
+    let soundEnabled = true;
+    
+    // Inizializzazione del suono di notifica
+    function initNotificationSound() {
+      // Creiamo un elemento audio per la notifica
+      notificationSound = new Audio();
+      
+      // Utilizziamo un suono più squillante (formato URI data)
+      notificationSound.src = 'data:audio/wav;base64,UklGRiQFAABXQVZFZm10IBAAAAABAAIARKwAABCxAgAEACAAAABkYXRhAAAASVNOR5EUrR/NIlMm/iiEKvIrFy1sLrot4S3lLa4tYC0OLXAsRSxqK38qaynHKCYo9SfuJw8oMif0Jp4mIyaLJQ4leCTfI0cjbyK1IeEgESDGHrkdzhwYHGUbxRoXGnkZ+RinGFIYCBjFF38XJxe4Fm0W6xV6FV0VJRXiFF0UGBTJEycTlBIkEh4RYRBxD1gOEw3XC2AKqgjoB1UGsAOhAI799PrH9xX0qPC87ULrxehH5vHjkeF13wjdlNng1ybWXdUh1E7TfdLM0VbRFNEV0TrRgtHQ0SzSidLs0kDTndP709bTBNQx1G/UutQR1YHV9dV+1hLXr9dh2B7Z9tmh2lLbJdwP3fXd+d4v4KzhCON+5BTm4ufu6ifu+/FI91n9FQM8CKwMyBAvFIwX9Rn0G50dsR69H40gUiHuIS8iYSJtImYiQCL6IZchJCGgIAIgXB+gHtgdCR0nHDAbaRpiGU0YRBc4Fi4VIxQQEwYSEhECEP8O9w0HDe8L3QrfCdQI5QfJBtQF0gS/A7ECjgFtAFT/Tf4+/S381fqw+Zj4VPc69gr1z/Oh8mfxQ/AF7+Lt1ezT67HqkunK6Mnnoud551bn5Ob85kHnf+fY50Posel7696t7a+JsR+zs7RYtue3drjUuUG6lrrMuxC9T76Yv/bAi8Ixw9DDScT3xIzF+MV+xuLGZsfRx1DIx8h3yU3KS8tPzGLNcc59z43Qp9G10sbT5tQL1gLXidh52efal9xU3iDg6uG445vlduct6eHqoexP7v7vpvFN8/X0dvbg9078Lv7i/4UBKAOpBAoGPQdMCDQJ5gl4ChALoQv2C0wMlwzoDBsNSw2ODd0NIQ5vDsEOGQ97D+wPaxD1EI4RLhLSEogTPBT2FLwVfRZZFzsYIRn7GcwamhtjHBAdwR1THtsePh+cH/IffSAEIYghCCKeIiojpiMyJLYkOiW6JTcmryYhJ5MnAiiuKCQpsSkYKnQq0CowK5QrASxoLN4sMy2LLecteS4JL5kv+y9MMKAwzzD0MAcxGjEvMUExUDFkMX4xmTGtMaUxpTGnMZgxejFuMUYxMzEEMfwwyDC2MJ0whDBhMDYwCDDtL80vpy9+L1gvKi8DL9wusi6KLlwuIy7zLbktgi1JLRAt0SygLG0sLSz0K7ErYytFKx8r6SqsKoIqUCoQKuApnClsKUQpCCnGKIAoQCj4J7InZicpJ/AmmiZTJgom0iV8JUIl/CS6JIIkRiQGJLojbiM4I/Ai1SKoIm0iOiIEItAhliFsITchACHRIKQgcCBEIPcfwx+UH2AfMB8BH9IeqB5yHkIeER7hHa8dex1QHR4d5xyvHH4cSBwRHNwbpRttG0AbDhvZGqEaahozGvwZyBmNGVwZKhnyGMAYjBhUGCEY9BfBF4kXTxcYF+IWqhZwFjcWBhbKFZQVYBUjFfIUwRSJFFQUJhTqE7wThhNRExkT6hK1EoMSTxIZEt4RpBFxET8RCxHdEKsQdhBCEA4Q3A+wD4MPUw8tD/oO2A6zDo8Oag5EDiAO/A3YDa8Njg1pDUkNKA0FDegMyAypDI0MegxiDE4MMgwfDAgM9gvkC8wLtQugC4oLcwtdC1ALQQswCyELEgsCC/UK5QrXCscKuQqqCpsKjQqACnMKaApeCk8KRApBCjkKMwotCigKIQocChcKEwoQCg0KCgoHCgUKAwoCCgEKAQoACgAKAAoBCgEKAgoECgYKCAoLCg4KFQoaCiAKJwowCjcKPwpJClMKXgppCnQKgAqMCpoKpgq1CsUK1QrmCvcKCAsaCysMPQxRDGcMfQyVDK8MygznDQQNIw1IDWkNiw2vDdUN+g0hDkoOdQ6iDs8O/g4uD18Pkw/ID/8PPBBiEJEQwBDxECMRVxGLEcAR9RE0EnwSwhIJE1ETmxPlE3EUwRQTFWcVuxUTFm0WyBYmF4QX5RdHGK0YFxmEGeEZSxq2GiUblhsKHHwc8B1mHdgdVB7SHlIf1h9eIN8gaiFyIdkhaCI1ItQicSMRI7MjWCT7KKQR2ACHt/Iw8oAYlASgBt1sTCJbHLURRg1WC9UJ2Ai9B+gFzQOyAd7/a/6X/In6N/in9g71nPPm8U/wEO+s7dTsHew466rqc+oT6vfpmOk06f7oreiS6IroeuiB6JLor+jr6C/peunQ6TXqqurP6kjrv+s97Njseu0e7sbuau8W8MnwgfE68vTyrvNu9C/18fWz9nj3Pfjf+J75a/pQ+wn8yvyw/aD+lv+aAKQBrwLLA+AE/QUaBj4HXwiBCakK0gv8DCgOUQ+DELQRuRK+E8MU0RXfFugXBBkRGi4bSRxkHYEemR+xIM8h7iIMJCglNiZJJ1coXSllKmwrcSx4LX0ugS+FMIgxjzKhM6g0tTW7Nsc31Dj4OQA7Djw0PWU+kj+/QOtBDUM2RFtFkEa2R89ICkotS1FMdU2ZTr1P4VAFUS1SWFODVK5V2Vb+Vx9ZQFpmW4JcqF3DXuRfA2EhYj5jS2RuZXVme2eCaIBpfWp7a3tsf21/bn5vfHB6cZFykXOQdI91D3Z5drZ3L3iieRB6g3rze2R81Xw+fa59Gn6Iftd+Ln+Af9F/IoA1gFOAbICFgJuAsoDOgOuAB4EjgUCBXYF6gZiBtoHTge+BCoIogjuCWIJrgpGCp4K9gtOC6YL/ghWDK4M5g06DYIN0g4iDnIOwg8SD2IP0gwWEG4QshD+EVoRlhHuEjoSahLGExITahO6EA4UWhSeFL4VChVSFZYV3hYeFooWuhcCF04XlhfaFB4YZhiaGOIZHhlqGbIZ8ho+GooazhsaG14bnhvqGCocahy2HPodNh16HbYd8h4qHmoeoh7aHxIfQh9uH5Ifuh/iHAogMiBaIIIgpiDOIPYhFiE+IV4hgiGmIcYh6iIKIioiRiJiIoIimiK2ItYi8iMKIyIjPiNWI24jgiOaI7IjxiPeI+4gBiQaJCokPiROJGIkaASUAAA==';
+      
+      // Impostiamo il volume più alto per essere sicuri
+      notificationSound.volume = 1.0; // volume massimo
+      
+      // Precarica il suono per una riproduzione più veloce
+      notificationSound.load();
+      
+      try {
+        // Creiamo anche un suono di backup utilizzando l'API Web Audio
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        window.audioContext = audioContext; // Salviamo per debug
+        
+        // Funzione alternativa per riprodurre un beep squillante
+        window.playBeep = function() {
+          console.log("Tentativo di riproduzione beep con Web Audio API");
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Impostazioni per un suono più squillante
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1200, audioContext.currentTime); // frequenza più alta (1200Hz)
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1); // cala dopo 100ms
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            setTimeout(() => {
+              oscillator.stop();
+              console.log("Beep completato");
+            }, 300); // durata maggiore (300ms)
+            
+            return true;
+          } catch (e) {
+            console.error("Errore nel riprodurre beep:", e);
+            return false;
+          }
+        };
+      } catch (e) {
+        console.warn("Web Audio API non supportata:", e);
+      }
+      
+      // Test del suono con un click dell'utente (necessario per alcuni browser)
+      const soundTestButton = document.createElement('button');
+      soundTestButton.textContent = 'Test Suono';
+      soundTestButton.style.marginLeft = '10px';
+      soundTestButton.onclick = function() {
+        // Riproduci entrambi i suoni per test
+        playNotificationSound();
+        if (window.playBeep) window.playBeep();
+        
+        setTimeout(() => {
+          alert("Se non hai sentito alcun suono, potresti avere problemi di riproduzione audio nel browser. Controlla le impostazioni del browser e del dispositivo.");
+        }, 500); // Ritardo l'alert per permettere al suono di essere riprodotto prima
+      };
+      
+      // Aggiungiamo il pulsante accanto alla checkbox del suono
+      const soundControl = document.querySelector('label[for="sound-enabled"]').parentNode;
+      soundControl.appendChild(soundTestButton);
+      
+      // Inizializza lo stato del suono basato sulla checkbox
+      soundEnabled = document.getElementById('sound-enabled').checked;
+      
+      // Aggiungi event listener per la checkbox del suono
+      document.getElementById('sound-enabled').addEventListener('change', function() {
+        soundEnabled = this.checked;
+        // Salva la preferenza in localStorage
+        localStorage.setItem('soundEnabled', soundEnabled);
+        
+        console.log("Stato audio cambiato:", soundEnabled ? "Attivo" : "Disattivo");
+      });
+      
+      // Carica la preferenza del suono da localStorage se disponibile
+      const savedSoundPreference = localStorage.getItem('soundEnabled');
+      if (savedSoundPreference !== null) {
+        soundEnabled = savedSoundPreference === 'true';
+        document.getElementById('sound-enabled').checked = soundEnabled;
+      }
+      
+      // Log di debug
+      console.log("Sistema audio inizializzato:", { 
+        soundEnabled, 
+        audioElement: notificationSound instanceof HTMLAudioElement,
+        webAudioSupported: !!window.audioContext
+      });
+    }
+    
+    // Funzione per riprodurre il suono di notifica
+    function playNotificationSound() {
+      console.log("Riproduzione suono richiesta. Audio abilitato:", soundEnabled);
+      
+      if (soundEnabled) {
+        // Prima prova con l'elemento Audio standard
+        try {
+          console.log("Tentativo riproduzione con elemento Audio");
+          notificationSound.currentTime = 0;
+          
+          // Prima proviamo il metodo play standard
+          const playPromise = notificationSound.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log("Riproduzione audio avviata con successo");
+            }).catch(error => {
+              console.warn("Errore nell'avvio della riproduzione:", error);
+              
+              // Se fallisce, prova con Web Audio come fallback
+              if (window.playBeep) {
+                console.log("Tentativo fallback con Web Audio API");
+                window.playBeep();
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("Errore nel tentativo di riproduzione audio:", error);
+          
+          // Fallback al beep se disponibile
+          if (window.playBeep) window.playBeep();
+        }
+      } else {
+        console.log("Riproduzione audio saltata perché disabilitata dall'utente");
+      }
+    }
+    
+    // Funzione per aggiornare lo stato dell'auto-refresh
+    autoRefreshCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        startAutoRefresh();
+      } else {
+        stopAutoRefresh();
+      }
+    });
+    
+    function startAutoRefresh() {
+      // Aggiorna ogni 2 secondi
+      autoRefreshInterval = setInterval(fetchTimerData, 2000);
+    }
+    
+    function stopAutoRefresh() {
+      clearInterval(autoRefreshInterval);
+    }
+    
+    // Avvia l'autorefresh se la checkbox è selezionata all'inizio
+    if (autoRefreshCheckbox.checked) {
+      startAutoRefresh();
+    }
+    
+function fetchTimerData() {
+  fetch('/api/timers')
+    .then(response => response.json())
+    .then(data => {
+      // Crea una copia dei dati originali prima di modificarli
+      const processedData = {};
+      
+      // Prima passa attraverso i dati per combinare i posti liberi
+      Object.entries(data).forEach(([deviceId, newTimer]) => {
+        const existingTimer = timers[deviceId];
+        
+        // Deep clone del nuovo timer per evitare modifiche in posizioni indesiderate
+        const processedTimer = JSON.parse(JSON.stringify(newTimer));
+        
+        // Se il timer esistente ha informazioni sui posti
+        if (existingTimer && existingTimer.seat_info && 
+            existingTimer.seat_info.open_seats && 
+            existingTimer.seat_info.open_seats.length > 0) {
+          
+          // Inizializza seat_info nel timer processato se non esiste
+          if (!processedTimer.seat_info) {
+            processedTimer.seat_info = { open_seats: [] };
+          } else if (!processedTimer.seat_info.open_seats) {
+            processedTimer.seat_info.open_seats = [];
+          }
+          
+          // Combina sempre i posti esistenti con quelli nuovi
+          const combinedSeats = combineSeats(
+            existingTimer.seat_info.open_seats,
+            processedTimer.seat_info.open_seats || []
+          );
+          
+          // Aggiorna il nuovo timer con i posti combinati
+          processedTimer.seat_info.open_seats = combinedSeats;
+          
+          // Conserva altri campi importanti di seat_info
+          if (existingTimer.seat_info.timestamp) {
+            processedTimer.seat_info.timestamp = existingTimer.seat_info.timestamp;
+          }
+          
+          // Preserva il flag di notifica se necessario
+          if (processedTimer.seat_info.needs_web_notification === undefined && 
+              existingTimer.seat_info.needs_web_notification !== undefined) {
+            processedTimer.seat_info.needs_web_notification = existingTimer.seat_info.needs_web_notification;
+          }
+        }
+        
+        // Se il timer ha una property 'reset_seat_info' vera, rimuovi tutte le informazioni sui posti
+        if (processedTimer.seat_info_reset === true) {
+          delete processedTimer.seat_info;
+          delete processedTimer.seat_info_reset;
+        }
+        
+        processedData[deviceId] = processedTimer;
+      });
+      
+      // Aggiorna la collezione di timer
+      timers = processedData;
+      updateDashboard();
+      updateDetailModalIfOpen();
+    })
+    .catch(error => {
+      console.error('Error fetching timer data:', error);
+      document.getElementById('timer-container').innerHTML = 
+        '<div class="no-timers"><p>Error connecting to server</p><p>Please check if the server is running.</p></div>';
+    });
+}
+
+    function updateDashboard() {
+      console.log('Updating dashboard with timers:', timers);
+
+      const container = document.getElementById('timer-container');
+      
+      // Prima filtra i timer nascosti
+      let timerValues = Object.entries(timers)
+        .filter(([deviceId]) => !hiddenTimers.includes(deviceId))
+        .map(([deviceId, timer]) => {
+          // Aggiungi l'ID del dispositivo all'oggetto timer per riferimenti futuri
+          return { ...timer, device_id: deviceId };
+        });
+      
+      // Applica il filtro corrente (all/online/offline)
+      if (currentFilter === 'online') {
+        timerValues = timerValues.filter(timer => isTimerOnline(timer));
+      } else if (currentFilter === 'offline') {
+        timerValues = timerValues.filter(timer => !isTimerOnline(timer));
+      }
+      
+      // Aggiorna il contatore dei timer filtrati visibili
+      document.getElementById('timer-count').textContent = `${timerValues.length} timer visualizzati`;
+     
+      
+      if (timerValues.length === 0) {
+        container.innerHTML = `
+          <div class="no-timers">
+            <p>No timers connected</p>
+            <p>Make sure your Poker Timers are connected to WiFi and properly configured.</p>
+            ${hiddenTimers.length > 0 ? `<button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>` : ''}
+          </div>
+        `;
+        
+        // Aggiungi event listener per il pulsante "Show all"
+        if (hiddenTimers.length > 0) {
+          setTimeout(() => {
+            document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
+          }, 0);
+        }
+        return;
+      }
+      
+      // Ordina per numero tavolo
+      const sortedTimers = timerValues.sort((a, b) => a.table_number - b.table_number);
+      
+      // Genera le card
+      container.innerHTML = '';
+      
+      // Aggiungi il pulsante "Show All" se ci sono timer nascosti
+      if (hiddenTimers.length > 0) {
+        const showAllDiv = document.createElement('div');
+        showAllDiv.className = 'show-all-container';
+        showAllDiv.innerHTML = `
+          <button id="show-all-btn" class="show-all-btn">Show ${hiddenTimers.length} hidden timer(s)</button>
+        `;
+        container.appendChild(showAllDiv);
+      }
+      
+      // Array per tenere traccia dei timer con notifiche da mostrare
+      const timersWithNotifications = [];
+      
+      // Genera le card per ciascun timer
+      sortedTimers.forEach(timer => {
+        // Verifica se il timer è online (ultimi 10 secondi)
+        const lastUpdate = new Date(timer.last_update);
+        const now = new Date();
+        const isOnline = (now - lastUpdate) < 10000; // 10 secondi
+        
+        // Determina lo stato del timer
+        let statusClass = 'status-stopped';
+        let statusText = 'Stopped';
+
+        if (timer.time_expired) {
+          // Se il timer è scaduto, mostra sempre "Stopped" indipendentemente dagli altri flag
+          statusClass = 'status-stopped';
+          statusText = 'Stopped';
+        } else if (timer.is_running && !timer.is_paused) {
+          statusClass = 'status-running';
+          statusText = 'Running';
+        } else if (timer.is_paused) {
+          statusClass = 'status-paused';
+          statusText = 'Paused';
+        }
+        
+        // Determina lo stato della batteria
+        const batteryClass = timer.battery_level < 20 ? 'battery-low' : 'battery-ok';
+        
+        // Formatta l'ora dell'ultimo aggiornamento
+        const formattedLastUpdate = formatDate(lastUpdate);
+        
+        const card = document.createElement('div');
+        card.className = 'timer-card';
+        card.setAttribute('data-device-id', timer.device_id);
+
+        // Usa un approccio più semplice con onclick diretto
+        const deviceId = timer.device_id; // Importante: salva l'ID in una variabile locale
+        card.onclick = function(e) {
+          // Verifica se il click è direttamente sulla card o su un elemento che non ha stopPropagation
+          const target = e.target;
+          
+          // Se il click è su un bottone o su elementi noti, non aprire il modal
+          if (target.tagName === 'BUTTON' || 
+              target.closest('.seat-info') || 
+              target.closest('.remove-timer-btn') ||
+              target.closest('button')) {
+            return; // Non fare nulla se il click è su uno di questi elementi
+          }
+          
+          // Altrimenti apri il modal, passando esplicitamente l'ID salvato
+          openTimerDetailModal(deviceId);
+        };
+
+        // Determina l'icona del tipo di dispositivo
+        const isAndroid = isAndroidTimer(timer.device_id);
+        const isHardware = isHardwareTimer(timer.device_id);
+        const deviceTypeIcon = isAndroid ? 
+            '<i class="fas fa-mobile-alt device-type-icon android-timer" title="Android App"></i>' :
+            (isHardware ? 
+                '<i class="fas fa-microchip device-type-icon hardware-timer" title="Hardware Timer"></i>' :
+                '<i class="fas fa-question-circle device-type-icon" title="Unknown Device"></i>');
+        
+        // Aggiungi la X per rimuovere solo se il timer è offline
+        const removeButton = !isOnline ? `
+          <button class="remove-timer-btn" onclick="hideTimer('${timer.device_id}'); event.stopPropagation();">
+            ×
+          </button>
+        ` : '';
+        
+        // Determina se ci sono informazioni sui posti liberi da mostrare
+        let seatInfoHTML = '';
+        if (timer.seat_info && timer.seat_info.open_seats && timer.seat_info.open_seats.length > 0) {
+          // Converti l'array in una stringa di posti (1, 2, 3, ...)
+          const formattedSeats = timer.seat_info.open_seats.join(', ');
+          
+          seatInfoHTML = `
+            <div class="seat-info" onclick="resetSeatInfo('${timer.device_id}', ${timer.table_number}, '${formattedSeats}'); event.stopPropagation();" 
+                 style="margin-top: 8px; margin-bottom: 15px; display: inline-block; padding: 4px 8px; background-color: #fde68a; color: #854d0e; border-radius: 4px; font-weight: bold; cursor: pointer;">
+              SEAT OPEN: ${formattedSeats}
+            </div>
+          `;
+          
+          // Se il timer ha una notifica di posti da mostrare, aggiungerlo alla lista
+          if (timer.seat_info.needs_web_notification) {
+            timersWithNotifications.push(timer);
+          }
+        }
+
+        // Mostra il numero di giocatori (se disponibile)
+        const playersCount = timer.players_count || 10;
+        
+        // Determina lo stato del buzzer
+        const buzzerStatus = timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A";
+        
+        // Crea un array di elementi info in base al tipo di dispositivo
+        const infoItems = [];
+        
+        // Modalità solo per dispositivi non Android
+        if (!isAndroid) {
+          infoItems.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+        }
+        
+        // Elementi comuni
+        infoItems.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+        infoItems.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+        infoItems.push(`<span class="info-item">Giocatori: ${playersCount}</span>`);
+        infoItems.push(`<span class="info-item">Buzzer: ${buzzerStatus}</span>`);
+        infoItems.push(`<span class="info-item ${batteryClass}">Battery: ${timer.battery_level}%</span>`);
+        infoItems.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+        infoItems.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+        infoItems.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+        
+        card.innerHTML = `
+          <div class="timer-header">
+            <h2 class="timer-title">Table ${timer.table_number} ${deviceTypeIcon}</h2>
+            <span class="timer-status ${statusClass}">${statusText}</span>
+            ${removeButton}
+          </div>
+          
+          <div class="timer-time">
+            ${timer.current_timer} seconds
+          </div>
+          
+          ${seatInfoHTML}
+          
+          <div class="timer-info">
+            ${infoItems.join('')}
+          </div>
+          
+          <div class="button-group">
+            <button onclick="sendCommand('${timer.device_id}', 'start'); event.stopPropagation();" 
+                    ${(timer.is_running && !timer.is_paused) ? 'disabled' : ''}>
+              Start
+            </button>
+            <button onclick="sendCommand('${timer.device_id}', 'pause'); event.stopPropagation();"
+                    ${(!timer.is_running || timer.is_paused) ? 'disabled' : ''}>
+              Pause
+            </button>
+          </div>
+          
+          <div class="last-update">
+            <span class="${isOnline ? 'online-marker' : 'offline-marker'}"></span>
+            ${isOnline ? 'Online' : 'Offline'} | Last update: ${formattedLastUpdate}
+          </div>
+        `;
+        
+        container.appendChild(card);
+      });
+      
+      // Mostra notifiche per i timer che lo richiedono (una alla volta)
+      if (timersWithNotifications.length > 0) {
+        // Prendi il primo timer con notifica
+        const timerWithNotification = timersWithNotifications[0];
+        
+        // Crea un ID unico per questa notifica
+        const notificationId = `${timerWithNotification.device_id}_${timerWithNotification.seat_info.timestamp}`;
+        
+        // Verifica se questa notifica è già stata mostrata
+        if (!shownNotifications.includes(notificationId)) {
+          // Aggiungi alla lista delle notifiche mostrate
+          shownNotifications.push(notificationId);
+          
+          // Limita la dimensione dell'array (opzionale)
+          if (shownNotifications.length > 100) {
+            shownNotifications.shift(); // Rimuove l'elemento più vecchio
+          }
+          
+          const formattedSeats = timerWithNotification.seat_info.open_seats.join(', ');
+          
+          // Rimuovi immediatamente il flag dalla copia locale
+          if (timers[timerWithNotification.device_id] && 
+              timers[timerWithNotification.device_id].seat_info) {
+            timers[timerWithNotification.device_id].seat_info.needs_web_notification = false;
+          }
+          
+          // Usa il nuovo sistema di notifiche invece dell'alert
+          showNotification(
+            `Tavolo ${timerWithNotification.table_number} - Posti Liberi`,
+            `Posti disponibili: ${formattedSeats}`,
+            'success'
+          );
+          
+          // Invia la conferma al server
+          fetch(`/api/acknowledge_seat_notification/${timerWithNotification.device_id}`, {
+            method: 'POST'
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Notification acknowledged on server:', data);
+          })
+          .catch(error => console.error('Error acknowledging notification:', error));
+        }
+      }
+      
+      // Aggiungi event listener per il pulsante "Show all"
+      if (hiddenTimers.length > 0) {
+        setTimeout(() => {
+          document.getElementById('show-all-btn').addEventListener('click', showAllTimers);
+        }, 0);
+      }
+    }
+
+
+    
+    function formatDate(date) {
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const seconds = date.getSeconds().toString().padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
+    
+    function formatWifiSignal(rssi) {
+      // Per i dispositivi Android, rssi sarà 0 o un altro valore positivo o nullo
+      // I valori normali di RSSI sono negativi (es. -65 dBm)
+      let signalBars = '';
+      let signalClass = '';
+      
+      // Se rssi è zero o positivo, presumiamo che sia un dispositivo Android
+      // e mostriamo il massimo della potenza del segnale
+      if (rssi >= 0) {
+        signalBars = '●●●●●';
+        signalClass = 'wifi-excellent';
+        return `<span class="${signalClass}">${signalBars}</span> Ottimo`;
+      }
+      
+      // Per i valori normali di RSSI (negativi)
+      if (rssi >= -50) {
+        signalBars = '●●●●●';
+        signalClass = 'wifi-excellent';
+      } else if (rssi >= -65) {
+        signalBars = '●●●●○';
+        signalClass = 'wifi-good';
+      } else if (rssi >= -75) {
+        signalBars = '●●●○○';
+        signalClass = 'wifi-fair';
+      } else if (rssi >= -85) {
+        signalBars = '●●○○○';
+        signalClass = 'wifi-weak';
+      } else {
+        signalBars = '●○○○○';
+        signalClass = 'wifi-poor';
+      }
+      
+      return `<span class="${signalClass}">${signalBars}</span> ${rssi} dBm`;
+    }
+
+    function sendCommand(deviceId, command) {
+      fetch(`/api/command/${deviceId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ command: command })
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log(`Command ${command} sent to ${deviceId}:`, data);
+        // Aggiorna subito i dati
+        fetchTimerData();
+      })
+      .catch(error => {
+        console.error('Error sending command:', error);
+        alert(`Error sending command: ${error.message}`);
+      });
+    }
+    
+    function showTab(tabName) {
+      // Nascondi tutti i tab content
+      const tabContents = document.getElementsByClassName('tab-content');
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove('active');
+      }
+      
+      // Rimuovi la classe active da tutti i tab button
+      const tabs = document.getElementsByClassName('tab');
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('active');
+      }
+      
+      // Attiva il tab content corrispondente
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      // Attiva il tab button corrispondente
+      const activeTabIndex = tabName === 'settings' ? 0 : 1;
+      tabs[activeTabIndex].classList.add('active');
+    }
+    
+    function openTimerDetailModal(deviceId) {
+      currentDetailDeviceId = deviceId;
+      const timer = timers[deviceId];
+      
+      if (!timer) {
+        alert('Error: Timer data not found');
+        return;
+      }
+
+      // Imposta il titolo del modal
+      const titleElement = document.getElementById('timer-detail-title');
+      titleElement.textContent = `Timer Details - Table ${timer.table_number} `;
+      
+      // Crea una nuova icona e aggiungila al titolo
+      const iconElement = document.createElement('i');
+      iconElement.id = 'deviceTypeIcon';
+      
+      // Imposta la classe e il titolo in base al tipo di dispositivo
+      if (isAndroidTimer(deviceId)) {
+        iconElement.className = 'fas fa-mobile-alt device-type-icon android-timer';
+        iconElement.title = 'Android App';
+        
+        // Nascondi la sezione Operation Mode per i dispositivi Android
+        document.getElementById('detail-mode-group').style.display = 'none';
+      } else if (isHardwareTimer(deviceId)) {
+        iconElement.className = 'fas fa-microchip device-type-icon hardware-timer';
+        iconElement.title = 'Hardware Timer';
+        
+        // Mostra la sezione Operation Mode per i dispositivi hardware
+        document.getElementById('detail-mode-group').style.display = 'block';
+      } else {
+        iconElement.className = 'fas fa-question-circle device-type-icon';
+        iconElement.title = 'Unknown Device Type';
+        
+        // Mostra la sezione Operation Mode per dispositivi sconosciuti
+        document.getElementById('detail-mode-group').style.display = 'block';
+      }
+      
+      // Aggiungi l'icona al titolo
+      titleElement.appendChild(iconElement);
+      
+      // Aggiorna informazioni correnti
+      document.getElementById('detail-timer-time').textContent = `${timer.current_timer} seconds`;
+      
+      // Abilita/disabilita i pulsanti in base allo stato
+      document.getElementById('detail-start-button').disabled = (timer.is_running && !timer.is_paused);
+      document.getElementById('detail-pause-button').disabled = (!timer.is_running || timer.is_paused);
+      
+      // Definisci gli elementi info in base al tipo di dispositivo
+      const infoElements = [];
+      
+      // Modalità solo per dispositivi non Android
+      if (!isAndroidTimer(deviceId)) {
+        infoElements.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+      }
+      
+      // Elementi comuni
+      infoElements.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+      infoElements.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+      infoElements.push(`<span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>`);
+      infoElements.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+      infoElements.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+      infoElements.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+      infoElements.push(`<span class="info-item">Giocatori: ${timer.players_count || 10}</span>`);
+      infoElements.push(`<span class="info-item">Buzzer: ${timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A"}</span>`);
+      infoElements.push(`<span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>`);
+      
+      // Aggiorna info dettagliate
+      document.getElementById('detail-timer-info').innerHTML = infoElements.join('');
+      
+      // Tab Settings
+      document.getElementById('detail-mode').value = timer.mode;
+      document.getElementById('detail-t1').value = timer.t1_value;
+      document.getElementById('detail-t2').value = timer.t2_value;
+      document.getElementById('detail-table-number').value = timer.table_number;
+      
+      // Aggiorna lo switch del buzzer
+      document.getElementById('detail-buzzer').checked = timer.buzzer ? true : false;
+      
+      // Aggiorna il numero di giocatori
+      document.getElementById('playersCountValue').textContent = timer.players_count || 10;
+      
+      // Imposta la visibilità di T2 in base alla modalità
+      toggleT2VisibilityInModal();
+      
+      // Mostra il modale
+      document.getElementById('timer-detail-modal').style.display = 'block';
+      
+      // Attiva il primo tab per default
+      showTab('settings');
+      setupTimerSettingsValidation();
+    }
+    
+    function closeTimerDetailModal() {
+      document.getElementById('timer-detail-modal').style.display = 'none';
+      currentDetailDeviceId = null;
+    }
+    
+    function updateDetailModalIfOpen() {
+      if (currentDetailDeviceId && document.getElementById('timer-detail-modal').style.display === 'block') {
+        // Se il modale è aperto, aggiorna i dati mostrati
+        const timer = timers[currentDetailDeviceId];
+        if (timer) {
+          // Aggiorna i dati nel modale con gli stessi valori che useremmo se lo aprissimo adesso
+          document.getElementById('detail-timer-time').textContent = `${timer.current_timer} seconds`;
+          
+          // Abilita/disabilita i pulsanti in base allo stato
+          document.getElementById('detail-start-button').disabled = (timer.is_running && !timer.is_paused);
+          document.getElementById('detail-pause-button').disabled = (!timer.is_running || timer.is_paused);
+          
+          // Definisci gli elementi info in base al tipo di dispositivo
+          const infoElements = [];
+          
+          // Modalità solo per dispositivi non Android
+          if (!isAndroidTimer(currentDetailDeviceId)) {
+            infoElements.push(`<span class="info-item">Mode: ${timer.mode}</span>`);
+          }
+          
+          // Elementi comuni
+          infoElements.push(`<span class="info-item">T1: ${timer.t1_value}s</span>`);
+          infoElements.push(`<span class="info-item">T2: ${timer.t2_value}s</span>`);
+          infoElements.push(`<span class="info-item ${timer.battery_level < 20 ? 'battery-low' : 'battery-ok'}">Battery: ${timer.battery_level}%</span>`);
+          infoElements.push(`<span class="info-item">WiFi: ${formatWifiSignal(timer.wifi_signal || 0)}</span>`);
+          infoElements.push(`<span class="info-item ip-info">IP: ${timer.ip_address || 'N/A'}</span>`);
+          infoElements.push(`<span class="info-item">Voltage: ${timer.voltage ? timer.voltage.toFixed(2) + 'V' : 'N/A'}</span>`);
+          infoElements.push(`<span class="info-item">Giocatori: ${timer.players_count || 10}</span>`);
+          infoElements.push(`<span class="info-item">Buzzer: ${timer.buzzer !== undefined ? (timer.buzzer ? "On" : "Off") : "N/A"}</span>`);
+          infoElements.push(`<span class="info-item">Status: ${timer.is_running ? (timer.is_paused ? 'Paused' : 'Running') : 'Stopped'}</span>`);
+          
+          // Aggiorna le info dettagliate
+          document.getElementById('detail-timer-info').innerHTML = infoElements.join('');
+        }
+      }
+    }
+    
+    function toggleT2VisibilityInModal() {
+      const modeValue = document.getElementById('detail-mode').value;
+      const t2Group = document.getElementById('detail-t2-group');
+      
+      // Nascondi T2 se la modalità è 3 o 4 (solo T1)
+      if (modeValue === '3' || modeValue === '4') {
+        t2Group.style.display = 'none';
+      } else {
+        t2Group.style.display = 'block';
+      }
+    }
+    
+    // Aggiungi l'event listener al menu a tendina mode
+    document.getElementById('detail-mode').addEventListener('change', toggleT2VisibilityInModal);
+    
+    function validateTimerSettings() {
+      const mode = document.getElementById('detail-mode').value;
+      const t1 = parseInt(document.getElementById('detail-t1').value);
+      const t2 = parseInt(document.getElementById('detail-t2').value);
+      const tableNumber = parseInt(document.getElementById('detail-table-number').value);
+      const saveButton = document.querySelector('#save-settings-btn');
+      
+      let isValid = true;
+      
+      // Validate T1
+      if (isNaN(t1) || t1 < 5 || t1 > 95 || t1 % 5 !== 0) {
+        isValid = false;
+        document.getElementById('detail-t1').classList.add('invalid-input');
+      } else {
+        document.getElementById('detail-t1').classList.remove('invalid-input');
+      }
+      
+      // Validate T2 only if mode is 1 or 2
+      if (mode === '1' || mode === '2') {
+        if (isNaN(t2) || t2 < 5 || t2 > 95 || t2 % 5 !== 0) {
+          isValid = false;
+          document.getElementById('detail-t2').classList.add('invalid-input');
+        } else {
+          document.getElementById('detail-t2').classList.remove('invalid-input');
+        }
+      }
+      
+      // Validate table number
+      if (isNaN(tableNumber) || tableNumber < 0 || tableNumber > 99) {
+        isValid = false;
+        document.getElementById('detail-table-number').classList.add('invalid-input');
+      } else {
+        document.getElementById('detail-table-number').classList.remove('invalid-input');
+      }
+      
+      // Enable or disable the save button
+      saveButton.disabled = !isValid;
+    }
+
+    // Function to add event listeners to the form fields
+    function setupTimerSettingsValidation() {
+      // Add input event listeners to all fields
+      document.getElementById('detail-t1').addEventListener('input', validateTimerSettings);
+      document.getElementById('detail-t2').addEventListener('input', validateTimerSettings);
+      document.getElementById('detail-table-number').addEventListener('input', validateTimerSettings);
+      document.getElementById('detail-mode').addEventListener('change', function() {
+        toggleT2VisibilityInModal();
+        validateTimerSettings();
+      });
+      
+      // Initial validation
+      validateTimerSettings();
+    }
+    
+    function sendDetailCommand(command) {
+      if (!currentDetailDeviceId) return;
+      
+      sendCommand(currentDetailDeviceId, command);
+    }
+    
+function saveSettings() {
+  // Controllo dispositivo corrente
+  if (!currentDetailDeviceId) {
+    console.error('No device selected');
+    alert('Errore: Nessun dispositivo selezionato');
+    return;
+  }
+  
+  // Recupera i valori dai campi
+  const mode = document.getElementById('detail-mode').value;
+  const t1 = parseInt(document.getElementById('detail-t1').value);
+  const t2 = parseInt(document.getElementById('detail-t2').value);
+  const tableNumber = parseInt(document.getElementById('detail-table-number').value);
+  const buzzer = document.getElementById('detail-buzzer').checked ? 1 : 0;
+  const playersCount = parseInt(document.getElementById('playersCountValue').textContent);
+  
+  // Validazione dei campi
+  validateTimerSettings();
+  
+  // Controlla il bottone di salvataggio
+  const saveButton = document.querySelector('#save-settings-btn');
+  if (saveButton.disabled) {
+    console.warn('Save button is disabled');
+    return;
+  }
+
+  // Preparazione dei dati da inviare
+  const settingsToSave = {
+    mode: parseInt(mode),
+    t1: parseInt(t1),
+    t2: parseInt(t2),
+    tableNumber: parseInt(tableNumber),
+    buzzer: buzzer,
+    playersCount: playersCount
+  };
+
+  // Log dettagliato dei dati che si stanno salvando
+  console.log('Saving settings for device:', currentDetailDeviceId);
+  console.log('Settings to save:', settingsToSave);
+
+  // Disabilita il bottone durante il salvataggio
+  saveButton.disabled = true;
+  saveButton.textContent = 'Saving...';
+
+  // Invio dei dati al server
+  fetch(`/api/settings/${currentDetailDeviceId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(settingsToSave)
+  })
+  .then(response => {
+    // Verifica la risposta del server
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    // Log del risultato del salvataggio
+    console.log('Settings saved on server:', data);
+    
+    // Aggiorna immediatamente lo stato del timer locale
+    if (timers[currentDetailDeviceId]) {
+      timers[currentDetailDeviceId] = {
+        ...timers[currentDetailDeviceId],
+        mode: settingsToSave.mode,
+        t1_value: settingsToSave.t1,
+        t2_value: settingsToSave.t2,
+        table_number: settingsToSave.tableNumber,
+        buzzer: settingsToSave.buzzer,
+        players_count: settingsToSave.playersCount
+      };
+    }
+    
+    // Invia un comando di applicazione immediata al timer
+    return fetch(`/api/command/${currentDetailDeviceId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ command: 'apply_settings' })
+    });
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`Error applying settings: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(() => {
+    // Aggiorna la visualizzazione
+    updateDashboard();
+    updateDetailModalIfOpen();
+    
+    // Mostra messaggio di successo
+    alert('Impostazioni salvate e applicate con successo!');
+  })
+  .catch(error => {
+    // Gestione degli errori
+    console.error('Errore nel salvataggio o applicazione delle impostazioni:', error);
+    alert(`Errore: ${error.message}`);
+  })
+  .finally(() => {
+    // Riabilita il bottone
+    saveButton.disabled = false;
+    saveButton.textContent = 'Save Settings';
+  });
+}
+
+function confirmFactoryReset() {
+      if (!currentDetailDeviceId) return;
+      
+      factoryResetDeviceId = currentDetailDeviceId;
+      const timer = timers[currentDetailDeviceId];
+      if (timer) {
+        document.getElementById('reset-table-info').textContent = `Table ${timer.table_number}`;
+      } else {
+        document.getElementById('reset-table-info').textContent = `Device ${currentDetailDeviceId}`;
+      }
+      document.getElementById('factory-reset-modal').style.display = 'block';
+    }
+    
+    function closeFactoryResetModal() {
+      document.getElementById('factory-reset-modal').style.display = 'none';
+      factoryResetDeviceId = null;
+    }
+    
+    function executeFactoryReset() {
+      if (factoryResetDeviceId) {
+        sendCommand(factoryResetDeviceId, 'factory_reset');
+        closeFactoryResetModal();
+        closeTimerDetailModal();
+        
+        // Mostra un avviso che il timer si sta resettando
+        alert('Factory reset command sent. The timer will restart and may disconnect from the network.');
+      }
+    }
+
+    function resetSeatInfo(deviceId, tableNumber, seatInfo) {
+      if (confirm(`Vuoi rimuovere l'indicazione di posti liberi (${seatInfo}) per il tavolo ${tableNumber}?`)) {
+        console.log(`Resetting seat info for device: ${deviceId}, table: ${tableNumber}`);
+        
+        fetch(`/api/command/${deviceId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            command: 'reset_seat_info'
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Seat info reset successfully:', data);
+          
+          // Aggiorna immediatamente lo stato del timer locale
+          if (timers[deviceId]) {
+            // Rimuovi completamente la proprietà seat_info invece di solo svuotarla
+            delete timers[deviceId].seat_info;
+          }
+          
+          // Aggiorna la dashboard
+          updateDashboard();
+          
+          // Mostra un messaggio di conferma
+          alert(`Posti liberi rimossi con successo dal tavolo ${tableNumber}`);
+        })
+        .catch(error => {
+          console.error('Error resetting seat info:', error);
+          alert(`Errore nel reset dei posti: ${error.message}`);
+        });
+      }
+    }
+    
+    // Gestione della chiusura dei modali cliccando fuori
+    window.onclick = function(event) {
+      const factoryResetModal = document.getElementById('factory-reset-modal');
+      const timerDetailModal = document.getElementById('timer-detail-modal');
+      
+      if (event.target === factoryResetModal) {
+        closeFactoryResetModal();
+      }
+      
+      if (event.target === timerDetailModal) {
+        closeTimerDetailModal();
+      }
+    }
+    
+    // Carica i timer nascosti da localStorage
+    loadHiddenTimers();
+    // Inizializza il sistema di notifiche
+    initNotificationSystem();
+    // Inizializza il suono di notifica
+    initNotificationSound();
+    // Carica i dati all'avvio
+    fetchTimerData();
+
+    document.getElementById('debug-notifications').addEventListener('click', debugNotifications);
+
+
+    const desktopTestButton = document.createElement('button');
+    desktopTestButton.textContent = 'Test Notifica Desktop';
+    desktopTestButton.style = 'position: fixed; bottom: 100px; left: 10px; z-index: 1000; background-color: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;';
+    desktopTestButton.onclick = function() {
+      console.log("Test notifica desktop, stato permesso:", Notification.permission);
+      
+      // Tentativo diretto di notifica desktop
+      try {
+        const notification = new Notification("Test Notifica Desktop", {
+          body: "Questa è una notifica desktop nativa, fuori dal browser",
+          icon: '/favicon.ico'
+        });
+        
+        console.log("Notifica creata:", notification);
+        
+        // Quando l'utente clicca sulla notifica
+        notification.onclick = function() {
+          console.log("Notifica cliccata");
+          window.focus();
+          this.close();
+        };
+      } catch (error) {
+        console.error("Errore nella creazione della notifica desktop:", error);
+        alert("Errore nella creazione della notifica desktop: " + error.message);
+      }
+    };
+    document.body.appendChild(desktopTestButton);
+
+  </script>
+
+  <!-- Container per le notifiche in-app -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Bottone per richiedere il permesso per le notifiche -->
+  <div id="notification-permission" style="position: fixed; bottom: 10px; left: 10px; z-index: 1000; display: none;">
+    <button class="notification-permission-btn" onclick="requestNotificationPermission()">
+      <i class="fas fa-bell"></i> Abilita notifiche desktop
+    </button>
+  </div>
+
+</body>
+</html>
