@@ -174,25 +174,49 @@ class TimerCard(QFrame):
             main_layout.addWidget(self.seat_info)
         
         # ---- INFO PILLS ----
-        # Prima riga: T1, T2, Giocatori
+        # Prima riga: T1, [T2 e modalità solo per Arduino], Giocatori
         row1_layout = QHBoxLayout()
         row1_layout.setSpacing(8)
-        
-        # T1
+
+        # T1 (sempre visibile)
         t1_label = QLabel(f"T1: {timer_data.get('t1_value', 'N/A')}s")
         t1_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
         row1_layout.addWidget(t1_label)
-        
-        # T2
-        t2_label = QLabel(f"T2: {timer_data.get('t2_value', 'N/A')}s")
-        t2_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row1_layout.addWidget(t2_label)
-        
-        # Giocatori - Aggiunto testo più esplicito
+
+        # T2 e modalità - solo per timer hardware (Arduino)
+        if self.is_hardware_timer(device_id):
+            # T2 - mostralo solo se la modalità è 1 o 2 (modalità che usano T1/T2)
+            mode = timer_data.get('mode', 1)
+            if mode in [1, 2]:
+                t2_label = QLabel(f"T2: {timer_data.get('t2_value', 'N/A')}s")
+                t2_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
+                row1_layout.addWidget(t2_label)
+                
+            # Visualizza la modalità
+            mode_text = ""
+            if mode == 1:
+                mode_text = "Mode: 1"
+            elif mode == 2:
+                mode_text = "Mode: 2"
+            elif mode == 3:
+                mode_text = "Mode: 3"
+            elif mode == 4:
+                mode_text = "Mode: 4"
+            else:
+                mode_text = f"Mode: {mode}"
+                
+            mode_label = QLabel(mode_text)
+            mode_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
+            row1_layout.addWidget(mode_label)
+        else:
+            # Per i timer Android, non mostriamo né T2 né la modalità
+            pass  # Non aggiungere nulla qui
+
+        # Giocatori - Aggiunto testo più esplicito (sempre visibile per entrambi i tipi)
         players_label = QLabel(f"Giocatori: {timer_data.get('players_count', 6)}")
         players_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
         row1_layout.addWidget(players_label)
-        
+
         main_layout.addLayout(row1_layout)
         
         # Seconda riga: Buzzer, Battery
