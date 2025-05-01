@@ -9,7 +9,8 @@ import sys
 import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QFrame, QGridLayout, QScrollArea,
-                            QSpinBox, QCheckBox, QGroupBox, QMessageBox, QSplitter)
+                            QSpinBox, QCheckBox, QGroupBox, QMessageBox, QSplitter,
+                            QSizePolicy) 
 from PyQt6.QtCore import Qt, QTimer, QSettings, pyqtSlot
 from PyQt6.QtGui import QFont, QIcon
 
@@ -19,6 +20,7 @@ from server import PokerTimerServer
 
 class MainWindow(QMainWindow):
     """Finestra principale dell'applicazione Poker Timer"""
+
     def __init__(self):
         super().__init__()
         
@@ -63,21 +65,28 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(control_panel)
         
         # Area di scorrimento per i timer
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setMinimumHeight(400)
-        scroll_content = QWidget()
-        self.grid_layout = QGridLayout(scroll_content)
-        self.grid_layout.setSpacing(15)
-        scroll_area.setWidget(scroll_content)
-        main_layout.addWidget(scroll_area)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setMinimumHeight(400)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)  # Rimuovi il bordo
+        self.scroll_area.setStyleSheet("background-color: #f5f5f5;")
+        
+        self.timer_container = QWidget()
+        self.timer_container.setStyleSheet("background-color: #f5f5f5;")
+        self.grid_layout = QGridLayout(self.timer_container)
+        self.grid_layout.setSpacing(20)  # Spazio tra le card
+        self.grid_layout.setContentsMargins(20, 20, 20, 20)
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)  # Allineamento in alto a sinistra
+        
+        self.scroll_area.setWidget(self.timer_container)
+        main_layout.addWidget(self.scroll_area)
         
         # Etichetta per quando non ci sono timer
         self.no_timers_label = QLabel("Nessun timer connesso")
         self.no_timers_label.setObjectName("no-timers-label")
         self.no_timers_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.no_timers_label.setStyleSheet("font-size: 16pt; color: #333333; font-weight: bold; padding: 20px;")
-        self.grid_layout.addWidget(self.no_timers_label, 0, 0)
+        self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)  # Span su 3 colonne
         
         # Timer per aggiornamenti periodici
         self.update_timer = QTimer(self)
@@ -256,7 +265,7 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore nella chiusura del server: {str(e)}")
-    
+
     def update_timers(self):
         """Aggiorna la visualizzazione dei timer"""
         if not self.is_server_running:
@@ -268,8 +277,14 @@ class MainWindow(QMainWindow):
         # Aggiorna il contatore
         self.timer_count.setText(f"Timer connessi: {len(timers)}")
         
-        # Pulisci il layout corrente
+        # Pulisci COMPLETAMENTE il layout corrente - questo è cruciale
         self.clear_grid()
+        
+        # Ricrea l'etichetta "Nessun timer connesso" dopo la pulizia
+        self.no_timers_label = QLabel("Nessun timer connesso")
+        self.no_timers_label.setObjectName("no-timers-label")
+        self.no_timers_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_timers_label.setStyleSheet("font-size: 16pt; color: #333333; font-weight: bold; padding: 20px;")
         
         # Filtro per i timer offline
         filtered_timers = {}
@@ -277,35 +292,55 @@ class MainWindow(QMainWindow):
             if self.show_offline_check.isChecked() or self.server.is_timer_online(timer_data):
                 filtered_timers[device_id] = timer_data
         
-        # Se non ci sono timer, mostra il messaggio
+        # Se non ci sono timer, mostra il messaggio centrato nella griglia
         if not filtered_timers:
-            self.grid_layout.addWidget(self.no_timers_label, 0, 0)
+            self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)  # Span su 3 colonne
             return
         
         # Aggiungi i timer alla griglia
         row, col = 0, 0
-        max_cols = 3  # Numero di colonne
+        max_cols = 3  # Numero di colonne nella griglia
         
         # Ordina i timer per numero tavolo
         sorted_timers = sorted(filtered_timers.items(), 
-                              key=lambda x: x[1].get('table_number', 999))
+                             key=lambda x: x[1].get('table_number', 999))
         
         for device_id, timer_data in sorted_timers:
+            # Crea un nuovo widget TimerCard
             timer_card = TimerCard(device_id, timer_data, self.server)
+            
+            # Aggiungi alla griglia nella posizione corretta
             self.grid_layout.addWidget(timer_card, row, col)
             
+            # Passa alla prossima posizione nella griglia
             col += 1
             if col >= max_cols:
                 col = 0
                 row += 1
     
+
     def clear_grid(self):
-        """Rimuove tutti i widget dalla griglia"""
+        """Rimuove tutti i widget dalla griglia in modo sicuro"""
+        # Prima rimuovi tutti i widget
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
-            widget = item.widget()
-            if widget and widget is not self.no_timers_label:
-                widget.deleteLater()
+            if item:
+                widget = item.widget()
+                if widget:
+                    self.grid_layout.removeWidget(widget)
+                    widget.setParent(None)
+                    widget.deleteLater()  # Programma la cancellazione sicura
+        
+        # Ricrea il container con lo stesso layout
+        self.timer_container = QWidget()
+        self.timer_container.setStyleSheet("background-color: #f5f5f5;")
+        self.grid_layout = QGridLayout(self.timer_container)
+        self.grid_layout.setSpacing(20)
+        self.grid_layout.setContentsMargins(20, 20, 20, 20)
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        
+        # Imposta il widget aggiornato nell'area di scorrimento
+        self.scroll_area.setWidget(self.timer_container)
     
     @pyqtSlot(str)
     def on_timer_updated(self, device_id):
