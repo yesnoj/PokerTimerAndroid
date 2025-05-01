@@ -97,7 +97,7 @@ QTabBar::tab:hover {
 
 /* Finestra di dialogo */
 QDialog {
-    background-color: #e0e0e0;  /* Grigio più chiaro */
+    background-color: white;
 }
 
 /* Timer Card con miglior visibilità */
