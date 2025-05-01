@@ -2,6 +2,11 @@
 package com.example.pokertimer
 
 import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.CountDownTimer
@@ -23,6 +28,40 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     private var serverPollingJob: Job? = null
     private val preferences = PokerTimerPreferences(application)
     private val networkManager = NetworkManager(application)
+    private val context = application.applicationContext
+
+    // Valori della batteria
+    private val _batteryLevel = MutableLiveData<Int>(100)
+    val batteryLevel: LiveData<Int> = _batteryLevel
+
+    private val _batteryVoltage = MutableLiveData<Float>(5.0f)
+    val batteryVoltage: LiveData<Float> = _batteryVoltage
+
+    // BroadcastReceiver per monitorare lo stato della batteria
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_BATTERY_CHANGED) {
+                // Leggi il livello della batteria (0-100)
+                val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+
+                if (level != -1 && scale != -1) {
+                    val batteryPct = (level * 100) / scale
+                    _batteryLevel.value = batteryPct
+                    Log.d("BatteryInfo", "Livello batteria: $batteryPct%")
+                }
+
+                // Leggi il voltaggio (in Volt)
+                val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1)
+                if (voltage != -1) {
+                    // Il voltaggio è in millivolt, convertiamo in volt
+                    val voltageValue = voltage / 1000.0f
+                    _batteryVoltage.value = voltageValue
+                    Log.d("BatteryInfo", "Voltaggio batteria: $voltageValue V")
+                }
+            }
+        }
+    }
 
 
     // Stato del timer osservabile
@@ -60,9 +99,37 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Inizializza stato del timer dalle preferenze
         _timerState.value = preferences.loadTimerSettings()
 
+        // Registra il receiver per monitorare la batteria
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(batteryReceiver, filter)
+
+        // Leggi subito lo stato iniziale della batteria
+        readInitialBatteryState()
+
         // Avvia il polling se è configurato un URL del server
         if (_timerState.value?.serverUrl?.isNotEmpty() == true) {
             startServerPolling()
+        }
+    }
+
+    /**
+     * Legge lo stato iniziale della batteria
+     */
+    private fun readInitialBatteryState() {
+        try {
+            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+
+            // Leggi il livello della batteria in percentuale
+            val batteryPct = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            if (batteryPct != Int.MIN_VALUE) {
+                _batteryLevel.value = batteryPct
+                Log.d("BatteryInfo", "Livello batteria iniziale: $batteryPct%")
+            }
+
+            // Non possiamo leggere il voltaggio direttamente dal BatteryManager API
+            // Dovremo attendere un broadcast ACTION_BATTERY_CHANGED per questo
+        } catch (e: Exception) {
+            Log.e("BatteryInfo", "Errore nella lettura iniziale della batteria: ${e.message}")
         }
     }
 
@@ -102,8 +169,15 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         // Log aggiunto per debugging
         Log.d("PokerTimerViewModel", "updateState: cambiamento stato connessione: ${oldState?.isConnectedToServer} -> ${newState.isConnectedToServer}")
 
-        // Aggiorno lo stato
-        _timerState.value = newState
+        // Mantieni i valori correnti della batteria
+        val currentBatteryLevel = _batteryLevel.value ?: 100
+        val currentBatteryVoltage = _batteryVoltage.value ?: 5.0f
+
+        // Aggiorno lo stato con i valori della batteria
+        _timerState.value = newState.copy(
+            batteryLevel = currentBatteryLevel,
+            batteryVoltage = currentBatteryVoltage
+        )
 
         // Se lo stato di connessione è cambiato da disconnesso a connesso
         if ((oldState?.isConnectedToServer != true) && newState.isConnectedToServer) {
@@ -538,7 +612,11 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             stopServerPolling()
         }
 
-        // Aggiorna lo stato con le nuove impostazioni
+        // Ottieni i valori correnti della batteria
+        val currentBatteryLevel = _batteryLevel.value ?: 100
+        val currentBatteryVoltage = _batteryVoltage.value ?: 5.0f
+
+        // Aggiorna lo stato con le nuove impostazioni e i valori della batteria
         _timerState.value = currentState.copy(
             timerT1 = timerT1,
             timerT2 = timerT2,
@@ -547,6 +625,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             tableNumber = tableNumber,
             serverUrl = serverUrl,
             playersCount = playersCount,
+            batteryLevel = currentBatteryLevel,
+            batteryVoltage = currentBatteryVoltage,
             // Aggiorna anche il timer corrente se necessario
             currentTimer = if (!currentState.isRunning && !currentState.isPaused) {
                 if (currentState.isT1Active) timerT1 else timerT2
@@ -568,6 +648,13 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         timerHandler?.removeCallbacks(timerRunnable ?: return)
         stopServerPolling()
         soundPool.release()
+
+        // Annulla la registrazione del ricevitore della batteria
+        try {
+            context.unregisterReceiver(batteryReceiver)
+        } catch (e: Exception) {
+            Log.e("BatteryInfo", "Errore nell'unregister del batteryReceiver: ${e.message}")
+        }
     }
 
     /**

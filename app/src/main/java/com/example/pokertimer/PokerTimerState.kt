@@ -1,3 +1,4 @@
+// PokerTimerState.kt
 package com.example.pokertimer
 
 /**
@@ -11,12 +12,14 @@ data class PokerTimerState(
     val isRunning: Boolean = false,  // Se il timer è in esecuzione
     val isPaused: Boolean = false,   // Se il timer è in pausa
     val isExpired: Boolean = false,  // Se il timer è scaduto
-    val operationMode: Int = 1,      // Manteniamo un solo valore di modalità 
+    val operationMode: Int = 1,      // Manteniamo un solo valore di modalità
     val buzzerEnabled: Boolean = true, // Se i suoni sono abilitati
     val tableNumber: Int = 1,        // Numero del tavolo
     val serverUrl: String = "http://192.168.4.1", // URL del server
     val isConnectedToServer: Boolean = false, // Stato connessione
-    val playersCount: Int = 10      // Numero di giocatori (default a 10)
+    val playersCount: Int = 10,      // Numero di giocatori (default a 10)
+    val batteryLevel: Int = 100,     // Livello della batteria (%)
+    val batteryVoltage: Float = 5.0f // Voltaggio della batteria (V)
 ) {
     // Manteniamo questa costante per compatibilità con il codice esistente
     companion object {

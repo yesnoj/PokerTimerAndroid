@@ -46,6 +46,10 @@ class NetworkManager(private val context: Context) {
      * @return Coppia (successo, comando)
      */
 
+    /**
+     * Invia lo stato del timer al server e riceve eventuali comandi
+     * @return Coppia (successo, comando)
+     */
     suspend fun sendTimerStatus(serverUrl: String, timerState: PokerTimerState): Pair<Boolean, Command?> {
         return withContext(Dispatchers.IO) {
             try {
@@ -72,8 +76,8 @@ class NetworkManager(private val context: Context) {
                 "mode": ${timerState.operationMode},
                 "t1_value": ${timerState.timerT1},
                 "t2_value": ${timerState.timerT2},
-                "battery_level": 100,
-                "voltage": 5.0,
+                "battery_level": ${timerState.batteryLevel},
+                "voltage": ${timerState.batteryVoltage},
                 "buzzer": ${timerState.buzzerEnabled},
                 "players_count": ${timerState.playersCount}
             }

@@ -651,6 +651,118 @@
       box-sizing: border-box;
       background-color: #f8f9fa;
     }
+
+    /* Notifiche in-app (toast) */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      max-width: 350px;
+    }
+
+    .toast-notification {
+      background-color: white;
+      border-left: 4px solid #4CAF50;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 15px;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateX(50px);
+      max-width: 350px;
+      display: flex;
+      position: relative;
+    }
+
+    .toast-notification.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .toast-notification.hide {
+      opacity: 0;
+      transform: translateX(100px);
+    }
+
+    .toast-notification.success { border-left-color: #4CAF50; }
+    .toast-notification.warning { border-left-color: #FFC107; }
+    .toast-notification.error { border-left-color: #DC3545; }
+    .toast-notification.info { border-left-color: #0dcaf0; }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 1rem;
+      padding-right: 20px;
+    }
+
+    .toast-body {
+      font-size: 0.9rem;
+      color: #444;
+    }
+
+    .toast-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 16px;
+      cursor: pointer;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    .toast-close:hover {
+      color: #333;
+      background-color: #f0f0f0;
+    }
+
+    .toast-icon {
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .toast-success .toast-icon { color: #4CAF50; }
+    .toast-warning .toast-icon { color: #FFC107; }
+    .toast-error .toast-icon { color: #DC3545; }
+    .toast-info .toast-icon { color: #0dcaf0; }
+
+    /* Bottone per richiedere il permesso di notifiche */
+    .notification-permission-btn {
+      padding: 8px 12px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .notification-permission-btn:hover {
+      background-color: #0069d9;
+    }
   </style>
 </head>
 <body>
@@ -823,10 +935,253 @@
     </div>
   </div>
 
+  <button id="debug-notifications" style="position: fixed; bottom: 60px; left: 10px; z-index: 1000; background-color: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">
+    Debug Notifiche
+  </button>
   <script>
     let hiddenTimers = [];
     let currentFilter = 'all'; // Filtro predefinito: 'all', 'online', 'offline'
     const ONLINE_TIMEOUT_MS = 180000; // 60 secondi per considerare un timer online
+
+    // Sistema di notifiche
+    let notificationsSupported = ("Notification" in window);
+    let notificationsEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+
+    function debugNotifications() {
+      console.log("=== DEBUG NOTIFICHE ===");
+      console.log("Notifiche supportate:", notificationsSupported);
+      console.log("Notifiche abilitate:", notificationsEnabled);
+      console.log("Stato permesso notifiche:", Notification.permission);
+      
+      // Forza la visualizzazione del bottone di richiesta permesso
+      const permButton = document.getElementById('notification-permission');
+      if (permButton) {
+        permButton.style.display = 'block';
+        console.log("Bottone permesso notifiche mostrato forzatamente");
+      }
+      
+      // Mostra una notifica di test in-app
+      showToast({
+        title: "Test Debug Notifiche",
+        message: "Notifiche supportate: " + notificationsSupported + "\nStato permesso: " + Notification.permission,
+        type: "info"
+      });
+    }
+
+
+    // Inizializzazione del sistema di notifiche
+    function initNotificationSystem() {
+      // Se le notifiche sono supportate, verifica lo stato dei permessi
+      if (notificationsSupported) {
+        console.log("Notifiche supportate, stato permesso:", Notification.permission);
+        
+        if (Notification.permission === "granted") {
+          notificationsEnabled = true;
+          localStorage.setItem('notificationsEnabled', 'true');
+          console.log("Notifiche desktop abilitate");
+        } 
+        else if (Notification.permission !== "denied") {
+          // Mostra il bottone per richiedere il permesso
+          const permButton = document.getElementById('notification-permission');
+          if (permButton) {
+            permButton.style.display = 'block';
+            console.log("Bottone permesso notifiche mostrato");
+          } else {
+            console.warn("Elemento 'notification-permission' non trovato");
+          }
+        } else {
+          console.log("Permesso notifiche già negato dall'utente");
+        }
+      } else {
+        console.log("Notifiche desktop non supportate dal browser");
+      }
+      
+      // Crea il container per le notifiche in-app se non esiste
+      if (!document.getElementById('toastContainer')) {
+        console.log("Creazione container notifiche in-app");
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+      }
+    }
+
+    // Richiedi permesso per le notifiche desktop
+    function requestNotificationPermission() {
+      if (!notificationsSupported) return false;
+      
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          notificationsEnabled = true;
+          localStorage.setItem('notificationsEnabled', 'true');
+          
+          // Nascondi il bottone di richiesta permesso
+          const permButton = document.getElementById('notification-permission');
+          if (permButton) {
+            permButton.style.display = 'none';
+          }
+          
+          // Mostra una notifica di conferma
+          showNotification(
+            "Notifiche Abilitate", 
+            "Le notifiche desktop sono state abilitate con successo!",
+            "success"
+          );
+        }
+      });
+      
+      return Notification.permission === "granted";
+    }
+
+    // Funzione per creare e mostrare una notifica desktop
+    function showDesktopNotification(title, body, icon) {
+      // Verifica se il permesso è stato concesso
+      if (notificationsSupported && Notification.permission === "granted") {
+        try {
+          // Crea e mostra la notifica
+          const notification = new Notification(title, {
+            body: body,
+            icon: icon || '/favicon.ico',
+            tag: 'poker-timer-notification' // Assicura che notifiche simili vengano raggruppate
+          });
+          
+          // Quando l'utente clicca sulla notifica
+          notification.onclick = function() {
+            window.focus(); // Porta il focus sulla finestra dell'applicazione
+            this.close();
+          };
+          
+          // Chiudi automaticamente dopo 8 secondi (più lungo dell'alert standard)
+          setTimeout(() => {
+            notification.close();
+          }, 8000);
+          
+          return true;
+        } catch (error) {
+          console.error("Errore nella creazione della notifica desktop:", error);
+          return false;
+        }
+      }
+      
+      return false;
+    }
+
+    // Funzione per creare e mostrare una notifica in-app (toast)
+    function showToast(options) {
+      // Opzioni predefinite
+      const defaults = {
+        title: 'Notifica',
+        message: 'Questo è un messaggio di notifica',
+        type: 'info', // 'success', 'warning', 'error', 'info'
+        duration: 5000, // Tempo in ms prima che la notifica scompaia
+        sound: true // Riproduce un suono di notifica
+      };
+      
+      // Unisci le opzioni con i valori predefiniti
+      const settings = { ...defaults, ...options };
+      
+      // Ottieni il contenitore delle notifiche
+      const container = document.getElementById('toastContainer');
+      if (!container) return null; // Se il container non esiste, esci
+      
+      // Crea l'elemento della notifica
+      const toast = document.createElement('div');
+      toast.className = `toast-notification ${settings.type}`;
+      
+      // Determina l'icona in base al tipo
+      let iconClass = '';
+      switch (settings.type) {
+        case 'success': iconClass = 'fas fa-check-circle'; break;
+        case 'warning': iconClass = 'fas fa-exclamation-triangle'; break;
+        case 'error': iconClass = 'fas fa-times-circle'; break;
+        default: iconClass = 'fas fa-info-circle';
+      }
+      
+      // Imposta il contenuto HTML
+      toast.innerHTML = `
+        <div class="toast-icon">
+          <i class="${iconClass}"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">${settings.title}</div>
+          <div class="toast-body">${settings.message}</div>
+        </div>
+        <button class="toast-close" aria-label="Chiudi">&times;</button>
+      `;
+      
+      // Aggiungi la notifica al contenitore
+      container.appendChild(toast);
+      
+      // Riproduci suono se abilitato
+      if (settings.sound) {
+        playNotificationSound();
+      }
+      
+      // Gestisci il pulsante di chiusura
+      const closeButton = toast.querySelector('.toast-close');
+      closeButton.addEventListener('click', () => {
+        removeToast(toast);
+      });
+      
+      // Mostra la notifica con un breve ritardo (per l'animazione)
+      setTimeout(() => {
+        toast.classList.add('show');
+      }, 10);
+      
+      // Imposta il timer per rimuovere la notifica
+      const toastTimeout = setTimeout(() => {
+        removeToast(toast);
+      }, settings.duration);
+      
+      // Pausa il timer quando il mouse è sopra la notifica
+      toast.addEventListener('mouseenter', () => {
+        clearTimeout(toastTimeout);
+      });
+      
+      // Riattiva il timer quando il mouse esce dalla notifica
+      toast.addEventListener('mouseleave', () => {
+        setTimeout(() => {
+          removeToast(toast);
+        }, settings.duration / 2); // Dimezza il tempo prima di chiudere
+      });
+      
+      // Funzione per rimuovere la notifica con animazione
+      function removeToast(toastElement) {
+        toastElement.classList.add('hide');
+        toastElement.classList.remove('show');
+        
+        // Rimuovi l'elemento dopo che l'animazione è completata
+        setTimeout(() => {
+          if (toastElement.parentNode === container) {
+            container.removeChild(toastElement);
+          }
+        }, 300); // Tempo dell'animazione
+      }
+      
+      // Restituisci l'elemento toast per riferimenti futuri
+      return toast;
+    }
+
+    // Funzione unificata per mostrare notifiche (usa desktop o in-app come fallback)
+    function showNotification(title, message, type = 'info') {
+      // Prova prima con le notifiche desktop
+      if (notificationsEnabled && notificationsSupported && Notification.permission === "granted") {
+        const success = showDesktopNotification(title, message);
+        if (success) {
+          // Suona anche se la notifica desktop è stata mostrata
+          playNotificationSound();
+          return;
+        }
+      }
+      
+      // Fallback alle notifiche in-app
+      showToast({
+        title: title,
+        message: message,
+        type: type,
+        duration: 8000
+      });
+    }
 
 
     // Funzione per caricare i timer nascosti da localStorage
@@ -1433,25 +1788,22 @@ function fetchTimerData() {
             timers[timerWithNotification.device_id].seat_info.needs_web_notification = false;
           }
           
-          // Riproduci il suono di notifica PRIMA di mostrare l'alert
-          console.log("Rilevata nuova notifica Seat Open, tentativo di riprodurre suono");
-          playNotificationSound();
+          // Usa il nuovo sistema di notifiche invece dell'alert
+          showNotification(
+            `Tavolo ${timerWithNotification.table_number} - Posti Liberi`,
+            `Posti disponibili: ${formattedSeats}`,
+            'success'
+          );
           
-          // Ritarda leggermente l'alert per consentire l'inizio della riproduzione del suono
-          setTimeout(() => {
-            // Mostra la notifica all'utente
-            alert(`Richiesta Posti Liberi\nTavolo ${timerWithNotification.table_number} - SEAT OPEN\nPosti: ${formattedSeats}`);
-            
-            // Invia la conferma al server
-            fetch(`/api/acknowledge_seat_notification/${timerWithNotification.device_id}`, {
-              method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-              console.log('Notification acknowledged on server:', data);
-            })
-            .catch(error => console.error('Error acknowledging notification:', error));
-          }, 500);
+          // Invia la conferma al server
+          fetch(`/api/acknowledge_seat_notification/${timerWithNotification.device_id}`, {
+            method: 'POST'
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Notification acknowledged on server:', data);
+          })
+          .catch(error => console.error('Error acknowledging notification:', error));
         }
       }
       
@@ -1955,10 +2307,55 @@ function confirmFactoryReset() {
     
     // Carica i timer nascosti da localStorage
     loadHiddenTimers();
+    // Inizializza il sistema di notifiche
+    initNotificationSystem();
     // Inizializza il suono di notifica
     initNotificationSound();
     // Carica i dati all'avvio
     fetchTimerData();
+
+    document.getElementById('debug-notifications').addEventListener('click', debugNotifications);
+
+
+    const desktopTestButton = document.createElement('button');
+    desktopTestButton.textContent = 'Test Notifica Desktop';
+    desktopTestButton.style = 'position: fixed; bottom: 100px; left: 10px; z-index: 1000; background-color: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;';
+    desktopTestButton.onclick = function() {
+      console.log("Test notifica desktop, stato permesso:", Notification.permission);
+      
+      // Tentativo diretto di notifica desktop
+      try {
+        const notification = new Notification("Test Notifica Desktop", {
+          body: "Questa è una notifica desktop nativa, fuori dal browser",
+          icon: '/favicon.ico'
+        });
+        
+        console.log("Notifica creata:", notification);
+        
+        // Quando l'utente clicca sulla notifica
+        notification.onclick = function() {
+          console.log("Notifica cliccata");
+          window.focus();
+          this.close();
+        };
+      } catch (error) {
+        console.error("Errore nella creazione della notifica desktop:", error);
+        alert("Errore nella creazione della notifica desktop: " + error.message);
+      }
+    };
+    document.body.appendChild(desktopTestButton);
+
   </script>
+
+  <!-- Container per le notifiche in-app -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Bottone per richiedere il permesso per le notifiche -->
+  <div id="notification-permission" style="position: fixed; bottom: 10px; left: 10px; z-index: 1000; display: none;">
+    <button class="notification-permission-btn" onclick="requestNotificationPermission()">
+      <i class="fas fa-bell"></i> Abilita notifiche desktop
+    </button>
+  </div>
+
 </body>
 </html>
