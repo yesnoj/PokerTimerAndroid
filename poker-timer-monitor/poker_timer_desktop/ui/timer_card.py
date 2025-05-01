@@ -133,38 +133,25 @@ class TimerCard(QFrame):
         main_layout.addWidget(separator)
         
         # ---- TIMER DISPLAY ----
-        # Layout per il contenitore del timer
-        timer_layout = QVBoxLayout()
-        timer_layout.setContentsMargins(0, 15, 0, 15)
-
         # Valore del timer
         timer_value = timer_data.get('current_timer', '0')
 
-        # Timer principale (numero e seconds insieme)
-        timer_container = QFrame()
-        timer_container.setFrameShape(QFrame.Shape.Box)
-        timer_container.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 10px;
-            }
-        """)
-
-        # Usa un layout orizzontale per allineare il numero e la parola "seconds"
-        timer_box_layout = QHBoxLayout(timer_container)
-        timer_box_layout.setContentsMargins(10, 10, 10, 10)
-
-        # Numero del timer e seconds insieme in un unico widget
+        # Timer principale - semplificato con una sola cornice
         timer_text = QLabel(f"{timer_value} seconds")
-        timer_text.setStyleSheet("font-size: 40pt; font-weight: bold; color: #000000;")
+        timer_text.setStyleSheet("""
+            font-size: 40pt; 
+            font-weight: bold; 
+            color: #000000;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+        """)
         timer_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        timer_box_layout.addWidget(timer_text)
+        timer_text.setFixedHeight(75)  # Assicura che il contenitore sia abbastanza alto
 
-        # Aggiungi il container al layout principale
-        timer_layout.addWidget(timer_container)
-        main_layout.addLayout(timer_layout)
+        # Aggiungi direttamente il label al layout principale
+        main_layout.addWidget(timer_text, 0, Qt.AlignmentFlag.AlignHCenter)
         
         # ---- SEAT INFO (se presente) ----
         if 'seat_info' in timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:
@@ -246,13 +233,7 @@ class TimerCard(QFrame):
         
         # Quarta riga: IP
         row4_layout = QHBoxLayout()
-        
-        # IP
-        ip_text = f"IP: {timer_data.get('ip_address', '192.168.1.194')}"
-        ip_label = QLabel(ip_text)
-        ip_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row4_layout.addWidget(ip_label)
-        
+                
         main_layout.addLayout(row4_layout)
         
         # ---- BUTTONS (solo Start e Pause) ----
