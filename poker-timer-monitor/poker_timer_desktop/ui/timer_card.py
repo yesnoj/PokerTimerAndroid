@@ -5,10 +5,11 @@
 Widget per visualizzare un singolo timer
 """
 
+import os
 from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QMenu, QDialog, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer
-from PyQt6.QtGui import QFont, QAction, QIcon
+from PyQt6.QtGui import QFont, QAction, QIcon, QPixmap, QPainter, QColor
 
 from .timer_details import TimerDetailsDialog
 
@@ -67,32 +68,39 @@ class TimerCard(QFrame):
         # Icona dispositivo (Android o Arduino)
         device_icon = QLabel()
         if self.is_android_timer(device_id):
-            # Controlla se è disponibile l'icona da file, altrimenti usa emoji
-            try:
-                # Se hai i file delle icone, usa questo codice
-                # icon = QIcon("path/to/android_icon.svg")
-                # pixmap = icon.pixmap(24, 24)
-                # device_icon.setPixmap(pixmap)
-                # Fallback all'emoji se l'icona non è disponibile
+            # Usa l'icona SVG di Android
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                    'resources', 'icons', 'ic_android.svg')
+            if os.path.exists(icon_path):
+                # Carica l'icona come QIcon
+                icon = QIcon(icon_path)
+                # Crea un QPixmap dalle dimensioni desiderate
+                pixmap = icon.pixmap(24, 24)
+                # Imposta il pixmap sulla QLabel
+                device_icon.setPixmap(pixmap)
+                device_icon.setToolTip("Android App")
+            else:
+                # Emoji visibile come fallback
                 device_icon.setText("🤖")
-                device_icon.setStyleSheet("color: #3DDC84; font-size: 22px;")
-            except:
-                device_icon.setText("🤖")
-                device_icon.setStyleSheet("color: #3DDC84; font-size: 22px;")
-            device_icon.setToolTip("Android App")
+                device_icon.setStyleSheet("color: #000000; font-size: 22px;")
+                device_icon.setToolTip("Android App")
         elif self.is_hardware_timer(device_id):
-            try:
-                # Se hai i file delle icone, usa questo codice
-                # icon = QIcon("path/to/arduino_icon.svg")
-                # pixmap = icon.pixmap(24, 24)
-                # device_icon.setPixmap(pixmap)
-                # Fallback all'emoji se l'icona non è disponibile
+            # Usa l'icona SVG di Hardware
+            icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                                    'resources', 'icons', 'ic_hardware.svg')
+            if os.path.exists(icon_path):
+                # Carica l'icona come QIcon
+                icon = QIcon(icon_path)
+                # Crea un QPixmap dalle dimensioni desiderate
+                pixmap = icon.pixmap(24, 24)
+                # Imposta il pixmap sulla QLabel
+                device_icon.setPixmap(pixmap)
+                device_icon.setToolTip("Hardware Timer")
+            else:
+                # Emoji visibile come fallback
                 device_icon.setText("🔌")
-                device_icon.setStyleSheet("color: #00979D; font-size: 22px;")
-            except:
-                device_icon.setText("🔌")
-                device_icon.setStyleSheet("color: #00979D; font-size: 22px;")
-            device_icon.setToolTip("Hardware Timer")
+                device_icon.setStyleSheet("color: #000000; font-size: 22px;")
+                device_icon.setToolTip("Hardware Timer")
         
         header_layout.addWidget(device_icon)
         
@@ -125,14 +133,14 @@ class TimerCard(QFrame):
         main_layout.addWidget(separator)
         
         # ---- TIMER DISPLAY ----
-        # Layout con due colonne per il timer
-        timer_grid = QHBoxLayout()
-        timer_grid.setContentsMargins(0, 15, 0, 15)
-        
+        # Layout per il contenitore del timer
+        timer_layout = QVBoxLayout()
+        timer_layout.setContentsMargins(0, 15, 0, 15)
+
         # Valore del timer
         timer_value = timer_data.get('current_timer', '0')
-        
-        # Timer principale (numero)
+
+        # Timer principale (numero e seconds insieme)
         timer_container = QFrame()
         timer_container.setFrameShape(QFrame.Shape.Box)
         timer_container.setStyleSheet("""
@@ -143,40 +151,20 @@ class TimerCard(QFrame):
                 padding: 10px;
             }
         """)
-        timer_box_layout = QVBoxLayout(timer_container)
+
+        # Usa un layout orizzontale per allineare il numero e la parola "seconds"
+        timer_box_layout = QHBoxLayout(timer_container)
         timer_box_layout.setContentsMargins(10, 10, 10, 10)
-        
-        timer_number = QLabel(str(timer_value))
-        timer_number.setStyleSheet("font-size: 40pt; font-weight: bold; color: #000000;")
-        timer_number.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        timer_box_layout.addWidget(timer_number)
-        
-        # Aggiungiamo il container al layout
-        timer_grid.addWidget(timer_container)
-        
-        # Container per "seconds"
-        seconds_container = QFrame()
-        seconds_container.setFrameShape(QFrame.Shape.Box)
-        seconds_container.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 10px;
-            }
-        """)
-        seconds_box_layout = QVBoxLayout(seconds_container)
-        seconds_box_layout.setContentsMargins(10, 10, 10, 10)
-        
-        seconds_label = QLabel("seconds")
-        seconds_label.setStyleSheet("font-size: 18pt; color: #000000;")
-        seconds_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        seconds_box_layout.addWidget(seconds_label)
-        
-        # Aggiungiamo il container per "seconds" al layout
-        timer_grid.addWidget(seconds_container)
-        
-        main_layout.addLayout(timer_grid)
+
+        # Numero del timer e seconds insieme in un unico widget
+        timer_text = QLabel(f"{timer_value} seconds")
+        timer_text.setStyleSheet("font-size: 40pt; font-weight: bold; color: #000000;")
+        timer_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        timer_box_layout.addWidget(timer_text)
+
+        # Aggiungi il container al layout principale
+        timer_layout.addWidget(timer_container)
+        main_layout.addLayout(timer_layout)
         
         # ---- SEAT INFO (se presente) ----
         if 'seat_info' in timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:
@@ -323,26 +311,16 @@ class TimerCard(QFrame):
         
         # ---- STATUS BAR ----
         status_layout = QHBoxLayout()
-        
-        # Contenitore di sinistra per Online e pallino
-        online_container = QHBoxLayout()
-        
-        # Pallino verde "Online"
-        online_dot = QLabel("●")
-        online_dot.setStyleSheet("color: #28a745; font-size: 16pt;")
-        online_container.addWidget(online_dot)
-        
-        # Testo "Online"
-        online_text = QLabel("Online")
-        online_text.setStyleSheet("color: #28a745; font-size: 16pt;")
-        online_container.addWidget(online_text)
-        
-        status_layout.addLayout(online_container)
-        
+
+        # Contenitore unico per Online e pallino
+        online_status = QLabel("● Online")
+        online_status.setStyleSheet("color: #28a745; font-size: 16pt; background-color: #f8f9fa; padding: 8px; border-radius: 5px;")
+        status_layout.addWidget(online_status)
+
         # Spaziatore
         status_layout.addStretch()
-        
-        # Data ultimo aggiornamento - Completa senza troncatura
+
+        # Data ultimo aggiornamento
         try:
             from datetime import datetime
             last_update = timer_data.get('last_update', '')
@@ -353,11 +331,11 @@ class TimerCard(QFrame):
                 formatted_time = "N/A"
         except:
             formatted_time = "N/A"
-        
+
         last_update_label = QLabel(f"Last update: {formatted_time}")
         last_update_label.setStyleSheet("color: #6c757d; font-size: 16pt;")
         status_layout.addWidget(last_update_label)
-        
+
         main_layout.addLayout(status_layout)
         
         # Menu contestuale
@@ -436,7 +414,7 @@ class TimerCard(QFrame):
         menu.addAction(details_action)
         
         # Se ci sono posti liberi, aggiungi l'opzione per resetarli
-        if 'seat_info' in self.timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:
+        if 'seat_info' in self.timer_data and 'open_seats' in self.timer_data['seat_info'] and self.timer_data['seat_info']['open_seats']:
             menu.addSeparator()
             
             reset_seats_action = QAction("Reset posti liberi", self)
