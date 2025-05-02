@@ -145,8 +145,8 @@ class TimerDetailsDialog(QDialog):
         self.table_number.setStyleSheet(input_style)
         self.table_number.setFixedWidth(40)
         self.table_number.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.table_number.textChanged.connect(self.update_title)
-        
+        # Rimozione della connessione automatica
+        # self.table_number.textChanged.connect(self.update_title)
         
         minus_btn = QPushButton("-")
         minus_btn.setStyleSheet(button_style)
@@ -274,7 +274,7 @@ class TimerDetailsDialog(QDialog):
         mode_row.addWidget(self.mode_label)
         mode_row.addWidget(self.mode_select)
         
-        # Buzzer
+        # Buzzer - Nuovo approccio con un toggle switch usando QPushButton personalizzato
         buzzer_row = QHBoxLayout()
         buzzer_row.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Centra la riga
         
@@ -282,24 +282,22 @@ class TimerDetailsDialog(QDialog):
         buzzer_label.setStyleSheet(label_style)
         buzzer_label.setFixedWidth(160)
         
-        self.buzzer = QCheckBox()
-        self.buzzer.setChecked(timer_data.get('buzzer', False))
-        self.buzzer.setStyleSheet("""
-            QCheckBox::indicator {
-                width: 40px;
-                height: 20px;
-                border-radius: 10px;
-            }
-            QCheckBox::indicator:unchecked {
-                background-color: #ccc;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #28a745;
-            }
-        """)
+        # Creiamo un pulsante personalizzato per lo switch
+        self.buzzer_switch = QPushButton()
+        self.buzzer_switch.setFixedSize(60, 30)
+        self.buzzer_switch.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # Mettiamo un valore nascosto per tenere traccia dello stato
+        self.buzzer_state = timer_data.get('buzzer', False)
+        
+        # Imposta lo stile iniziale in base allo stato
+        self.update_buzzer_switch_style()
+        
+        # Connetti il click al toggle
+        self.buzzer_switch.clicked.connect(self.toggle_buzzer)
         
         buzzer_row.addWidget(buzzer_label)
-        buzzer_row.addWidget(self.buzzer)
+        buzzer_row.addWidget(self.buzzer_switch)
         
         # Add all rows to the form layout with spaziatura
         form_layout.addSpacing(10)
@@ -402,6 +400,44 @@ class TimerDetailsDialog(QDialog):
             # In caso di valore non valido, mostra N/A
             self.title_label.setText("Table N/A")
     
+    def update_buzzer_switch_style(self):
+        """Aggiorna lo stile dello switch buzzer in base allo stato corrente"""
+        if self.buzzer_state:
+            # Stile per ON
+            self.buzzer_switch.setStyleSheet("""
+                QPushButton {
+                    background-color: #28a745;
+                    border-radius: 15px;
+                    text-align: right;
+                    padding-right: 5px;
+                    color: white;
+                }
+                QPushButton:hover {
+                    background-color: #218838;
+                }
+            """)
+            self.buzzer_switch.setText("ON ")
+        else:
+            # Stile per OFF
+            self.buzzer_switch.setStyleSheet("""
+                QPushButton {
+                    background-color: #ccc;
+                    border-radius: 15px;
+                    text-align: left;
+                    padding-left: 5px;
+                    color: #666;
+                }
+                QPushButton:hover {
+                    background-color: #bbb;
+                }
+            """)
+            self.buzzer_switch.setText(" OFF")
+    
+    def toggle_buzzer(self):
+        """Toggle lo stato del buzzer switch"""
+        self.buzzer_state = not self.buzzer_state
+        self.update_buzzer_switch_style()
+    
     def validate_timer_value(self, field):
         """Verifica che il valore del timer sia un multiplo di 5"""
         try:
@@ -501,7 +537,7 @@ class TimerDetailsDialog(QDialog):
             )
     
     def save_settings(self):
-        """Salva le impostazioni del timer"""
+        """Salva le impostazioni del timer e aggiorna il titolo"""
         try:
             # Validazione dei campi
             try:
@@ -533,7 +569,7 @@ class TimerDetailsDialog(QDialog):
                 't1': t1,
                 't2': t2,
                 'tableNumber': table_num,
-                'buzzer': 1 if self.buzzer.isChecked() else 0,
+                'buzzer': 1 if self.buzzer_state else 0,  # Usa lo stato del custom toggle switch
                 'playersCount': players
             }
             
@@ -543,6 +579,11 @@ class TimerDetailsDialog(QDialog):
             if success:
                 # Invia anche un comando per applicare immediatamente le impostazioni
                 self.server.send_command(self.device_id, "apply_settings")
+                
+                # Aggiorna il titolo della finestra e il titolo del header
+                self.title_label.setText(f"Table {table_num}")
+                self.setWindowTitle(f"Timer Details - Table {table_num}")
+                
                 QMessageBox.information(self, "Successo", "Impostazioni salvate e applicate con successo!")
             else:
                 QMessageBox.warning(self, "Errore", "Impossibile salvare le impostazioni")

@@ -507,7 +507,7 @@ class MainWindow(QMainWindow):
         # Salva le impostazioni
         self.settings.setValue("http_port", self.http_port_spin.value())
         self.settings.setValue("discovery_port", self.udp_port_spin.value())
-        self.settings.setValue("show_offline", self.show_offline_check.isChecked())
+        self.settings.setValue("show_filter", self.show_offline)  # Modificato: usa show_filter invece di show_offline
         
         # Se il server è attivo
         if self.is_server_running:
