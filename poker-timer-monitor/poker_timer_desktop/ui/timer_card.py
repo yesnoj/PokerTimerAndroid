@@ -318,8 +318,12 @@ class TimerCard(QFrame):
         status_layout = QHBoxLayout()
 
         # Contenitore unico per Online e pallino
-        online_status = QLabel("● Online")
-        online_status.setStyleSheet("color: #28a745; font-size: 16pt; background-color: #f8f9fa; padding: 8px; border-radius: 5px;")
+        is_online = timer_data.get('is_online', False)
+        online_status_text = "● Online" if is_online else "● Offline"
+        online_status_color = "#28a745" if is_online else "#dc3545"  # Verde se online, rosso se offline
+
+        online_status = QLabel(online_status_text)
+        online_status.setStyleSheet(f"color: {online_status_color}; font-size: 16pt; background-color: #f8f9fa; padding: 8px; border-radius: 5px;")
         status_layout.addWidget(online_status)
 
         # Spaziatore

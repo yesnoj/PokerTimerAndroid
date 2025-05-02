@@ -10,7 +10,9 @@ import os
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QFrame, QGridLayout, QScrollArea,
                             QSpinBox, QCheckBox, QGroupBox, QMessageBox, QSplitter,
-                            QSizePolicy) 
+                            QSizePolicy, QRadioButton, QButtonGroup)
+
+
 from PyQt6.QtCore import Qt, QTimer, QSettings, pyqtSlot
 from PyQt6.QtGui import QFont, QIcon
 
@@ -34,7 +36,7 @@ class MainWindow(QMainWindow):
         # Server e dati
         self.http_port = self.settings.value("http_port", 3000, int)
         self.discovery_port = self.settings.value("discovery_port", 8888, int)
-        self.show_offline = self.settings.value("show_offline", True, bool)
+        self.show_offline = self.settings.value("show_filter", "only_online", str)  # Modificato per i 3 filtri
         
         self.server = PokerTimerServer(port=self.http_port, discovery_port=self.discovery_port)
         self.is_server_running = False
@@ -54,11 +56,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
         
-        # Header
-        header = QLabel("Poker Timer Monitor")
-        header.setFont(QFont("Arial", 24, QFont.Weight.Bold))
-        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(header)
+        # Rimuoviamo l'header "Poker Timer Monitor"
         
         # Pannello di controllo
         control_panel = self.create_control_panel()
@@ -133,6 +131,8 @@ class MainWindow(QMainWindow):
         self.http_port_spin.setRange(1024, 65535)
         self.http_port_spin.setValue(self.http_port)
         self.http_port_spin.setMinimumWidth(100)
+        # Rimuoviamo i bottoni +/- dallo spinbox
+        self.http_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         http_layout.addWidget(self.http_port_spin)
         port_layout.addLayout(http_layout)
         
@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         self.udp_port_spin.setRange(1024, 65535)
         self.udp_port_spin.setValue(self.discovery_port)
         self.udp_port_spin.setMinimumWidth(100)
+        # Rimuoviamo i bottoni +/- dallo spinbox
+        self.udp_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
         udp_layout.addWidget(self.udp_port_spin)
         port_layout.addLayout(udp_layout)
         
@@ -157,16 +159,43 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(server_group)
         
-        # Filtro timer
+        # Filtro timer - MODIFICATO
         filter_group = QGroupBox("Filtro")
         filter_group.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         filter_layout = QHBoxLayout(filter_group)
         
-        self.show_offline_check = QCheckBox("Mostra timer offline")
-        self.show_offline_check.setFont(QFont("Arial", 12))
-        self.show_offline_check.setChecked(self.show_offline)
-        self.show_offline_check.toggled.connect(self.on_show_offline_toggled)
-        filter_layout.addWidget(self.show_offline_check)
+        # Creiamo un gruppo di radio button per i filtri
+        self.filter_all_radio = QRadioButton("Mostra tutti")
+        self.filter_online_radio = QRadioButton("Mostra Online")
+        self.filter_offline_radio = QRadioButton("Mostra Offline")
+        
+        # Raggruppiamo i radio button
+        self.filter_radio_group = QButtonGroup(self)
+        self.filter_radio_group.addButton(self.filter_all_radio, 0)
+        self.filter_radio_group.addButton(self.filter_online_radio, 1)
+        self.filter_radio_group.addButton(self.filter_offline_radio, 2)
+        
+        # Impostazione dello stile
+        radio_style = "font-size: 12pt;"
+        self.filter_all_radio.setStyleSheet(radio_style)
+        self.filter_online_radio.setStyleSheet(radio_style)
+        self.filter_offline_radio.setStyleSheet(radio_style)
+        
+        # Impostiamo il valore di default
+        if self.show_offline == "all":
+            self.filter_all_radio.setChecked(True)
+        elif self.show_offline == "only_offline":
+            self.filter_offline_radio.setChecked(True)
+        else:  # "only_online" o valore predefinito
+            self.filter_online_radio.setChecked(True)
+        
+        # Connessione dei segnali
+        self.filter_radio_group.buttonClicked.connect(self.on_filter_changed)
+        
+        # Aggiunta dei radio button al layout
+        filter_layout.addWidget(self.filter_all_radio)
+        filter_layout.addWidget(self.filter_online_radio)
+        filter_layout.addWidget(self.filter_offline_radio)
         
         layout.addWidget(filter_group)
         
@@ -199,6 +228,22 @@ class MainWindow(QMainWindow):
         
         return panel
     
+    def on_filter_changed(self, button):
+        """Gestisce il cambio del filtro dei timer"""
+        if button == self.filter_all_radio:
+            self.show_offline = "all"
+        elif button == self.filter_offline_radio:
+            self.show_offline = "only_offline"
+        else:  # filter_online_radio
+            self.show_offline = "only_online"
+        
+        # Salva l'impostazione
+        self.settings.setValue("show_filter", self.show_offline)
+        
+        # Aggiorna la visualizzazione
+        self.update_timers()
+
+
     def toggle_server(self):
         """Avvia o ferma il server"""
         if self.is_server_running:
@@ -274,8 +319,17 @@ class MainWindow(QMainWindow):
         # Ottieni i timer dal server
         timers = self.server.timers
         
+        # Conta i timer online
+        online_timers = []
+        offline_timers = []
+        for timer_id, timer_data in timers.items():
+            if self.server.is_timer_online(timer_data):
+                online_timers.append(timer_id)
+            else:
+                offline_timers.append(timer_id)
+        
         # Aggiorna il contatore
-        self.timer_count.setText(f"Timer connessi: {len(timers)}")
+        self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
         
         # Pulisci COMPLETAMENTE il layout corrente - questo è cruciale
         self.clear_grid()
@@ -286,10 +340,21 @@ class MainWindow(QMainWindow):
         self.no_timers_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.no_timers_label.setStyleSheet("font-size: 16pt; color: #333333; font-weight: bold; padding: 20px;")
         
-        # Filtro per i timer offline
+        # Filtra i timer in base al filtro selezionato
         filtered_timers = {}
         for device_id, timer_data in timers.items():
-            if self.show_offline_check.isChecked() or self.server.is_timer_online(timer_data):
+            # Aggiungiamo un flag al timer_data per indicare se è online o offline
+            timer_data['is_online'] = self.server.is_timer_online(timer_data)
+            
+            # Applica il filtro
+            if self.show_offline == "all":
+                # Mostra tutti i timer
+                filtered_timers[device_id] = timer_data
+            elif self.show_offline == "only_online" and timer_data['is_online']:
+                # Mostra solo i timer online
+                filtered_timers[device_id] = timer_data
+            elif self.show_offline == "only_offline" and not timer_data['is_online']:
+                # Mostra solo i timer offline
                 filtered_timers[device_id] = timer_data
         
         # Se non ci sono timer, mostra il messaggio centrato nella griglia
@@ -303,7 +368,7 @@ class MainWindow(QMainWindow):
         
         # Ordina i timer per numero tavolo
         sorted_timers = sorted(filtered_timers.items(), 
-                             key=lambda x: x[1].get('table_number', 999))
+                            key=lambda x: x[1].get('table_number', 999))
         
         for device_id, timer_data in sorted_timers:
             # Crea un nuovo widget TimerCard
@@ -352,27 +417,80 @@ class MainWindow(QMainWindow):
         """Gestisce il segnale di connessione nuovo timer"""
         self.update_timers()
         
+        # Determina il tipo di timer
+        device_type = None
+        if device_id.startswith('android_'):
+            device_type = "android"
+        elif device_id.startswith('arduino_'):
+            device_type = "hardware"
+        
         # Mostra notifica per nuovo timer
         timer_data = self.server.timers.get(device_id, {})
         table_number = timer_data.get('table_number', 'N/A')
         self.notification_manager.show_notification(
             f"Nuovo Timer Connesso", 
             f"Il timer per il tavolo {table_number} si è connesso al server.",
-            "info"
+            "info",
+            device_type=device_type  # Passa il tipo di dispositivo
         )
     
     @pyqtSlot(str, list)
     def on_seat_notification(self, table_number, seats):
         """Gestisce il segnale di notifica posti liberi"""
+        # Controllo per evitare notifiche multiple per lo stesso tavolo
+        if hasattr(self, '_last_notification_table') and self._last_notification_table == table_number:
+            if hasattr(self, '_last_notification_time'):
+                import time
+                current_time = time.time()
+                # Se sono passati meno di 3 secondi dall'ultima notifica, ignora
+                if current_time - self._last_notification_time < 3:
+                    print(f"Ignorata notifica duplicata per il tavolo {table_number}")
+                    return
+        
+        # Memorizza l'ultimo tavolo notificato e il timestamp
+        self._last_notification_table = table_number
+        import time
+        self._last_notification_time = time.time()
+        
         # Formatta i posti liberi
         seats_str = ", ".join(map(str, seats))
         
-        # Mostra notifica
+        # Determina il tipo di dispositivo
+        device_type = None
+        for device_id, timer_data in self.server.timers.items():
+            if str(timer_data.get('table_number', '')) == table_number:
+                if device_id.startswith('android_'):
+                    device_type = "android"
+                elif device_id.startswith('arduino_'):
+                    device_type = "hardware"
+                break
+        
+        # Definisce il callback per il reset dei posti
+        def reset_seats_callback():
+            # Cerca il device_id corrispondente al tavolo
+            device_id = None
+            for d_id, timer_data in self.server.timers.items():
+                if str(timer_data.get('table_number', '')) == table_number:
+                    device_id = d_id
+                    break
+            
+            # Se trovato, resetta i posti
+            if device_id:
+                self.server.reset_seat_info(device_id)
+                print(f"Reset posti completato per il tavolo {table_number}")
+        
+        # Mostra notifica con pulsante di azione e suono
+        print(f"Mostrando notifica per tavolo {table_number} con posti {seats_str}")
         self.notification_manager.show_notification(
             f"Tavolo {table_number} - Posti Liberi",
             f"Posti disponibili: {seats_str}",
-            "success"
+            "success",
+            action_button="Reset Posti",
+            action_callback=reset_seats_callback,
+            play_sound=True,
+            device_type=device_type
         )
+        print("Notifica inviata")
     
     def on_show_offline_toggled(self, checked):
         """Gestisce il cambio stato del checkbox per mostrare i timer offline"""

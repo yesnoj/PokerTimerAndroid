@@ -240,16 +240,26 @@ class PokerTimerServer(QObject):
                     break
             
             if target_device_id:
-                # Memorizza i dati dei posti nella struttura del timer
+                # Inizializza la struttura dei posti se non esiste
                 if 'seat_info' not in self.timers[target_device_id]:
-                    self.timers[target_device_id]['seat_info'] = {}
+                    self.timers[target_device_id]['seat_info'] = {
+                        'open_seats': [],
+                        'timestamp': datetime.datetime.now().isoformat(),
+                        'action': 'seat_open',
+                        'needs_web_notification': False
+                    }
                 
-                self.timers[target_device_id]['seat_info'] = {
-                    'open_seats': seats,
+                # Aggiungi i nuovi posti in coda all'elenco esistente (senza duplicati)
+                for seat in seats:
+                    if seat not in self.timers[target_device_id]['seat_info']['open_seats']:
+                        self.timers[target_device_id]['seat_info']['open_seats'].append(seat)
+                
+                # Aggiorna le informazioni
+                self.timers[target_device_id]['seat_info'].update({
                     'timestamp': datetime.datetime.now().isoformat(),
                     'action': request_data.get('action', 'seat_open'),
                     'needs_web_notification': True
-                }
+                })
                 
                 # Emetti il segnale per la notifica
                 self.seat_notification.emit(str(table_number), seats)
@@ -415,7 +425,7 @@ class PokerTimerServer(QObject):
         try:
             last_update = datetime.datetime.fromisoformat(timer_data.get('last_update', ''))
             now = datetime.datetime.now()
-            # Timer considerato online se aggiornato negli ultimi 10 secondi
-            return (now - last_update).total_seconds() < 10
+            # Timer considerato online se aggiornato negli ultimi 3 minuti
+            return (now - last_update).total_seconds() < 180  # 3 minuti = 180 secondi
         except Exception:
             return False
