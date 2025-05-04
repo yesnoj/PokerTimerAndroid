@@ -29,6 +29,8 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     private val preferences = PokerTimerPreferences(application)
     private val networkManager = NetworkManager(application)
     private val context = application.applicationContext
+    private var countDownTimer: CountDownTimer? = null
+
 
     // Valori della batteria
     private val _batteryLevel = MutableLiveData<Int>(100)
@@ -390,70 +392,51 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
      * Avvia il countdown effettivo
      */
     private fun startCountdown(timeSeconds: Int) {
-        // Ferma eventuali timer in esecuzione
-        timerHandler?.removeCallbacks(timerRunnable ?: return)
+        // Cancel any existing timer
+        countDownTimer?.cancel()
 
-        // Inizializza lo stato
-        var secondsRemaining = timeSeconds
-
-        // Crea un nuovo handler
-        timerHandler = Handler(Looper.getMainLooper())
-
-        // Crea il runnable che aggiornerà il timer ogni secondo
-        timerRunnable = object : Runnable {
-            override fun run() {
+        // Create and start new timer
+        countDownTimer = object : CountDownTimer(timeSeconds * 1000L, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsRemaining = (millisUntilFinished / 1000).toInt()
                 val currentState = _timerState.value ?: return
 
-                // Verifica se i secondi rimanenti sono 0 prima del decremento
-                // per riprodurre il suono finale esattamente quando mostriamo lo 0
-                if (secondsRemaining == 0) {
-                    // Timer terminato
-                    if (currentState.buzzerEnabled) {
-                        soundPool.play(soundEnd, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
+                // Update state with remaining seconds
+                _timerState.value = currentState.copy(currentTimer = secondsRemaining)
 
-                    _timerState.value = currentState.copy(
-                        currentTimer = 0,
-                        isRunning = false,
-                        isPaused = false,
-                        isExpired = true
-                    )
-
-                    // Invia lo stato al server
-                    sendTimerStatusToServer()
-
-                    // Non programmare ulteriori esecuzioni
-                    return
+                // Play tick sound at specific seconds
+                if ((secondsRemaining <= 5 || secondsRemaining == 10) && currentState.buzzerEnabled) {
+                    soundPool.play(soundTick, 1.0f, 1.0f, 1, 0, 1.0f)
                 }
 
-                if (secondsRemaining >= 0) {
-                    // Aggiorna lo stato con i secondi rimanenti
-                    _timerState.value = currentState.copy(currentTimer = secondsRemaining)
-
-                    // Riproduci suono tick a 10, 5, 4, 3, 2, 1 secondi
-                    if ((secondsRemaining <= 5 || secondsRemaining == 10) && currentState.buzzerEnabled) {
-                        soundPool.play(soundTick, 1.0f, 1.0f, 1, 0, 1.0f)
-                    }
-
-                    // Invia lo stato al server ogni 5 secondi
-                    if (secondsRemaining % 5 == 0 || secondsRemaining <= 5) {
-                        sendTimerStatusToServer()
-                    }
-
-                    // Decrementa il contatore
-                    secondsRemaining--
-
-                    // Pianifica la prossima esecuzione tra 1 secondo
-                    timerHandler?.postDelayed(this, 1000)
+                // Send state to server periodically
+                if (secondsRemaining % 5 == 0 || secondsRemaining <= 5) {
+                    sendTimerStatusToServer()
                 }
             }
-        }
 
-        // Avvia immediatamente il timer
-        timerRunnable?.run()
+            override fun onFinish() {
+                val currentState = _timerState.value ?: return
+
+                // Play end sound
+                if (currentState.buzzerEnabled) {
+                    soundPool.play(soundEnd, 1.0f, 1.0f, 1, 0, 1.0f)
+                }
+
+                // Update state to expired
+                _timerState.value = currentState.copy(
+                    currentTimer = 0,
+                    isRunning = false,
+                    isPaused = false,
+                    isExpired = true
+                )
+
+                // Send status to server
+                sendTimerStatusToServer()
+            }
+        }.start()
     }
-
-    /**
+     /**
      * Invia lo stato del timer al server
      */
     private fun sendTimerStatusToServer() {
