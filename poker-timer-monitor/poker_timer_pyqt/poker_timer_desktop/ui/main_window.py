@@ -7,6 +7,8 @@ Finestra principale dell'applicazione Poker Timer
 
 import sys
 import os
+import time
+
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QFrame, QGridLayout, QScrollArea,
                             QSpinBox, QCheckBox, QGroupBox, QMessageBox, QSplitter,
@@ -437,20 +439,25 @@ class MainWindow(QMainWindow):
     @pyqtSlot(str, list)
     def on_seat_notification(self, table_number, seats):
         """Gestisce il segnale di notifica posti liberi"""
-        # Controllo per evitare notifiche multiple per lo stesso tavolo
-        if hasattr(self, '_last_notification_table') and self._last_notification_table == table_number:
-            if hasattr(self, '_last_notification_time'):
-                import time
-                current_time = time.time()
-                # Se sono passati meno di 3 secondi dall'ultima notifica, ignora
-                if current_time - self._last_notification_time < 3:
-                    print(f"Ignorata notifica duplicata per il tavolo {table_number}")
-                    return
+        # Verifica se abbiamo ricevuto lo stesso segnale di recente
+        # Usiamo attributi statici nella classe per tracciare gli ultimi segnali
+        if not hasattr(self, '_last_seat_notification'):
+            self._last_seat_notification = {}
         
-        # Memorizza l'ultimo tavolo notificato e il timestamp
-        self._last_notification_table = table_number
-        import time
-        self._last_notification_time = time.time()
+        # Crea una chiave univoca per questo segnale (tavolo + lista posti ordinata)
+        sorted_seats = sorted(seats)
+        notification_key = f"{table_number}_{sorted_seats}"
+        
+        # Controlla se abbiamo già ricevuto questo segnale negli ultimi 2 secondi
+        current_time = time.time()
+        if notification_key in self._last_seat_notification:
+            last_time = self._last_seat_notification[notification_key]
+            if current_time - last_time < 2.0:  # Ignora se è passato meno di 2 secondi
+                print(f"Ignorata notifica duplicata per il tavolo {table_number} - ricevuta entro 2 secondi")
+                return
+        
+        # Memorizza questo segnale come l'ultimo ricevuto
+        self._last_seat_notification[notification_key] = current_time
         
         # Formatta i posti liberi
         seats_str = ", ".join(map(str, seats))
@@ -479,18 +486,29 @@ class MainWindow(QMainWindow):
                 self.server.reset_seat_info(device_id)
                 print(f"Reset posti completato per il tavolo {table_number}")
         
-        # Mostra notifica con pulsante di azione e suono
-        print(f"Mostrando notifica per tavolo {table_number} con posti {seats_str}")
-        self.notification_manager.show_notification(
-            f"Tavolo {table_number} - Posti Liberi",
-            f"Posti disponibili: {seats_str}",
-            "success",
-            action_button="Reset Posti",
-            action_callback=reset_seats_callback,
-            play_sound=True,
-            device_type=device_type
-        )
-        print("Notifica inviata")
+        # METODO DIRETTO: se esiste già una notifica, la aggiorna; altrimenti ne crea una nuova
+        has_existing_notification = False
+        if hasattr(self.notification_manager, 'table_notifications'):
+            has_existing_notification = table_number in self.notification_manager.table_notifications
+        
+        if has_existing_notification:
+            # Aggiorna la notifica esistente
+            self.notification_manager.update_notification(table_number, f"Posti disponibili: {seats_str}", seats)
+            print(f"Notifica per tavolo {table_number} aggiornata con posti {seats_str}")
+        else:
+            # Crea una nuova notifica
+            self.notification_manager.show_notification(
+                f"Tavolo {table_number} - Posti Liberi",
+                f"Posti disponibili: {seats_str}",
+                "success",
+                action_button="Reset Posti",
+                action_callback=reset_seats_callback,
+                play_sound=True,
+                device_type=device_type,
+                auto_close=False,
+                table_number=table_number
+            )
+            print(f"Nuova notifica creata per tavolo {table_number} con posti {seats_str}")
     
     def on_show_offline_toggled(self, checked):
         """Gestisce il cambio stato del checkbox per mostrare i timer offline"""

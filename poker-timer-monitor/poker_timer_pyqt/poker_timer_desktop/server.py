@@ -258,11 +258,15 @@ class PokerTimerServer(QObject):
                 self.timers[target_device_id]['seat_info'].update({
                     'timestamp': datetime.datetime.now().isoformat(),
                     'action': request_data.get('action', 'seat_open'),
-                    'needs_web_notification': True
                 })
                 
-                # Emetti il segnale per la notifica
-                self.seat_notification.emit(str(table_number), seats)
+                # Imposta il flag di notifica solo se non è già attivo
+                # Questa modifica evita che vengano emessi più segnali in rapida successione
+                if not self.timers[target_device_id]['seat_info'].get('needs_web_notification', False):
+                    self.timers[target_device_id]['seat_info']['needs_web_notification'] = True
+                    
+                    # Emetti il segnale per la notifica
+                    self.seat_notification.emit(str(table_number), self.timers[target_device_id]['seat_info']['open_seats'])
                 
                 # Emetti il segnale per aggiornare l'interfaccia
                 self.timer_updated.emit(target_device_id)

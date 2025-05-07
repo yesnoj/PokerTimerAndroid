@@ -132,7 +132,7 @@ class TimerCard(QFrame):
         separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # NOTA: Rimosso completamente il blocco del timer qui
+        # NOTA: Rimosso completamente il blocco del timer con i secondi qui
         
         # ---- SEAT INFO (se presente) ----
         if 'seat_info' in timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:

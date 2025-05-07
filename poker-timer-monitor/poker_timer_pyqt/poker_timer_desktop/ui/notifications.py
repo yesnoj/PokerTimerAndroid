@@ -72,9 +72,9 @@ class ToastNotification(QWidget):
         header_layout = QHBoxLayout()
         
         # Titolo
-        title_label = QLabel(title)
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        header_layout.addWidget(title_label)
+        self.title_label = QLabel(title)  # Salva riferimento all'etichetta del titolo
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        header_layout.addWidget(self.title_label)
         
         # Icona del dispositivo (se specificata)
         if device_type:
@@ -146,14 +146,15 @@ class ToastNotification(QWidget):
         container_layout.addLayout(header_layout)
         
         # Messaggio
-        message_label = QLabel(message)
-        message_label.setWordWrap(True)
-        container_layout.addWidget(message_label)
+        self.message_label = QLabel(message)  # Conserva riferimento all'etichetta del messaggio
+        self.message_label.setWordWrap(True)
+        container_layout.addWidget(self.message_label)
         
         # Pulsante di azione (se specificato)
+        self.action_btn = None
         if action_button:
-            action_btn = QPushButton(action_button)
-            action_btn.setStyleSheet("""
+            self.action_btn = QPushButton(action_button)
+            self.action_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #007bff;
                     color: white;
@@ -167,8 +168,8 @@ class ToastNotification(QWidget):
                     background-color: #0069d9;
                 }
             """)
-            action_btn.clicked.connect(self._on_action_clicked)
-            container_layout.addWidget(action_btn)
+            self.action_btn.clicked.connect(self._on_action_clicked)
+            container_layout.addWidget(self.action_btn)
         
         main_layout.addWidget(container)
         
@@ -259,6 +260,9 @@ class NotificationManager:
         self.max_notifications = 5      # Numero massimo di notifiche simultanee
         self.margin = 10                # Margine tra le notifiche
         
+        # Dizionario per tenere traccia delle notifiche per tavolo
+        self.table_notifications = {}
+        
         # Verifica se le notifiche desktop sono supportate
         self.desktop_notifications_supported = False
         
@@ -327,8 +331,25 @@ class NotificationManager:
             print(f"Errore nella riproduzione del suono: {e}")
             return False
     
+    def update_notification(self, table_number, message, seats):
+        """Aggiorna una notifica esistente con un nuovo messaggio e riproduce il suono"""
+        if table_number in self.table_notifications and self.table_notifications[table_number] in self.active_notifications:
+            notification = self.table_notifications[table_number]
+            
+            # Aggiorna il messaggio
+            notification.message_label.setText(message)
+            
+            # Riproduci il suono di notifica
+            self.play_notification_sound()
+            
+            print(f"Notifica per il tavolo {table_number} aggiornata con i nuovi posti: {seats}")
+            return True
+        
+        return False  # Non è stata trovata una notifica da aggiornare
+    
     def show_notification(self, title, message, type="info", duration=5000, 
-                         action_button=None, action_callback=None, play_sound=False, device_type=None):
+                         action_button=None, action_callback=None, play_sound=False, device_type=None,
+                         auto_close=True, table_number=None):
         """Mostra una notifica desktop o in-app con possibile azione e suono"""
         # Riproduci suono se richiesto (solo una volta)
         if play_sound:
@@ -340,11 +361,13 @@ class NotificationManager:
                 # Se è stata mostrata la notifica desktop,
                 # mostra comunque quella in-app per avere il pulsante di azione
                 return self.show_in_app_notification(title, message, type, duration, 
-                                                   action_button, action_callback, device_type)
+                                                   action_button, action_callback, device_type,
+                                                   auto_close, table_number)
         
         # Fallback a notifica in-app
         return self.show_in_app_notification(title, message, type, duration, 
-                                           action_button, action_callback, device_type)
+                                           action_button, action_callback, device_type,
+                                           auto_close, table_number)
         
     def show_desktop_notification(self, title, message):
         """Mostra una notifica desktop nativa"""
@@ -379,7 +402,8 @@ class NotificationManager:
             return False
     
     def show_in_app_notification(self, title, message, type="info", duration=5000,
-                               action_button=None, action_callback=None, device_type=None):
+                               action_button=None, action_callback=None, device_type=None,
+                               auto_close=True, table_number=None):
         """Mostra una notifica in-app con possibile pulsante di azione"""
         # Se ci sono troppe notifiche attive, rimuovi le più vecchie
         while len(self.active_notifications) >= self.max_notifications:
@@ -428,10 +452,18 @@ class NotificationManager:
         # Memorizza e mostra la notifica
         self.active_notifications.append(notification)
         
+        # Se è specificato un tavolo, memorizza il riferimento
+        if table_number is not None:
+            self.table_notifications[table_number] = notification
+        
         # Imposta subito la posizione e la visibilità
         notification.setGeometry(pos_x, pos_y, width, height)
         notification.show()
         notification.show_notification(QPoint(pos_x, pos_y))
+        
+        # Decidi se avviare il timer di auto-chiusura
+        if not auto_close:
+            notification.timer.stop()  # Ferma il timer di auto-chiusura
         
         # Debug
         print(f"La notifica è visibile: {notification.isVisible()}")
@@ -443,6 +475,13 @@ class NotificationManager:
         """Rimuove una notifica dall'elenco delle attive"""
         if notification in self.active_notifications:
             self.active_notifications.remove(notification)
+            
+            # Rimuovi anche dal dizionario dei tavoli se presente
+            for table_num, notif in list(self.table_notifications.items()):
+                if notif == notification:
+                    del self.table_notifications[table_num]
+                    break
+            
             notification.deleteLater()
             
             # Riposiziona le notifiche rimanenti
