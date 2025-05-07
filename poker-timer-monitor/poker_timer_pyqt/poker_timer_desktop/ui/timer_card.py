@@ -132,26 +132,7 @@ class TimerCard(QFrame):
         separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # ---- TIMER DISPLAY ----
-        # Valore del timer
-        timer_value = timer_data.get('current_timer', '0')
-
-        # Timer principale - semplificato con una sola cornice
-        timer_text = QLabel(f"{timer_value} seconds")
-        timer_text.setStyleSheet("""
-            font-size: 40pt; 
-            font-weight: bold; 
-            color: #000000;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 20px;
-        """)
-        timer_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        timer_text.setFixedHeight(75)  # Assicura che il contenitore sia abbastanza alto
-
-        # Aggiungi direttamente il label al layout principale
-        main_layout.addWidget(timer_text, 0, Qt.AlignmentFlag.AlignHCenter)
+        # NOTA: Rimosso completamente il blocco del timer qui
         
         # ---- SEAT INFO (se presente) ----
         if 'seat_info' in timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:
