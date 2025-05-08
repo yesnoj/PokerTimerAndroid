@@ -202,6 +202,8 @@ class MainWindow(QMainWindow):
             text-align: left;
             padding-left: 15px;
             padding-right: 15px;
+            padding-top: 5px;
+            padding-bottom: 5px;
         }
         QMenuBar {
             text-align: left;
@@ -210,6 +212,7 @@ class MainWindow(QMainWindow):
             text-align: left;
             padding-left: 10px;
             padding-right: 10px;
+            padding-top: 2px;
         }
         """
         self.setStyleSheet(style)
