@@ -12,15 +12,98 @@ import time
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QFrame, QGridLayout, QScrollArea,
                             QSpinBox, QCheckBox, QGroupBox, QMessageBox, QSplitter,
-                            QSizePolicy, QRadioButton, QButtonGroup)
+                            QSizePolicy, QRadioButton, QButtonGroup, QMenu, QMenuBar,
+                            QDialog, QFormLayout, QDialogButtonBox)
 
 
 from PyQt6.QtCore import Qt, QTimer, QSettings, pyqtSlot
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtGui import QFont, QIcon, QAction
 
 from .timer_card import TimerCard
 from .notifications import NotificationManager
 from server import PokerTimerServer
+
+class ServerSettingsDialog(QDialog):
+    """Dialog per le impostazioni del server"""
+    def __init__(self, parent=None, http_port=3000, discovery_port=8888, autostart=False):
+        super().__init__(parent)
+        
+        self.setWindowTitle("Impostazioni Server")
+        self.setMinimumWidth(400)
+        
+        # Layout principale
+        layout = QVBoxLayout(self)
+        
+        # Utilizziamo un layout a griglia invece del form layout per un controllo migliore
+        grid_layout = QGridLayout()
+        grid_layout.setVerticalSpacing(20)  # Aumentiamo lo spazio verticale tra le righe
+        grid_layout.setHorizontalSpacing(10)
+        
+        # Etichette con altezza fissa e allineate a destra
+        http_label = QLabel("Porta HTTP:")
+        http_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        http_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        grid_layout.addWidget(http_label, 0, 0)
+        
+        # HTTP Port con altezza fissa e allineato a destra
+        self.http_port_spin = QSpinBox()
+        self.http_port_spin.setRange(1024, 65535)
+        self.http_port_spin.setValue(http_port)
+        self.http_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.http_port_spin.setMinimumWidth(100)
+        self.http_port_spin.setFixedHeight(30)  # Altezza fissa per uniformità
+        self.http_port_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(self.http_port_spin, 0, 1)
+        
+        # Discovery Port con stile simile
+        discovery_label = QLabel("Porta Discovery:")
+        discovery_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        discovery_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        grid_layout.addWidget(discovery_label, 1, 0)
+        
+        self.udp_port_spin = QSpinBox()
+        self.udp_port_spin.setRange(1024, 65535)
+        self.udp_port_spin.setValue(discovery_port)
+        self.udp_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.udp_port_spin.setMinimumWidth(100)
+        self.udp_port_spin.setFixedHeight(30)  # Altezza fissa per uniformità
+        self.udp_port_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(self.udp_port_spin, 1, 1)
+        
+        # Autostart checkbox
+        self.autostart_check = QCheckBox("Avvia server automaticamente")
+        self.autostart_check.setChecked(autostart)
+        grid_layout.addWidget(self.autostart_check, 2, 0, 1, 2, Qt.AlignmentFlag.AlignCenter)
+        
+        # Aggiungiamo il layout griglia al layout principale
+        layout.addLayout(grid_layout)
+        
+        # Aggiungiamo un po' di spazio prima dei bottoni
+        layout.addSpacing(20)
+        
+        # Bottoni standard con stile personalizzato
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        
+        # Personalizziamo i bottoni
+        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        ok_button.setText("OK")
+        ok_button.setStyleSheet("background-color: #2e7d32; color: white; padding: 6px 20px; font-weight: bold;")
+        
+        cancel_button = button_box.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel_button.setText("Cancel")
+        cancel_button.setStyleSheet("background-color: #6c757d; color: white; padding: 6px 20px;")
+        
+        layout.addWidget(button_box)
+    
+    def get_settings(self):
+        """Restituisce le impostazioni selezionate"""
+        return {
+            'http_port': self.http_port_spin.value(),
+            'discovery_port': self.udp_port_spin.value(),
+            'autostart': self.autostart_check.isChecked()
+        }
 
 class MainWindow(QMainWindow):
     """Finestra principale dell'applicazione Poker Timer"""
@@ -33,12 +116,12 @@ class MainWindow(QMainWindow):
         
         # Configura la finestra
         self.setWindowTitle("Poker Timer Monitor")
-        self.setMinimumSize(1200, 800)
+        self.setMinimumSize(800, 600)
         
         # Server e dati
         self.http_port = self.settings.value("http_port", 3000, int)
         self.discovery_port = self.settings.value("discovery_port", 8888, int)
-        self.show_offline = self.settings.value("show_filter", "only_online", str)  # Modificato per i 3 filtri
+        self.show_offline = self.settings.value("show_filter", "only_online", str)
         
         self.server = PokerTimerServer(port=self.http_port, discovery_port=self.discovery_port)
         self.is_server_running = False
@@ -51,6 +134,9 @@ class MainWindow(QMainWindow):
         self.server.timer_connected.connect(self.on_timer_connected)
         self.server.seat_notification.connect(self.on_seat_notification)
         
+        # Crea la barra dei menu
+        self.create_menu_bar()
+        
         # Widget centrale
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -58,25 +144,23 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
         
-        # Rimuoviamo l'header "Poker Timer Monitor"
-        
-        # Pannello di controllo
-        control_panel = self.create_control_panel()
-        main_layout.addWidget(control_panel)
+        # Pannello superiore (filtri e stato)
+        top_panel = self.create_top_panel()
+        main_layout.addWidget(top_panel)
         
         # Area di scorrimento per i timer
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setMinimumHeight(400)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)  # Rimuovi il bordo
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll_area.setStyleSheet("background-color: #f5f5f5;")
         
         self.timer_container = QWidget()
         self.timer_container.setStyleSheet("background-color: #f5f5f5;")
         self.grid_layout = QGridLayout(self.timer_container)
-        self.grid_layout.setSpacing(20)  # Spazio tra le card
+        self.grid_layout.setSpacing(20)
         self.grid_layout.setContentsMargins(20, 20, 20, 20)
-        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)  # Allineamento in alto a sinistra
+        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         
         self.scroll_area.setWidget(self.timer_container)
         main_layout.addWidget(self.scroll_area)
@@ -86,12 +170,12 @@ class MainWindow(QMainWindow):
         self.no_timers_label.setObjectName("no-timers-label")
         self.no_timers_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.no_timers_label.setStyleSheet("font-size: 16pt; color: #333333; font-weight: bold; padding: 20px;")
-        self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)  # Span su 3 colonne
+        self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)
         
         # Timer per aggiornamenti periodici
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.update_timers)
-        self.update_timer.start(1000)  # Aggiorna ogni secondo
+        self.update_timer.start(1000)
         
         # Barra di stato
         self.statusBar().showMessage("Server Poker Timer pronto")
@@ -100,9 +184,115 @@ class MainWindow(QMainWindow):
         # Posiziona la finestra al centro dello schermo
         self.center_window()
         
+        # Correggiamo lo stile per i menu
+        self.fix_menu_alignment()
+        
         # Autostart del server se era attivo alla chiusura
         if self.settings.value("autostart_server", False, bool):
             self.start_server()
+    
+    def fix_menu_alignment(self):
+        """Corregge l'allineamento delle voci di menu"""
+        # Impostiamo lo stile per allineare i menu a sinistra
+        style = """
+        QMenu {
+            text-align: left;
+        }
+        QMenu::item {
+            text-align: left;
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        QMenuBar {
+            text-align: left;
+        }
+        QMenuBar::item {
+            text-align: left;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        """
+        self.setStyleSheet(style)
+    
+    def create_menu_bar(self):
+        """Crea la barra dei menu dell'applicazione"""
+        menu_bar = self.menuBar()
+        
+        # Menu Server
+        server_menu = menu_bar.addMenu("Server")
+        
+        # Azione Avvia/Ferma Server
+        self.server_action = QAction("Avvia Server", self)
+        self.server_action.triggered.connect(self.toggle_server)
+        server_menu.addAction(self.server_action)
+        
+        server_menu.addSeparator()
+        
+        # Azione Impostazioni
+        settings_action = QAction("Impostazioni Server", self)
+        settings_action.triggered.connect(self.show_server_settings)
+        server_menu.addAction(settings_action)
+        
+        server_menu.addSeparator()
+        
+        # Azione Esci
+        exit_action = QAction("Esci", self)
+        exit_action.triggered.connect(self.close)
+        server_menu.addAction(exit_action)
+        
+        # Menu Aiuto
+        help_menu = menu_bar.addMenu("Aiuto")
+        
+        # Azione Informazioni
+        about_action = QAction("Informazioni", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+    
+    def show_server_settings(self):
+        """Mostra la finestra di dialogo per le impostazioni del server"""
+        dialog = ServerSettingsDialog(
+            self,
+            http_port=self.http_port,
+            discovery_port=self.discovery_port,
+            autostart=self.settings.value("autostart_server", False, bool)
+        )
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            settings = dialog.get_settings()
+            
+            # Aggiorna le impostazioni
+            self.http_port = settings['http_port']
+            self.discovery_port = settings['discovery_port']
+            
+            # Salva le impostazioni
+            self.settings.setValue("http_port", self.http_port)
+            self.settings.setValue("discovery_port", self.discovery_port)
+            self.settings.setValue("autostart_server", settings['autostart'])
+            
+            # Se il server è attivo, chiedi di riavviarlo
+            if self.is_server_running:
+                reply = QMessageBox.question(
+                    self,
+                    'Riavvio Server',
+                    'Le impostazioni sono state modificate. Vuoi riavviare il server?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.stop_server()
+                    self.start_server()
+    
+    def show_about(self):
+        """Mostra la finestra di informazioni"""
+        QMessageBox.about(
+            self,
+            "Informazioni",
+            """<h1>Poker Timer Monitor</h1>
+            <p>Applicazione per il monitoraggio dei timer da poker.</p>
+            <p>Versione: 1.0</p>
+            <p>© 2024 Poker Timer</p>"""
+        )
     
     def center_window(self):
         """Centra la finestra sullo schermo"""
@@ -111,62 +301,22 @@ class MainWindow(QMainWindow):
         frame_geometry.moveCenter(screen_center)
         self.move(frame_geometry.topLeft())
     
-    def create_control_panel(self):
-        """Crea il pannello di controllo"""
+    def create_top_panel(self):
+        """Crea il pannello superiore con filtri e stato"""
         panel = QFrame()
         panel.setFrameStyle(QFrame.Shape.StyledPanel)
         panel.setStyleSheet("background-color: #f0f0f0; border-radius: 8px; padding: 15px; border: 2px solid #9e9e9e;")
         
+        # Layout flessibile per adattarsi a schermi più piccoli
         layout = QHBoxLayout(panel)
         layout.setSpacing(20)
         
-        # Gruppo impostazioni server
-        server_group = QGroupBox("Server")
-        server_group.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        server_layout = QHBoxLayout(server_group)
-        
-        # Porte
-        port_layout = QVBoxLayout()
-        http_layout = QHBoxLayout()
-        http_layout.addWidget(QLabel("Porta HTTP:"))
-        self.http_port_spin = QSpinBox()
-        self.http_port_spin.setRange(1024, 65535)
-        self.http_port_spin.setValue(self.http_port)
-        self.http_port_spin.setMinimumWidth(100)
-        # Rimuoviamo i bottoni +/- dallo spinbox
-        self.http_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        http_layout.addWidget(self.http_port_spin)
-        port_layout.addLayout(http_layout)
-        
-        udp_layout = QHBoxLayout()
-        udp_layout.addWidget(QLabel("Porta Discovery:"))
-        self.udp_port_spin = QSpinBox()
-        self.udp_port_spin.setRange(1024, 65535)
-        self.udp_port_spin.setValue(self.discovery_port)
-        self.udp_port_spin.setMinimumWidth(100)
-        # Rimuoviamo i bottoni +/- dallo spinbox
-        self.udp_port_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        udp_layout.addWidget(self.udp_port_spin)
-        port_layout.addLayout(udp_layout)
-        
-        server_layout.addLayout(port_layout)
-        
-        # Bottone avvio/stop
-        self.server_btn = QPushButton("Avvia Server")
-        self.server_btn.setObjectName("start-server-btn")
-        self.server_btn.setMinimumHeight(60)
-        self.server_btn.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        self.server_btn.clicked.connect(self.toggle_server)
-        server_layout.addWidget(self.server_btn)
-        
-        layout.addWidget(server_group)
-        
-        # Filtro timer - MODIFICATO
+        # Gruppo filtro a sinistra
         filter_group = QGroupBox("Filtro")
         filter_group.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         filter_layout = QHBoxLayout(filter_group)
         
-        # Creiamo un gruppo di radio button per i filtri
+        # Radio button per i filtri
         self.filter_all_radio = QRadioButton("Mostra tutti")
         self.filter_online_radio = QRadioButton("Mostra Online")
         self.filter_offline_radio = QRadioButton("Mostra Offline")
@@ -201,20 +351,10 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(filter_group)
         
-        # Auto-start
-        autostart_group = QGroupBox("Avvio")
-        autostart_group.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        autostart_layout = QHBoxLayout(autostart_group)
+        # Stretch per spingere lo stato del server a destra
+        layout.addStretch(1)
         
-        self.autostart_check = QCheckBox("Avvia server automaticamente")
-        self.autostart_check.setFont(QFont("Arial", 12))
-        self.autostart_check.setChecked(self.settings.value("autostart_server", False, bool))
-        self.autostart_check.toggled.connect(self.on_autostart_toggled)
-        autostart_layout.addWidget(self.autostart_check)
-        
-        layout.addWidget(autostart_group)
-        
-        # Informazioni sul server
+        # Informazioni sul server a destra
         info_layout = QVBoxLayout()
         
         self.status_label = QLabel("Server: Non attivo")
@@ -244,8 +384,7 @@ class MainWindow(QMainWindow):
         
         # Aggiorna la visualizzazione
         self.update_timers()
-
-
+    
     def toggle_server(self):
         """Avvia o ferma il server"""
         if self.is_server_running:
@@ -256,14 +395,6 @@ class MainWindow(QMainWindow):
     def start_server(self):
         """Avvia il server"""
         try:
-            # Aggiorna le porte dal UI
-            self.http_port = self.http_port_spin.value()
-            self.discovery_port = self.udp_port_spin.value()
-            
-            # Salva le impostazioni
-            self.settings.setValue("http_port", self.http_port)
-            self.settings.setValue("discovery_port", self.discovery_port)
-            
             # Crea una nuova istanza del server con le porte aggiornate
             self.server = PokerTimerServer(port=self.http_port, discovery_port=self.discovery_port)
             
@@ -277,9 +408,7 @@ class MainWindow(QMainWindow):
             
             # Aggiorna l'interfaccia
             self.is_server_running = True
-            self.server_btn.setText("Ferma Server")
-            self.server_btn.setObjectName("stop-server-btn")
-            self.server_btn.setStyleSheet("background-color: #d32f2f; color: white; font-weight: bold; padding: 8px 16px;")
+            self.server_action.setText("Ferma Server")
             self.status_label.setText("Server: Attivo")
             self.status_label.setObjectName("status-label-active")
             
@@ -297,9 +426,7 @@ class MainWindow(QMainWindow):
             
             # Aggiorna l'interfaccia
             self.is_server_running = False
-            self.server_btn.setText("Avvia Server")
-            self.server_btn.setObjectName("start-server-btn")
-            self.server_btn.setStyleSheet("background-color: #2e7d32; color: white; font-weight: bold; padding: 8px 16px;")
+            self.server_action.setText("Avvia Server")
             self.status_label.setText("Server: Non attivo")
             self.status_label.setObjectName("status-label-inactive")
             
@@ -385,7 +512,6 @@ class MainWindow(QMainWindow):
                 col = 0
                 row += 1
     
-
     def clear_grid(self):
         """Rimuove tutti i widget dalla griglia in modo sicuro"""
         # Prima rimuovi tutti i widget
@@ -433,7 +559,8 @@ class MainWindow(QMainWindow):
             f"Nuovo Timer Connesso", 
             f"Il timer per il tavolo {table_number} si è connesso al server.",
             "info",
-            device_type=device_type  # Passa il tipo di dispositivo
+            device_type=device_type,
+            play_sound=True  # Aggiungiamo la riproduzione del suono per nuovi timer
         )
     
     @pyqtSlot(str, list)
@@ -510,22 +637,10 @@ class MainWindow(QMainWindow):
             )
             print(f"Nuova notifica creata per tavolo {table_number} con posti {seats_str}")
     
-    def on_show_offline_toggled(self, checked):
-        """Gestisce il cambio stato del checkbox per mostrare i timer offline"""
-        self.show_offline = checked
-        self.settings.setValue("show_offline", checked)
-        self.update_timers()
-    
-    def on_autostart_toggled(self, checked):
-        """Gestisce il cambio stato del checkbox per l'autostart"""
-        self.settings.setValue("autostart_server", checked)
-    
     def closeEvent(self, event):
         """Gestisce l'evento di chiusura della finestra"""
         # Salva le impostazioni
-        self.settings.setValue("http_port", self.http_port_spin.value())
-        self.settings.setValue("discovery_port", self.udp_port_spin.value())
-        self.settings.setValue("show_filter", self.show_offline)  # Modificato: usa show_filter invece di show_offline
+        self.settings.setValue("show_filter", self.show_offline)
         
         # Se il server è attivo
         if self.is_server_running:
