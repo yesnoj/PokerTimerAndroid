@@ -8,6 +8,7 @@ Finestra principale dell'applicazione Poker Timer
 import sys
 import os
 import time
+import threading
 
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QPushButton, QFrame, QGridLayout, QScrollArea,
@@ -126,6 +127,9 @@ class MainWindow(QMainWindow):
         self.server = PokerTimerServer(port=self.http_port, discovery_port=self.discovery_port)
         self.is_server_running = False
         
+        # Dizionario per memorizzare i riferimenti alle card
+        self.timer_cards = {}
+        
         # Gestore notifiche
         self.notification_manager = NotificationManager()
         
@@ -133,6 +137,10 @@ class MainWindow(QMainWindow):
         self.server.timer_updated.connect(self.on_timer_updated)
         self.server.timer_connected.connect(self.on_timer_connected)
         self.server.seat_notification.connect(self.on_seat_notification)
+        
+        # Lock per evitare aggiornamenti concorrenti
+        self.update_lock = threading.Lock()
+        self.last_full_update = 0  # Timestamp dell'ultimo aggiornamento completo
         
         # Crea la barra dei menu
         self.create_menu_bar()
@@ -174,8 +182,8 @@ class MainWindow(QMainWindow):
         
         # Timer per aggiornamenti periodici
         self.update_timer = QTimer(self)
-        self.update_timer.timeout.connect(self.update_timers)
-        self.update_timer.start(1000)
+        self.update_timer.timeout.connect(self.update_timers_automatic)
+        self.update_timer.start(5000)  # 5 secondi
         
         # Barra di stato
         self.statusBar().showMessage("Server Poker Timer pronto")
@@ -354,6 +362,25 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(filter_group)
         
+        # Aggiungi pulsante di aggiornamento manuale per la ricostruzione completa
+        refresh_btn = QPushButton("Aggiorna Layout")
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0069d9;
+            }
+        """)
+        refresh_btn.clicked.connect(self.update_timers)
+        layout.addWidget(refresh_btn)
+        
         # Stretch per spingere lo stato del server a destra
         layout.addStretch(1)
         
@@ -436,22 +463,193 @@ class MainWindow(QMainWindow):
             # Aggiorna la barra di stato
             self.statusBar().showMessage("Server fermato")
             
-            # Pulisci il layout
-            self.clear_grid()
-            self.grid_layout.addWidget(self.no_timers_label, 0, 0)
+            # Pulisci tutte le card e mostra "Nessun timer connesso"
+            for device_id in list(self.timer_cards.keys()):
+                card = self.timer_cards.pop(device_id)
+                self.grid_layout.removeWidget(card)
+                card.setParent(None)
+                card.deleteLater()
+            
+            # Assicurati che l'etichetta "Nessun timer connesso" sia visibile
+            if self.no_timers_label.parent() is None:
+                self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)
             
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore nella chiusura del server: {str(e)}")
 
+    def update_timers_automatic(self):
+        """Aggiorna solo i dati delle card esistenti senza ricostruire l'interfaccia"""
+        if not self.is_server_running:
+            return
+            
+        # Usa un lock per evitare aggiornamenti concorrenti
+        if not self.update_lock.acquire(blocking=False):
+            return  # Un altro aggiornamento è in corso, esci
+            
+        try:
+            # Controlla se è necessario un aggiornamento completo
+            current_time = time.time()
+            if current_time - self.last_full_update > 30:  # Ogni 30 secondi fai un aggiornamento completo
+                self.update_timers()
+                self.last_full_update = current_time
+                return
+                
+            # Aggiorna il contatore dei timer
+            timers = self.server.timers
+            online_timers = []
+            offline_timers = []
+            for timer_id, timer_data in timers.items():
+                timer_data['is_online'] = self.server.is_timer_online(timer_data)
+                if timer_data['is_online']:
+                    online_timers.append(timer_id)
+                else:
+                    offline_timers.append(timer_id)
+            
+            self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
+            
+            # Aggiorna i dati delle card esistenti
+            for device_id, card in list(self.timer_cards.items()):
+                if device_id in self.server.timers:
+                    timer_data = self.server.timers[device_id]
+                    timer_data['is_online'] = self.server.is_timer_online(timer_data)
+                    card.update_data(timer_data)
+        finally:
+            self.update_lock.release()
+    
     def update_timers(self):
-        """Aggiorna la visualizzazione dei timer"""
+        """Aggiorna la visualizzazione dei timer in modo efficiente (ricostruzione completa)"""
         if not self.is_server_running:
             return
         
-        # Ottieni i timer dal server
+        # Usa un lock per evitare aggiornamenti concorrenti
+        if not self.update_lock.acquire(blocking=False):
+            return  # Un altro aggiornamento è in corso, esci
+            
+        try:
+            # Ottieni i timer dal server
+            timers = self.server.timers
+            
+            # Conta i timer online/offline
+            online_timers = []
+            offline_timers = []
+            for timer_id, timer_data in timers.items():
+                timer_data['is_online'] = self.server.is_timer_online(timer_data)
+                if timer_data['is_online']:
+                    online_timers.append(timer_id)
+                else:
+                    offline_timers.append(timer_id)
+            
+            # Aggiorna il contatore
+            self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
+            
+            # Filtra i timer in base al filtro selezionato
+            filtered_timers = {}
+            for device_id, timer_data in timers.items():
+                if self.show_offline == "all":
+                    # Mostra tutti i timer
+                    filtered_timers[device_id] = timer_data
+                elif self.show_offline == "only_online" and timer_data['is_online']:
+                    # Mostra solo i timer online
+                    filtered_timers[device_id] = timer_data
+                elif self.show_offline == "only_offline" and not timer_data['is_online']:
+                    # Mostra solo i timer offline
+                    filtered_timers[device_id] = timer_data
+            
+            # Trova timer da rimuovere (non più presenti o filtrati)
+            to_remove = []
+            for device_id in self.timer_cards:
+                if device_id not in filtered_timers:
+                    to_remove.append(device_id)
+            
+            # Rimuovi card non più necessarie
+            for device_id in to_remove:
+                card = self.timer_cards.pop(device_id)
+                self.grid_layout.removeWidget(card)
+                card.setParent(None)
+                card.deleteLater()
+            
+            # Se non ci sono timer da visualizzare, mostra il messaggio "Nessun timer connesso"
+            if not filtered_timers:
+                # Verifica se l'etichetta è già presente nel layout
+                if self.no_timers_label.parent() is None:
+                    self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)  # Span su 3 colonne
+                return
+            else:
+                # Assicurati che l'etichetta "Nessun timer connesso" sia nascosta se ci sono timer
+                if self.no_timers_label.parent() is not None:
+                    self.grid_layout.removeWidget(self.no_timers_label)
+                    self.no_timers_label.setParent(None)
+            
+            # Ordina i timer per numero tavolo
+            sorted_timers = sorted(filtered_timers.items(), 
+                                key=lambda x: x[1].get('table_number', 999))
+            
+            # Calcola nuove posizioni
+            max_cols = 3  # Numero di colonne nella griglia
+            positions = {}
+            row, col = 0, 0
+            
+            for device_id, _ in sorted_timers:
+                positions[device_id] = (row, col)
+                col += 1
+                if col >= max_cols:
+                    col = 0
+                    row += 1
+            
+            # Aggiorna o crea le card
+            for device_id, timer_data in sorted_timers:
+                if device_id in self.timer_cards:
+                    # Aggiorna i dati della card esistente E CHIAMA update_data
+                    self.timer_cards[device_id].update_data(timer_data)
+                    
+                    # Sposta la card nella nuova posizione se necessario
+                    row, col = positions[device_id]
+                    current_index = self.grid_layout.indexOf(self.timer_cards[device_id])
+                    if current_index >= 0:
+                        current_row, current_col, _, _ = self.grid_layout.getItemPosition(current_index)
+                        if current_row != row or current_col != col:
+                            self.grid_layout.removeWidget(self.timer_cards[device_id])
+                            self.grid_layout.addWidget(self.timer_cards[device_id], row, col)
+                else:
+                    # Crea una nuova card
+                    card = TimerCard(device_id, timer_data, self.server)
+                    row, col = positions[device_id]
+                    self.grid_layout.addWidget(card, row, col)
+                    self.timer_cards[device_id] = card
+                    
+            # Aggiorna il timestamp dell'ultimo aggiornamento completo
+            self.last_full_update = time.time()
+        finally:
+            self.update_lock.release()
+    
+    @pyqtSlot(str)
+    def on_timer_updated(self, device_id):
+        """Gestisce il segnale di aggiornamento timer"""
+        # Forza l'aggiornamento della card corrispondente
+        if device_id in self.timer_cards and device_id in self.server.timers:
+            # Crea una nuova card per sostituire quella esistente
+            timer_data = self.server.timers[device_id]
+            row, col = 0, 0
+            
+            # Trova la posizione attuale della card
+            current_index = self.grid_layout.indexOf(self.timer_cards[device_id])
+            if current_index >= 0:
+                current_row, current_col, _, _ = self.grid_layout.getItemPosition(current_index)
+                row, col = current_row, current_col
+            
+            # Rimuovi la card esistente
+            old_card = self.timer_cards[device_id]
+            self.grid_layout.removeWidget(old_card)
+            old_card.setParent(None)
+            old_card.deleteLater()
+            
+            # Crea una nuova card
+            new_card = TimerCard(device_id, timer_data, self.server)
+            self.grid_layout.addWidget(new_card, row, col)
+            self.timer_cards[device_id] = new_card
+            
+        # Aggiorna il contatore
         timers = self.server.timers
-        
-        # Conta i timer online
         online_timers = []
         offline_timers = []
         for timer_id, timer_data in timers.items():
@@ -460,92 +658,12 @@ class MainWindow(QMainWindow):
             else:
                 offline_timers.append(timer_id)
         
-        # Aggiorna il contatore
         self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
-        
-        # Pulisci COMPLETAMENTE il layout corrente - questo è cruciale
-        self.clear_grid()
-        
-        # Ricrea l'etichetta "Nessun timer connesso" dopo la pulizia
-        self.no_timers_label = QLabel("Nessun timer connesso")
-        self.no_timers_label.setObjectName("no-timers-label")
-        self.no_timers_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.no_timers_label.setStyleSheet("font-size: 16pt; color: #333333; font-weight: bold; padding: 20px;")
-        
-        # Filtra i timer in base al filtro selezionato
-        filtered_timers = {}
-        for device_id, timer_data in timers.items():
-            # Aggiungiamo un flag al timer_data per indicare se è online o offline
-            timer_data['is_online'] = self.server.is_timer_online(timer_data)
-            
-            # Applica il filtro
-            if self.show_offline == "all":
-                # Mostra tutti i timer
-                filtered_timers[device_id] = timer_data
-            elif self.show_offline == "only_online" and timer_data['is_online']:
-                # Mostra solo i timer online
-                filtered_timers[device_id] = timer_data
-            elif self.show_offline == "only_offline" and not timer_data['is_online']:
-                # Mostra solo i timer offline
-                filtered_timers[device_id] = timer_data
-        
-        # Se non ci sono timer, mostra il messaggio centrato nella griglia
-        if not filtered_timers:
-            self.grid_layout.addWidget(self.no_timers_label, 0, 0, 1, 3)  # Span su 3 colonne
-            return
-        
-        # Aggiungi i timer alla griglia
-        row, col = 0, 0
-        max_cols = 3  # Numero di colonne nella griglia
-        
-        # Ordina i timer per numero tavolo
-        sorted_timers = sorted(filtered_timers.items(), 
-                            key=lambda x: x[1].get('table_number', 999))
-        
-        for device_id, timer_data in sorted_timers:
-            # Crea un nuovo widget TimerCard
-            timer_card = TimerCard(device_id, timer_data, self.server)
-            
-            # Aggiungi alla griglia nella posizione corretta
-            self.grid_layout.addWidget(timer_card, row, col)
-            
-            # Passa alla prossima posizione nella griglia
-            col += 1
-            if col >= max_cols:
-                col = 0
-                row += 1
-    
-    def clear_grid(self):
-        """Rimuove tutti i widget dalla griglia in modo sicuro"""
-        # Prima rimuovi tutti i widget
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
-            if item:
-                widget = item.widget()
-                if widget:
-                    self.grid_layout.removeWidget(widget)
-                    widget.setParent(None)
-                    widget.deleteLater()  # Programma la cancellazione sicura
-        
-        # Ricrea il container con lo stesso layout
-        self.timer_container = QWidget()
-        self.timer_container.setStyleSheet("background-color: #f5f5f5;")
-        self.grid_layout = QGridLayout(self.timer_container)
-        self.grid_layout.setSpacing(20)
-        self.grid_layout.setContentsMargins(20, 20, 20, 20)
-        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        
-        # Imposta il widget aggiornato nell'area di scorrimento
-        self.scroll_area.setWidget(self.timer_container)
-    
-    @pyqtSlot(str)
-    def on_timer_updated(self, device_id):
-        """Gestisce il segnale di aggiornamento timer"""
-        self.update_timers()
         
     @pyqtSlot(str)
     def on_timer_connected(self, device_id):
         """Gestisce il segnale di connessione nuovo timer"""
+        # Aggiorna la vista quando si connette un nuovo timer
         self.update_timers()
         
         # Determina il tipo di timer
@@ -563,7 +681,7 @@ class MainWindow(QMainWindow):
             f"Il timer per il tavolo {table_number} si è connesso al server.",
             "info",
             device_type=device_type,
-            play_sound=True  # Aggiungiamo la riproduzione del suono per nuovi timer
+            play_sound=True
         )
     
     @pyqtSlot(str, list)
