@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Widget per visualizzare un singolo timer
+Widget per visualizzare un singolo timer (versione compatta)
 """
 
 import os
 import time
 from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QPushButton, QMenu, QDialog, QMessageBox)
+                            QPushButton, QMenu, QDialog, QMessageBox, QGridLayout)
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer
 from PyQt6.QtGui import QFont, QAction, QIcon, QPixmap, QPainter, QColor
 
@@ -28,7 +28,7 @@ def safe_message_box(title, text, icon=QMessageBox.Icon.Question,
     return msg_box.exec()
 
 class TimerCard(QFrame):
-    """Widget che rappresenta un singolo timer nel pannello principale"""
+    """Widget che rappresenta un singolo timer nel pannello principale (versione compatta)"""
     def __init__(self, device_id, timer_data, server, parent=None):
         super().__init__(parent)
         self.device_id = device_id
@@ -55,19 +55,20 @@ class TimerCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mousePressEvent = self.on_card_click
         
-        # Layout principale
+        # Layout principale - ridotti margini per compattare
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(5)  # Ridotto lo spazio tra elementi
         
-        # ---- HEADER ----
+        # ---- HEADER COMPATTO ----
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(5)
         
-        # Titolo "Table X"
+        # Titolo "Table X" con font ridotto
         title = QLabel(f"Table {timer_data.get('table_number', 'N/A')}")
         title.setObjectName("title_label")
-        title.setStyleSheet("font-size: 18pt; font-weight: bold; color: #000000;")
+        title.setStyleSheet("font-size: 16pt; font-weight: bold; color: #000000;")
         header_layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignLeft)
         
         # Icona dispositivo (Android o Arduino)
@@ -81,14 +82,14 @@ class TimerCard(QFrame):
                 # Carica l'icona come QIcon
                 icon = QIcon(icon_path)
                 # Crea un QPixmap dalle dimensioni desiderate
-                pixmap = icon.pixmap(24, 24)
+                pixmap = icon.pixmap(20, 20)  # Dimensione ridotta
                 # Imposta il pixmap sulla QLabel
                 device_icon.setPixmap(pixmap)
                 device_icon.setToolTip("Android App")
             else:
                 # Emoji visibile come fallback
                 device_icon.setText("🤖")
-                device_icon.setStyleSheet("color: #000000; font-size: 22px;")
+                device_icon.setStyleSheet("color: #000000; font-size: 18px;")
                 device_icon.setToolTip("Android App")
         elif self.is_hardware_timer(device_id):
             # Usa l'icona SVG di Hardware
@@ -98,14 +99,14 @@ class TimerCard(QFrame):
                 # Carica l'icona come QIcon
                 icon = QIcon(icon_path)
                 # Crea un QPixmap dalle dimensioni desiderate
-                pixmap = icon.pixmap(24, 24)
+                pixmap = icon.pixmap(20, 20)  # Dimensione ridotta
                 # Imposta il pixmap sulla QLabel
                 device_icon.setPixmap(pixmap)
                 device_icon.setToolTip("Hardware Timer")
             else:
                 # Emoji visibile come fallback
                 device_icon.setText("🔌")
-                device_icon.setStyleSheet("color: #000000; font-size: 22px;")
+                device_icon.setStyleSheet("color: #000000; font-size: 18px;")
                 device_icon.setToolTip("Hardware Timer")
         
         header_layout.addWidget(device_icon)
@@ -113,7 +114,7 @@ class TimerCard(QFrame):
         # Spazio flessibile
         header_layout.addStretch()
         
-        # Etichetta stato
+        # Etichetta stato - ridotto padding e font
         is_running = timer_data.get('is_running', False)
         is_paused = timer_data.get('is_paused', False)
         
@@ -122,27 +123,18 @@ class TimerCard(QFrame):
         status.setObjectName("status_label")
         
         if status_text == "Running":
-            status.setStyleSheet("background-color: #d4edda; color: #155724; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+            status.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
         elif status_text == "Paused":
-            status.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+            status.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
         else:
-            status.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+            status.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
         
         header_layout.addWidget(status)
         main_layout.addLayout(header_layout)
         
-        # Linea separatrice
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setStyleSheet("background-color: #eee;")
-        separator.setMaximumHeight(1)
-        main_layout.addWidget(separator)
-        
-        # NOTA: Rimosso completamente il blocco del timer con i secondi qui
-        
         # ---- SEAT INFO (se presente) ----
         self.seat_info_container = QVBoxLayout()
+        self.seat_info_container.setSpacing(2)  # Ridotto spazio
         main_layout.addLayout(self.seat_info_container)
         
         if 'seat_info' in timer_data and 'open_seats' in timer_data['seat_info'] and timer_data['seat_info']['open_seats']:
@@ -153,10 +145,10 @@ class TimerCard(QFrame):
             self.seat_info.setStyleSheet("""
                 background-color: #fde68a; 
                 color: #854d0e; 
-                padding: 8px; 
-                border-radius: 5px; 
+                padding: 4px; 
+                border-radius: 4px; 
                 font-weight: bold;
-                font-size: 14pt;
+                font-size: 12pt;
             """)
             self.seat_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
             
@@ -165,124 +157,94 @@ class TimerCard(QFrame):
             self.seat_info.setCursor(Qt.CursorShape.PointingHandCursor)
             self.seat_info_container.addWidget(self.seat_info)
         
-        # ---- INFO PILLS ----
-        # Prima riga: T1, [T2 e modalità solo per Arduino], Giocatori
-        row1_layout = QHBoxLayout()
-        row1_layout.setSpacing(8)
-
+        # ---- INFO GRID - Layout a griglia per informazioni ----
+        info_grid = QGridLayout()
+        info_grid.setSpacing(5)  # Ridotto spazio tra celle
+        
+        # Stile comune per le info
+        info_style = "background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px; font-size: 11pt;"
+        
+        # Prima riga della griglia (0)
+        col = 0
+        
         # T1 (sempre visibile)
         self.t1_label = QLabel(f"T1: {timer_data.get('t1_value', 'N/A')}s")
         self.t1_label.setObjectName("t1_label")
-        self.t1_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row1_layout.addWidget(self.t1_label)
+        self.t1_label.setStyleSheet(info_style)
+        info_grid.addWidget(self.t1_label, 0, col)
+        col += 1
 
-        # T2 e modalità - solo per timer hardware (Arduino)
+        # Giocatori
+        self.players_label = QLabel(f"Giocatori: {timer_data.get('players_count', 6)}")
+        self.players_label.setObjectName("players_label")
+        self.players_label.setStyleSheet(info_style)
+        info_grid.addWidget(self.players_label, 0, col)
+        col += 1
+        
+        # Buzzer
+        self.buzzer_label = QLabel(f"Buzzer: {'On' if timer_data.get('buzzer', False) else 'Off'}")
+        self.buzzer_label.setObjectName("buzzer_label")
+        self.buzzer_label.setStyleSheet(info_style)
+        info_grid.addWidget(self.buzzer_label, 0, col)
+        
+        # Seconda riga della griglia (1)
+        col = 0
+        
+        # Battery con colore verde
+        battery_level = timer_data.get('battery_level', 100)
+        battery_text = f"Battery: {battery_level}%"
+        self.battery_label = QLabel(battery_text)
+        self.battery_label.setObjectName("battery_label")
+        self.battery_label.setStyleSheet(f"{info_style} color: #28a745;")
+        info_grid.addWidget(self.battery_label, 1, 0)
+        
+        # Voltage e WiFi sulla stessa riga
+        voltage = timer_data.get('voltage', 5.00)
+        voltage_text = f"Voltage: {voltage:.2f}V"
+        self.voltage_label = QLabel(voltage_text)
+        self.voltage_label.setObjectName("voltage_label")
+        self.voltage_label.setStyleSheet(info_style)
+        info_grid.addWidget(self.voltage_label, 1, 1)
+        
+        # WiFi accanto a Voltage - valore dinamico in base alla qualità
+        wifi_quality = timer_data.get('wifi_quality', 100)
+        wifi_dots = self.format_wifi_indicator(wifi_quality)
+        self.wifi_label = QLabel(f"WiFi: <span style='color: #28a745;'>{wifi_dots}")
+        self.wifi_label.setObjectName("wifi_label")
+        self.wifi_label.setStyleSheet(info_style)
+        info_grid.addWidget(self.wifi_label, 1, 2)
+        
+        # T2 e modalità - solo per timer hardware (Arduino), posizionati in altre celle
         if self.is_hardware_timer(device_id):
             # T2 - mostralo solo se la modalità è 1 o 2 (modalità che usano T1/T2)
             mode = timer_data.get('mode', 1)
             if mode in [1, 2]:
                 self.t2_label = QLabel(f"T2: {timer_data.get('t2_value', 'N/A')}s")
                 self.t2_label.setObjectName("t2_label")
-                self.t2_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-                row1_layout.addWidget(self.t2_label)
-                
-            # Visualizza la modalità
-            mode_text = ""
-            if mode == 1:
-                mode_text = "Mode: 1"
-            elif mode == 2:
-                mode_text = "Mode: 2"
-            elif mode == 3:
-                mode_text = "Mode: 3"
-            elif mode == 4:
-                mode_text = "Mode: 4"
-            else:
-                mode_text = f"Mode: {mode}"
-                
-            self.mode_label = QLabel(mode_text)
-            self.mode_label.setObjectName("mode_label")
-            self.mode_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-            row1_layout.addWidget(self.mode_label)
-        else:
-            # Per i timer Android, non mostriamo né T2 né la modalità
-            pass  # Non aggiungere nulla qui
-
-        # Giocatori - Aggiunto testo più esplicito (sempre visibile per entrambi i tipi)
-        self.players_label = QLabel(f"Giocatori: {timer_data.get('players_count', 6)}")
-        self.players_label.setObjectName("players_label")
-        self.players_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row1_layout.addWidget(self.players_label)
-
-        main_layout.addLayout(row1_layout)
+                self.t2_label.setStyleSheet(info_style)
+                # Posiziona in una cella specifica
+                info_grid.addWidget(self.t2_label, 2, 0)
         
-        # Seconda riga: Buzzer, Battery
-        row2_layout = QHBoxLayout()
-        row2_layout.setSpacing(8)
+        main_layout.addLayout(info_grid)
         
-        # Buzzer
-        self.buzzer_label = QLabel(f"Buzzer: {'On' if timer_data.get('buzzer', False) else 'Off'}")
-        self.buzzer_label.setObjectName("buzzer_label")
-        self.buzzer_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row2_layout.addWidget(self.buzzer_label)
-        
-        # Battery (in verde)
-        battery_level = timer_data.get('battery_level', 100)
-        battery_text = f"Battery: {battery_level}%"
-        self.battery_label = QLabel(battery_text)
-        self.battery_label.setObjectName("battery_label")
-        self.battery_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt; color: #28a745;")
-        row2_layout.addWidget(self.battery_label)
-        
-        main_layout.addLayout(row2_layout)
-        
-        # Terza riga: Voltage, WiFi
-        row3_layout = QHBoxLayout()
-        row3_layout.setSpacing(8)
-        
-        # Voltage
-        voltage = timer_data.get('voltage', 5.00)
-        voltage_text = f"Voltage: {voltage:.2f}V"
-        self.voltage_label = QLabel(voltage_text)
-        self.voltage_label.setObjectName("voltage_label")
-        self.voltage_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row3_layout.addWidget(self.voltage_label)
-        
-        # WiFi (con pallini verdi)
-        self.wifi_label = QLabel(f"WiFi: <span style='color: #28a745;'>●●●●●</span> Ottimo")
-        self.wifi_label.setObjectName("wifi_label")
-        self.wifi_label.setStyleSheet("background-color: #f8f9fa; padding: 8px; border-radius: 5px; font-size: 14pt;")
-        row3_layout.addWidget(self.wifi_label)
-        
-        main_layout.addLayout(row3_layout)
-        
-        # Quarta riga: IP
-        row4_layout = QHBoxLayout()
-                
-        main_layout.addLayout(row4_layout)
-        
-        # RIMOSSI I PULSANTI START E PAUSE
-        # Aggiungiamo un po' di spazio per sostituire i pulsanti rimossi
-        spacer = QFrame()
-        spacer.setFixedHeight(10)
-        main_layout.addWidget(spacer)
-        
-        # ---- STATUS BAR ----
+        # ---- BARRA DI STATO - Compattata con info essenziali ----
         status_layout = QHBoxLayout()
+        status_layout.setSpacing(5)  # Ridotto spazio
 
-        # Contenitore unico per Online e pallino
+        # Indicatore Online/Offline
         is_online = timer_data.get('is_online', False)
         online_status_text = "● Online" if is_online else "● Offline"
-        online_status_color = "#28a745" if is_online else "#dc3545"  # Verde se online, rosso se offline
+        online_status_color = "#28a745" if is_online else "#dc3545"  # Verde o rosso
 
         online_status = QLabel(online_status_text)
         online_status.setObjectName("online_status")
-        online_status.setStyleSheet(f"color: {online_status_color}; font-size: 16pt; background-color: #f8f9fa; padding: 8px; border-radius: 5px;")
+        online_status.setStyleSheet(f"color: {online_status_color}; font-size: 12pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
         status_layout.addWidget(online_status)
 
         # Spaziatore
         status_layout.addStretch()
 
-        # Data ultimo aggiornamento
+        # Ultimo aggiornamento
         try:
             from datetime import datetime
             last_update = timer_data.get('last_update', '')
@@ -296,7 +258,7 @@ class TimerCard(QFrame):
 
         self.last_update_label = QLabel(f"Last update: {formatted_time}")
         self.last_update_label.setObjectName("last_update_label")
-        self.last_update_label.setStyleSheet("color: #6c757d; font-size: 16pt;")
+        self.last_update_label.setStyleSheet("color: #6c757d; font-size: 11pt;")
         status_layout.addWidget(self.last_update_label)
 
         main_layout.addLayout(status_layout)
@@ -304,6 +266,23 @@ class TimerCard(QFrame):
         # Menu contestuale
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
+
+
+    def format_wifi_indicator(self, wifi_quality):
+        """Formatta l'indicatore WiFi in base alla qualità del segnale"""
+        if wifi_quality >= 80:
+            return "●●●●●"
+        elif wifi_quality >= 60:
+            return "●●●●○"
+        elif wifi_quality >= 40:
+            return "●●●○○"
+        elif wifi_quality >= 20:
+            return "●●○○○"
+        elif wifi_quality > 0:
+            return "●○○○○"
+        else:
+            return "○○○○○"
+
 
     def update_data(self, new_timer_data):
         """Aggiorna i dati della card senza ricrearla"""
@@ -328,11 +307,11 @@ class TimerCard(QFrame):
         status_label = self.findChild(QLabel, "status_label")
         if status_label:
             if status_text == "Running":
-                status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+                status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
             elif status_text == "Paused":
-                status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+                status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
             else:
-                status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 6px 12px; border-radius: 5px; font-size: 16pt;")
+                status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
             status_label.setText(status_text)
         
         # Aggiorna i posti liberi (se presenti o cambiati)
@@ -352,10 +331,10 @@ class TimerCard(QFrame):
                 self.seat_info.setStyleSheet("""
                     background-color: #fde68a; 
                     color: #854d0e; 
-                    padding: 8px; 
-                    border-radius: 5px; 
+                    padding: 4px; 
+                    border-radius: 4px; 
                     font-weight: bold;
-                    font-size: 14pt;
+                    font-size: 12pt;
                 """)
                 self.seat_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.seat_info.mousePressEvent = lambda e: self.on_seat_info_click(e)
@@ -415,6 +394,12 @@ class TimerCard(QFrame):
             voltage = new_timer_data.get('voltage', 5.00)
             voltage_text = f"Voltage: {voltage:.2f}V"
             voltage_label.setText(voltage_text)
+            
+        wifi_label = self.findChild(QLabel, "wifi_label")
+        if wifi_label:
+            wifi_quality = new_timer_data.get('wifi_quality', 100)
+            wifi_dots = self.format_wifi_indicator(wifi_quality)
+            wifi_label.setText(f"WiFi: <span style='color: #28a745;'>{wifi_dots}")
         
         # Aggiorna stato online/offline
         online_status = self.findChild(QLabel, "online_status")
@@ -422,7 +407,7 @@ class TimerCard(QFrame):
             is_online = new_timer_data.get('is_online', False)
             online_status_text = "● Online" if is_online else "● Offline"
             online_status_color = "#28a745" if is_online else "#dc3545"
-            online_status.setStyleSheet(f"color: {online_status_color}; font-size: 16pt; background-color: #f8f9fa; padding: 8px; border-radius: 5px;")
+            online_status.setStyleSheet(f"color: {online_status_color}; font-size: 12pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
             online_status.setText(online_status_text)
         
         # Aggiorna l'orario dell'ultimo aggiornamento

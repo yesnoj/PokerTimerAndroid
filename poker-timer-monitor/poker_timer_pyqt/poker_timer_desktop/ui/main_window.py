@@ -362,25 +362,6 @@ class MainWindow(QMainWindow):
         
         layout.addWidget(filter_group)
         
-        # Aggiungi pulsante di aggiornamento manuale per la ricostruzione completa
-        refresh_btn = QPushButton("Aggiorna Layout")
-        refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 10px 20px;
-                font-size: 14pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0069d9;
-            }
-        """)
-        refresh_btn.clicked.connect(self.update_timers)
-        layout.addWidget(refresh_btn)
-        
         # Stretch per spingere lo stato del server a destra
         layout.addStretch(1)
         
@@ -746,10 +727,10 @@ class MainWindow(QMainWindow):
         else:
             # Crea una nuova notifica
             self.notification_manager.show_notification(
-                f"Tavolo {table_number} - Posti Liberi",
+                f"Tavolo {table_number} - Seat Open",
                 f"Posti disponibili: {seats_str}",
                 "success",
-                action_button="Reset Posti",
+                action_button="OK",
                 action_callback=reset_seats_callback,
                 play_sound=True,
                 device_type=device_type,
