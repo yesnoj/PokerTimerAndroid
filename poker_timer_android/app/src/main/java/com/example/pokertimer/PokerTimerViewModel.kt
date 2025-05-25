@@ -50,6 +50,21 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                     val batteryPct = (level * 100) / scale
                     _batteryLevel.value = batteryPct
                     Log.d("BatteryInfo", "Livello batteria: $batteryPct%")
+                    
+                    // AGGIUNTA: Aggiorna anche lo stato del timer con il nuovo valore della batteria
+                    _timerState.value?.let { currentState ->
+                        _timerState.value = currentState.copy(
+                            batteryLevel = batteryPct
+                        )
+                        Log.d("BatteryInfo", "Stato timer aggiornato con batteria: $batteryPct%")
+                        
+                        // Se siamo connessi al server, forza un aggiornamento
+                        if (currentState.isConnectedToServer && currentState.serverUrl.isNotEmpty()) {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                sendTimerStatusToServer()
+                            }
+                        }
+                    }
                 }
 
                 // Leggi il voltaggio (in Volt)
@@ -59,6 +74,13 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                     val voltageValue = voltage / 1000.0f
                     _batteryVoltage.value = voltageValue
                     Log.d("BatteryInfo", "Voltaggio batteria: $voltageValue V")
+                    
+                    // AGGIUNTA: Aggiorna anche lo stato del timer con il nuovo valore del voltaggio
+                    _timerState.value?.let { currentState ->
+                        _timerState.value = currentState.copy(
+                            batteryVoltage = voltageValue
+                        )
+                    }
                 }
             }
         }
@@ -125,8 +147,16 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             if (batteryPct != Int.MIN_VALUE) {
                 _batteryLevel.value = batteryPct
                 Log.d("BatteryInfo", "Livello batteria iniziale: $batteryPct%")
+                
+                // AGGIUNTA: Aggiorna anche lo stato del timer con il valore iniziale della batteria
+                _timerState.value?.let { currentState ->
+                    _timerState.value = currentState.copy(
+                        batteryLevel = batteryPct
+                    )
+                    Log.d("BatteryInfo", "Stato timer inizializzato con batteria: $batteryPct%")
+                }
             }
-
+            
             // Non possiamo leggere il voltaggio direttamente dal BatteryManager API
             // Dovremo attendere un broadcast ACTION_BATTERY_CHANGED per questo
         } catch (e: Exception) {
@@ -476,6 +506,28 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         if (!currentState.isConnectedToServer || currentState.serverUrl.isEmpty()) {
             return
         }
+
+        // Ottieni i valori più recenti della batteria
+        val latestBatteryLevel = _batteryLevel.value ?: 100
+        val latestBatteryVoltage = _batteryVoltage.value ?: 5.0f
+        
+        // Crea una copia dello stato con i valori più recenti della batteria
+        val stateToSend = if (currentState.batteryLevel != latestBatteryLevel || 
+                              currentState.batteryVoltage != latestBatteryVoltage) {
+            val updatedState = currentState.copy(
+                batteryLevel = latestBatteryLevel,
+                batteryVoltage = latestBatteryVoltage
+            )
+            // Aggiorna lo stato corrente
+            _timerState.value = updatedState
+            updatedState
+        } else {
+            currentState
+        }
+        
+        // Log per debug
+        Log.d("NetworkManager", "Invio stato al server - batteria: ${stateToSend.batteryLevel}%")
+
 
         CoroutineScope(Dispatchers.Main).launch {
             try {

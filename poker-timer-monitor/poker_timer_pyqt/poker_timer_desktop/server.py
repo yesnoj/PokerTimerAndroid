@@ -103,7 +103,7 @@ class PokerTimerServer(QObject):
                 return jsonify({"error": "Missing device_id"}), 400
             
             logger.info(f"Ricevuto aggiornamento da {device_id}")
-            
+
             # Aggiorna timestamp e indirizzo IP
             timer_data['last_update'] = datetime.datetime.now().isoformat()
             timer_data['ip_address'] = request.remote_addr

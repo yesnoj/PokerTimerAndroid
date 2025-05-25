@@ -65,15 +65,19 @@ class TimerCard(QFrame):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(5)
         
-        # Titolo "Table X" con font ridotto
+        # Titolo "Table X" con font ridotto - fissato per avere altezza uniforme
         title = QLabel(f"Table {timer_data.get('table_number', 'N/A')}")
         title.setObjectName("title_label")
-        title.setStyleSheet("font-size: 16pt; font-weight: bold; color: #000000;")
+        title.setStyleSheet("font-size: 14pt; font-weight: bold; color: #000000; background-color: #f8f9fa; padding: 4px 8px; border-radius: 4px;")
+        title.setFixedHeight(30)  # Altezza fissa
         header_layout.addWidget(title, alignment=Qt.AlignmentFlag.AlignLeft)
         
-        # Icona dispositivo (Android o Arduino)
+        # Icona dispositivo (Android o Arduino) - integrata nel proprio contenitore
         device_icon = QLabel()
         device_icon.setObjectName("device_icon")
+        device_icon.setFixedHeight(30)  # Altezza fissa
+        device_icon.setStyleSheet("background-color: #f8f9fa; padding: 4px 8px; border-radius: 4px;")
+        
         if self.is_android_timer(device_id):
             # Usa l'icona SVG di Android
             icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
@@ -89,7 +93,7 @@ class TimerCard(QFrame):
             else:
                 # Emoji visibile come fallback
                 device_icon.setText("🤖")
-                device_icon.setStyleSheet("color: #000000; font-size: 18px;")
+                device_icon.setStyleSheet("color: #000000; font-size: 18px; background-color: #f8f9fa; padding: 4px 8px; border-radius: 4px;")
                 device_icon.setToolTip("Android App")
         elif self.is_hardware_timer(device_id):
             # Usa l'icona SVG di Hardware
@@ -106,7 +110,7 @@ class TimerCard(QFrame):
             else:
                 # Emoji visibile come fallback
                 device_icon.setText("🔌")
-                device_icon.setStyleSheet("color: #000000; font-size: 18px;")
+                device_icon.setStyleSheet("color: #000000; font-size: 18px; background-color: #f8f9fa; padding: 4px 8px; border-radius: 4px;")
                 device_icon.setToolTip("Hardware Timer")
         
         header_layout.addWidget(device_icon)
@@ -114,13 +118,14 @@ class TimerCard(QFrame):
         # Spazio flessibile
         header_layout.addStretch()
         
-        # Etichetta stato - ridotto padding e font
+        # Etichetta stato - già ha altezza adeguata grazie al padding
         is_running = timer_data.get('is_running', False)
         is_paused = timer_data.get('is_paused', False)
         
         status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
         status = QLabel(status_text)
         status.setObjectName("status_label")
+        status.setFixedHeight(30)  # Altezza fissa
         
         if status_text == "Running":
             status.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
@@ -231,20 +236,21 @@ class TimerCard(QFrame):
         status_layout = QHBoxLayout()
         status_layout.setSpacing(5)  # Ridotto spazio
 
-        # Indicatore Online/Offline
+        # Indicatore Online/Offline - con altezza fissa
         is_online = timer_data.get('is_online', False)
         online_status_text = "● Online" if is_online else "● Offline"
         online_status_color = "#28a745" if is_online else "#dc3545"  # Verde o rosso
 
         online_status = QLabel(online_status_text)
         online_status.setObjectName("online_status")
+        online_status.setFixedHeight(30)  # Altezza fissa uguale agli altri componenti
         online_status.setStyleSheet(f"color: {online_status_color}; font-size: 12pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
         status_layout.addWidget(online_status)
 
         # Spaziatore
         status_layout.addStretch()
 
-        # Ultimo aggiornamento
+        # Ultimo aggiornamento - con altezza fissa
         try:
             from datetime import datetime
             last_update = timer_data.get('last_update', '')
@@ -258,7 +264,8 @@ class TimerCard(QFrame):
 
         self.last_update_label = QLabel(f"Last update: {formatted_time}")
         self.last_update_label.setObjectName("last_update_label")
-        self.last_update_label.setStyleSheet("color: #6c757d; font-size: 11pt;")
+        self.last_update_label.setFixedHeight(30)  # Altezza fissa
+        self.last_update_label.setStyleSheet("color: #6c757d; font-size: 11pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
         status_layout.addWidget(self.last_update_label)
 
         main_layout.addLayout(status_layout)
