@@ -231,8 +231,46 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             viewModel.onStartPausePressed()
         }
 
-        // Mostra il dialog delle impostazioni
-        showSettingsDialog()
+        // Mostra il dialog di selezione invece di andare direttamente alle impostazioni
+        showSettingsSelectionDialog()
+    }
+
+    /**
+     * Mostra un popup di selezione con due bottoni: Settings e Cancel
+     */
+    private fun showSettingsSelectionDialog() {
+        // Crea il dialog
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_settings_selection)
+
+        // Imposta uno sfondo trasparente per la finestra del dialog
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Imposta le dimensioni del dialog
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        dialog.window?.attributes = layoutParams
+
+        // Ottieni i riferimenti ai bottoni
+        val settingsButton = dialog.findViewById<Button>(R.id.settings_button)
+        val cancelButton = dialog.findViewById<Button>(R.id.cancel_button)
+
+        // Configura il bottone Settings
+        settingsButton.setOnClickListener {
+            dialog.dismiss()
+            showSettingsDialog()
+        }
+
+        // Configura il bottone Cancel
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Mostra il dialog
+        dialog.show()
     }
 
     override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {

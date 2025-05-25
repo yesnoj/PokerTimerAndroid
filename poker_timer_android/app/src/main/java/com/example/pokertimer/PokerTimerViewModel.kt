@@ -335,6 +335,11 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             isPaused = false
         )
 
+        // Riproduci suono di avvio quando si riprende il timer
+        if (currentState.buzzerEnabled) {
+            soundPool.play(soundStart, 1.0f, 1.0f, 1, 0, 1.0f)
+        }
+
         startCountdown(currentState.currentTimer)
 
         // Invia lo stato al server
