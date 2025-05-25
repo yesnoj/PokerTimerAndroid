@@ -1185,63 +1185,24 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 arduinoDialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
                 arduinoDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
             } else {
-                // Per i timer Android, mostra il dialogo standard con reset parziale
+                // Per i timer Android, mostra il dialogo con factory reset reale
                 val androidDialog = AlertDialog.Builder(this)
-                    .setTitle("Reset Impostazioni")
-                    .setMessage("Sei sicuro di voler ripristinare le impostazioni ai valori predefiniti?\n\nQuesto resetterà il timer a:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0\n- Giocatori = 10")
-                    .setPositiveButton("Reset") { _, _ ->
-                        // Valori predefiniti per il reset parziale
-                        val defaultMode = 1
-                        val defaultT1 = 20
-                        val defaultT2 = 30
-                        val defaultBuzzer = true
-                        val defaultTableNumber = 0
-                        val defaultPlayersCount = 10
-
-                        // Ferma l'aggiornamento automatico temporaneamente
-                        stopAutoRefresh()
-
-                        // Applica le impostazioni di factory reset
-                        applyTimerSettings(
-                            timer.deviceId,
-                            defaultMode,
-                            defaultT1,
-                            defaultT2,
-                            defaultBuzzer,
-                            defaultTableNumber,
-                            defaultPlayersCount,
-                            forceFactoryReset = true
-                        )
-
-                        // Aggiorna manualmente la lista locale immediatamente
-                        val updatedTimer = allTimerList.find { it.deviceId == timer.deviceId }
-                        updatedTimer?.let {
-                            val index = allTimerList.indexOf(it)
-                            if (index >= 0) {
-                                allTimerList[index] = it.copy(
-                                    operationMode = defaultMode,
-                                    timerT1 = defaultT1,
-                                    timerT2 = defaultT2,
-                                    buzzerEnabled = defaultBuzzer,
-                                    tableNumber = defaultTableNumber,
-                                    playersCount = defaultPlayersCount
-                                )
-                            }
-                        }
-
-                        // Aggiorna la lista filtrata
-                        updateFilteredList()
-
-                        // Riavvia l'aggiornamento automatico dopo un breve ritardo
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            startAutoRefresh()
-                        }, 3000)
+                    .setTitle("Factory Reset")
+                    .setMessage("Sei sicuro di voler eseguire un factory reset completo?\n\nQuesto resetterà TUTTE le impostazioni ai valori predefiniti:\n- T1 = 20s\n- T2 = 30s\n- Buzzer ON\n- Tavolo 0\n- Giocatori = 10\n- Server disconnesso\n\nIl timer verrà disconnesso dal server.")
+                    .setPositiveButton("Factory Reset") { _, _ ->
+                        // Invia il comando factory_reset al timer Android
+                        sendCommandToTimer(timer.deviceId, "factory_reset")
 
                         // Chiudi il dialogo
                         dialog.dismiss()
 
                         // Mostra un messaggio di conferma
-                        Toast.makeText(this, "Reset impostazioni completato con successo", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Factory Reset completato con successo", Toast.LENGTH_SHORT).show()
+
+                        // Dopo un breve ritardo, ricarica i dati
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            refreshTimerData(true)
+                        }, 1000)
                     }
                     .setNegativeButton("Annulla", null)
                     .create()

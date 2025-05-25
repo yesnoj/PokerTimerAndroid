@@ -372,6 +372,61 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     /**
+     * Esegue un factory reset completo del timer
+     */
+    fun performFactoryReset() {
+        // Valori di default
+        val defaultT1 = 20
+        val defaultT2 = 30
+        val defaultMode = 1
+        val defaultBuzzer = true
+        val defaultTableNumber = 0
+        val defaultPlayersCount = 10
+
+        // Salva le impostazioni di default nelle preferenze
+        preferences.saveTimerSettings(
+            timerT1 = defaultT1,
+            timerT2 = defaultT2,
+            operationMode = defaultMode,
+            buzzerEnabled = defaultBuzzer,
+            tableNumber = defaultTableNumber,
+            serverUrl = "", // Resetta anche l'URL del server
+            playersCount = defaultPlayersCount
+        )
+
+        // Ferma qualsiasi timer in esecuzione
+        timerHandler?.removeCallbacks(timerRunnable ?: return)
+
+        // Resetta lo stato corrente
+        _timerState.value = PokerTimerState(
+            currentTimer = defaultT1,
+            timerT1 = defaultT1,
+            timerT2 = defaultT2,
+            isT1Active = true,
+            isRunning = false,
+            isPaused = false,
+            isExpired = false,
+            operationMode = defaultMode,
+            buzzerEnabled = defaultBuzzer,
+            tableNumber = defaultTableNumber,
+            serverUrl = "",
+            isConnectedToServer = false,
+            playersCount = defaultPlayersCount,
+            batteryLevel = _batteryLevel.value ?: 100,
+            batteryVoltage = _batteryVoltage.value ?: 5.0f
+        )
+
+        // Ferma il polling del server
+        stopServerPolling()
+
+        // Resetta i posti selezionati
+        selectedSeats.clear()
+
+        // Log per debug
+        Log.d("PokerTimerViewModel", "Factory reset completato")
+    }
+
+    /**
      * Ferma il timer senza resettarlo
      */
     fun stopTimer() {
@@ -561,17 +616,17 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                             }
                         }
                         is Command.RESET -> {
-                            // Sempre con autoStart true nella nuova modalità unica
                             resetTimer(true)
                         }
+                        is Command.FACTORY_RESET -> {  // NUOVO CASE
+                            Log.d("PokerTimerViewModel", "Ricevuto comando FACTORY_RESET dal server")
+                            performFactoryReset()
+                        }
                         is Command.SEAT_OPEN -> {
-                            // Invece di cercare di aggiornare direttamente lo stato,
-                            // aggiorniamo i dati dal server
                             refreshFromServer()
                             Log.d("PokerTimerViewModel", "Ricevuto comando SEAT_OPEN: ${command.seats}")
                         }
                         is Command.SETTINGS -> {
-                            // Aggiorna le impostazioni
                             saveSettings(
                                 timerT1 = command.t1,
                                 timerT2 = command.t2,
@@ -582,9 +637,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
                                 playersCount = command.playersCount
                             )
                         }
-                        // Gestisci il comando CLEAR_SEATS
                         is Command.CLEAR_SEATS -> {
-                            // Resetta la lista dei posti selezionati
                             selectedSeats.clear()
                             Log.d("PokerTimerViewModel", "Ricevuto comando CLEAR_SEATS, posti selezionati resettati")
                         }

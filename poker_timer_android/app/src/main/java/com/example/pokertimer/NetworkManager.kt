@@ -113,6 +113,7 @@ class NetworkManager(private val context: Context) {
                                 "pause" -> return@withContext Pair(true, Command.PAUSE)
                                 "reset" -> return@withContext Pair(true, Command.RESET)
                                 "clear_seats" -> return@withContext Pair(true, Command.CLEAR_SEATS)
+                                "factory_reset" -> return@withContext Pair(true, Command.FACTORY_RESET)
                                 "settings", "apply_settings" -> {  // Aggiungi "apply_settings" qui
                                     // Elabora le nuove impostazioni
                                     if (response.settings != null) {
@@ -204,6 +205,7 @@ class NetworkManager(private val context: Context) {
         ) : Command()
         data class SEAT_OPEN(val seats: String) : Command()
         object CLEAR_SEATS : Command()
+        object FACTORY_RESET : Command()
     }
 
     /**
