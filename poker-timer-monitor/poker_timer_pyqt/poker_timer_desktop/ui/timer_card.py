@@ -115,26 +115,9 @@ class TimerCard(QFrame):
         
         header_layout.addWidget(device_icon)
         
-        # Spazio flessibile
+        # Spazio flessibile per allineare il titolo a sinistra
         header_layout.addStretch()
         
-        # Etichetta stato - già ha altezza adeguata grazie al padding
-        is_running = timer_data.get('is_running', False)
-        is_paused = timer_data.get('is_paused', False)
-        
-        status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
-        status = QLabel(status_text)
-        status.setObjectName("status_label")
-        status.setFixedHeight(30)  # Altezza fissa
-        
-        if status_text == "Running":
-            status.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-        elif status_text == "Paused":
-            status.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-        else:
-            status.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-        
-        header_layout.addWidget(status)
         main_layout.addLayout(header_layout)
         
         # ---- SEAT INFO (se presente) ----
@@ -179,11 +162,21 @@ class TimerCard(QFrame):
         info_grid.addWidget(self.t1_label, 0, col)
         col += 1
 
-        # Giocatori
-        self.players_label = QLabel(f"Giocatori: {timer_data.get('players_count', 6)}")
-        self.players_label.setObjectName("players_label")
-        self.players_label.setStyleSheet(info_style)
-        info_grid.addWidget(self.players_label, 0, col)
+        # Stato Timer (sostituisce Giocatori)
+        is_running = timer_data.get('is_running', False)
+        is_paused = timer_data.get('is_paused', False)
+        status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
+        self.timer_status_label = QLabel(status_text)
+        self.timer_status_label.setObjectName("timer_status_label")
+        
+        # Utilizza lo stesso stile del badge rimosso
+        if status_text == "Running":
+            self.timer_status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+        elif status_text == "Paused":
+            self.timer_status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+        else:  # Stopped
+            self.timer_status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+        info_grid.addWidget(self.timer_status_label, 0, col)
         col += 1
         
         # Buzzer
@@ -306,21 +299,6 @@ class TimerCard(QFrame):
         if title_label:
             title_label.setText(f"Table {new_timer_data.get('table_number', 'N/A')}")
         
-        # Aggiorna lo stato del timer (Running/Paused/Stopped)
-        is_running = new_timer_data.get('is_running', False)
-        is_paused = new_timer_data.get('is_paused', False)
-        status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
-        
-        status_label = self.findChild(QLabel, "status_label")
-        if status_label:
-            if status_text == "Running":
-                status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-            elif status_text == "Paused":
-                status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-            else:
-                status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-            status_label.setText(status_text)
-        
         # Aggiorna i posti liberi (se presenti o cambiati)
         if ('seat_info' in new_timer_data and 'open_seats' in new_timer_data['seat_info'] and 
             new_timer_data['seat_info']['open_seats']):
@@ -378,10 +356,21 @@ class TimerCard(QFrame):
                 mode_text = f"Mode: {mode}"
                 mode_label.setText(mode_text)
         
-        # Aggiorna giocatori
-        players_label = self.findChild(QLabel, "players_label")
-        if players_label:
-            players_label.setText(f"Giocatori: {new_timer_data.get('players_count', 6)}")
+        # Aggiorna stato timer (sostituisce aggiornamento giocatori)
+        timer_status_label = self.findChild(QLabel, "timer_status_label")
+        if timer_status_label:
+            is_running = new_timer_data.get('is_running', False)
+            is_paused = new_timer_data.get('is_paused', False)
+            status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
+            timer_status_label.setText(status_text)
+            
+            # Utilizza lo stesso stile del badge originale
+            if status_text == "Running":
+                timer_status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+            elif status_text == "Paused":
+                timer_status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+            else:  # Stopped
+                timer_status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
         
         # Aggiorna buzzer
         buzzer_label = self.findChild(QLabel, "buzzer_label")
