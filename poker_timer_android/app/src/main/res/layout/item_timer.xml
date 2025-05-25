@@ -43,18 +43,6 @@
                 android:contentDescription="Tipo dispositivo" />
         </LinearLayout>
 
-        <!-- Aggiunta TextView per il numero di giocatori -->
-        <TextView
-            android:id="@+id/playersCountText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:textSize="14sp"
-            android:textStyle="italic"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tableTitleLayout"
-            tools:text="• 10 giocatori" />
-
         <TextView
             android:id="@+id/timerStatusText"
             android:layout_width="wrap_content"
@@ -90,12 +78,12 @@
             android:id="@+id/timerValueText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="16dp"
             android:textSize="64sp"
             android:textStyle="bold"
             android:textColor="@color/primary_color"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/playersCountText"
+            app:layout_constraintTop_toBottomOf="@id/tableTitleLayout"
             tools:text="30s" />
 
         <TextView
@@ -218,67 +206,50 @@
                 tools:text="2s fa" />
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/controlsContainer"
-            android:layout_width="0dp"
+        <!-- Pulsante Impostazioni centrato -->
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:orientation="horizontal"
+            android:text="Impostazioni"
+            android:backgroundTint="@color/status_color"
+            android:textColor="@color/white"
+            style="@style/Widget.MaterialComponents.Button"
+            app:layout_constraintTop_toBottomOf="@id/statusInfoContainer"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/statusInfoContainer">
+            app:layout_constraintEnd_toEndOf="parent" />
 
-            <Button
-                android:id="@+id/startButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="Start"
-                android:backgroundTint="@color/primary_color"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button" />
-
-            <Button
-                android:id="@+id/pauseButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="Pausa"
-                android:backgroundTint="#9E9E9E"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button" />
-        </LinearLayout>
-
-        <LinearLayout
+        <!-- Il resetButton è nascosto ma mantenuto nel layout per compatibilità col codice -->
+        <Button
+            android:id="@+id/resetButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
+            android:layout_weight="1"
+            android:text="Reset"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            app:layout_constraintTop_toTopOf="@id/settingsButton"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Bottoni Start/Pause mantenuti ma nascosti per compatibilità col codice -->
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Start"
+            android:visibility="gone"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/controlsContainer">
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <!-- Il resetButton è ancora presente nel layout ma verrà nascosto dal codice -->
-            <Button
-                android:id="@+id/resetButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="Reset"
-                android:visibility="gone"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+        <Button
+            android:id="@+id/pauseButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Pausa"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <Button
-                android:id="@+id/settingsButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Impostazioni"
-                android:backgroundTint="@color/status_color"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button" />
-        </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

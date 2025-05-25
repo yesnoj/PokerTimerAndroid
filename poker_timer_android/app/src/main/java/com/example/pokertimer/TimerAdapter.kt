@@ -46,8 +46,6 @@ class TimerAdapter(
 
     override fun getItemCount(): Int = timers.size
 
-
-
     fun updateTimers(newTimers: List<TimerItem>) {
         // Log per debug
         android.util.Log.d("TimerAdapter", "Updating timers list, size: ${newTimers.size}")
@@ -74,7 +72,6 @@ class TimerAdapter(
     class TimerViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tableNumberText: TextView = itemView.findViewById(R.id.tableNumberText)
         private val deviceTypeIcon: ImageView = itemView.findViewById(R.id.deviceTypeIcon)
-        private val playersCountText: TextView = itemView.findViewById(R.id.playersCountText)
         private val timerStatusText: TextView = itemView.findViewById(R.id.timerStatusText)
         private val timerValueText: TextView = itemView.findViewById(R.id.timerValueText)
         private val activeTimerText: TextView = itemView.findViewById(R.id.activeTimerText)
@@ -86,11 +83,13 @@ class TimerAdapter(
         private val voltageInfoText: TextView = itemView.findViewById(R.id.voltageInfoText)
         private val wifiInfoText: TextView = itemView.findViewById(R.id.wifiInfoText)
         private val lastUpdateInfoText: TextView = itemView.findViewById(R.id.lastUpdateInfoText)
+        private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
+        private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
+
+        // Manteniamo i riferimenti ai pulsanti nascosti per compatibilità
         private val startButton: Button = itemView.findViewById(R.id.startButton)
         private val pauseButton: Button = itemView.findViewById(R.id.pauseButton)
-        private val settingsButton: Button = itemView.findViewById(R.id.settingsButton)
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
-        private val seatInfoText: TextView = itemView.findViewById(R.id.seatInfoText)
 
         /**
          * Verifica se un timer è un dispositivo Android basato sul device_id
@@ -133,10 +132,6 @@ class TimerAdapter(
                 modeInfoText.visibility = View.VISIBLE
                 modeInfoText.text = "Modo: ${timer.operationMode}"
             }
-
-            // Aggiungi il numero di giocatori
-            android.util.Log.d("TimerAdapter", "Binding timer ${timer.deviceId}: playersCount=${timer.playersCount}")
-            playersCountText.text = "• ${timer.playersCount ?: 10} giocatori"
 
             timerValueText.text = formatTimerValue(timer.currentTimer)
 
@@ -201,16 +196,8 @@ class TimerAdapter(
             // Tempo trascorso dall'ultimo aggiornamento
             lastUpdateInfoText.text = formatLastUpdate(timer.lastUpdateTimestamp)
 
-            // Bottoni di controllo - Nascondiamo resetButton
-            resetButton.visibility = View.GONE
-
-            startButton.setOnClickListener { listener.onStartClicked(timer) }
-            pauseButton.setOnClickListener { listener.onPauseClicked(timer) }
+            // Configurazione del pulsante impostazioni
             settingsButton.setOnClickListener { listener.onSettingsClicked(timer) }
-
-            // Abilita/disabilita bottoni in base allo stato
-            startButton.isEnabled = !timer.isRunning || timer.isPaused
-            pauseButton.isEnabled = timer.isRunning && !timer.isPaused
 
             // Gestione dell'informazione sui posti liberi
             if (timer.hasSeatOpenInfo()) {
@@ -236,6 +223,11 @@ class TimerAdapter(
             } else {
                 seatInfoText.visibility = View.GONE
             }
+
+            // Configurazione dei pulsanti nascosti ma necessari per compatibilità con il codice
+            // Questi pulsanti sono invisibili nell'UI ma ancora funzionali nel codice
+            startButton.setOnClickListener { listener.onStartClicked(timer) }
+            pauseButton.setOnClickListener { listener.onPauseClicked(timer) }
         }
 
         private fun showSeatResetConfirmation(
