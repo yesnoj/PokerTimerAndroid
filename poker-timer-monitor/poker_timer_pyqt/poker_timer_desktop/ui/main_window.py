@@ -650,15 +650,6 @@ class MainWindow(QMainWindow):
                     self.grid_layout.addWidget(card, row, col)
                     self.timer_cards[device_id] = card
                     
-                    # NOVITÀ: Imposta lo stile per una transizione più fluida
-                    card.setStyleSheet(card.styleSheet() + """
-                        opacity: 0;
-                        animation: fadeIn 0.3s ease-in-out forwards;
-                        @keyframes fadeIn {
-                            from { opacity: 0; transform: scale(0.9); }
-                            to { opacity: 1; transform: scale(1); }
-                        }
-                    """)
             
             # Aggiorna il timestamp dell'ultimo aggiornamento completo
             self.last_full_update = time.time()
@@ -689,15 +680,6 @@ class MainWindow(QMainWindow):
             # Crea una nuova card
             new_card = TimerCard(device_id, timer_data, self.server)
             
-            # Aggiungi un'animazione di transizione
-            new_card.setStyleSheet(new_card.styleSheet() + """
-                opacity: 0;
-                animation: fadeIn 0.3s ease-in-out forwards;
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: scale(0.9); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-            """)
             
             self.grid_layout.addWidget(new_card, row, col)
             self.timer_cards[device_id] = new_card
