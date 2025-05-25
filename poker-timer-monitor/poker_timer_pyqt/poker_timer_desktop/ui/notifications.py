@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Gestione delle notifiche desktop e in-app
+Versione modificata di notifications.py per implementare il suono ripetuto ogni minuto
+per le notifiche di "Seat Open" finché l'utente non le chiude.
 """
 
 import os
@@ -14,15 +15,16 @@ import threading
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, 
                            QPushButton, QApplication)
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRect, pyqtSignal, QPoint
-from PyQt6.QtGui import QIcon, QPixmap  # Aggiunto QIcon e QPixmap
+from PyQt6.QtGui import QIcon, QPixmap
 
 class ToastNotification(QWidget):
     """Widget per notifiche tipo toast"""
     closed = pyqtSignal()
-    action_clicked = pyqtSignal()  # Nuovo segnale per click su azione
+    action_clicked = pyqtSignal()
+    play_reminder_sound_signal = pyqtSignal()  # Segnale per riprodurre il suono periodico
     
     def __init__(self, title, message, type="info", duration=5000, parent=None, 
-                action_button=None, device_type=None):  # Aggiunto parametro device_type
+                action_button=None, device_type=None, play_repeat_sound=False):
         super().__init__(parent)
         
         # Configurazione finestra
@@ -36,6 +38,7 @@ class ToastNotification(QWidget):
         # Proprietà
         self.duration = duration
         self.type = type
+        self.play_repeat_sound = play_repeat_sound  # Indica se riprodurre suoni periodici
         
         # Layout principale
         main_layout = QVBoxLayout(self)
@@ -178,6 +181,11 @@ class ToastNotification(QWidget):
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.close_animation)
         
+        # Timer per suono periodico (ogni minuto)
+        self.sound_timer = QTimer(self)
+        self.sound_timer.setInterval(60000)  # 60 secondi = 1 minuto
+        self.sound_timer.timeout.connect(self.play_reminder_sound)
+        
         # Animazioni
         self.show_animation = None
         self.hide_animation = None
@@ -185,7 +193,6 @@ class ToastNotification(QWidget):
         # Configura le animazioni dopo la visualizzazione
         self.init_animations()
     
-    # Resto della classe rimane invariato
     def _on_action_clicked(self):
         """Gestisce il click sul pulsante di azione"""
         self.action_clicked.emit()
@@ -210,6 +217,10 @@ class ToastNotification(QWidget):
         self.hide_animation.setEasingCurve(QEasingCurve.Type.InCubic)
         self.hide_animation.finished.connect(self.on_hide_finished)
     
+    def play_reminder_sound(self):
+        """Emette il segnale per riprodurre il suono di promemoria"""
+        self.play_reminder_sound_signal.emit()
+    
     def show_notification(self, pos):
         """Mostra la notifica con animazione"""
         # Imposta la posizione
@@ -231,10 +242,15 @@ class ToastNotification(QWidget):
         
         # Avvia il timer per chiusura automatica
         self.timer.start(self.duration)
+        
+        # Avvia il timer per il suono ripetuto se richiesto
+        if self.play_repeat_sound:
+            self.sound_timer.start()
     
     def close_animation(self):
         """Avvia l'animazione di chiusura"""
         self.timer.stop()
+        self.sound_timer.stop()  # Ferma anche il timer del suono
         self.hide_animation.start()
     
     def on_hide_finished(self):
@@ -349,7 +365,7 @@ class NotificationManager:
     
     def show_notification(self, title, message, type="info", duration=5000, 
                          action_button=None, action_callback=None, play_sound=False, device_type=None,
-                         auto_close=True, table_number=None):
+                         auto_close=True, table_number=None, play_repeat_sound=False):
         """Mostra una notifica desktop o in-app con possibile azione e suono"""
         # Riproduci suono se richiesto (solo una volta)
         if play_sound:
@@ -362,12 +378,12 @@ class NotificationManager:
                 # mostra comunque quella in-app per avere il pulsante di azione
                 return self.show_in_app_notification(title, message, type, duration, 
                                                    action_button, action_callback, device_type,
-                                                   auto_close, table_number)
+                                                   auto_close, table_number, play_repeat_sound)
         
         # Fallback a notifica in-app
         return self.show_in_app_notification(title, message, type, duration, 
                                            action_button, action_callback, device_type,
-                                           auto_close, table_number)
+                                           auto_close, table_number, play_repeat_sound)
         
     def show_desktop_notification(self, title, message):
         """Mostra una notifica desktop nativa"""
@@ -403,7 +419,7 @@ class NotificationManager:
     
     def show_in_app_notification(self, title, message, type="info", duration=5000,
                                action_button=None, action_callback=None, device_type=None,
-                               auto_close=True, table_number=None):
+                               auto_close=True, table_number=None, play_repeat_sound=False):
         """Mostra una notifica in-app con possibile pulsante di azione"""
         # Se ci sono troppe notifiche attive, rimuovi le più vecchie
         while len(self.active_notifications) >= self.max_notifications:
@@ -415,7 +431,8 @@ class NotificationManager:
         notification = ToastNotification(
             title, message, type, duration, 
             action_button=action_button,
-            device_type=device_type
+            device_type=device_type,
+            play_repeat_sound=play_repeat_sound
         )
         
         # Collega il segnale di chiusura
@@ -424,6 +441,9 @@ class NotificationManager:
         # Collega il segnale di azione se specificato
         if action_callback and action_button:
             notification.action_clicked.connect(action_callback)
+        
+        # Collega il segnale per riprodurre il suono periodicamente
+        notification.play_reminder_sound_signal.connect(self.play_notification_sound)
         
         # Calcola la posizione
         margin = self.margin

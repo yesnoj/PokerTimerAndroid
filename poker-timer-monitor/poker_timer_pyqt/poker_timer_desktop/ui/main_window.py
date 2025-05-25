@@ -725,7 +725,7 @@ class MainWindow(QMainWindow):
             self.notification_manager.update_notification(table_number, f"Posti disponibili: {seats_str}", seats)
             print(f"Notifica per tavolo {table_number} aggiornata con posti {seats_str}")
         else:
-            # Crea una nuova notifica
+            # Crea una nuova notifica con suono ripetuto ogni minuto (play_repeat_sound=True)
             self.notification_manager.show_notification(
                 f"Tavolo {table_number} - Seat Open",
                 f"Posti disponibili: {seats_str}",
@@ -735,7 +735,8 @@ class MainWindow(QMainWindow):
                 play_sound=True,
                 device_type=device_type,
                 auto_close=False,
-                table_number=table_number
+                table_number=table_number,
+                play_repeat_sound=True  # Abilita la riproduzione periodica del suono
             )
             print(f"Nuova notifica creata per tavolo {table_number} con posti {seats_str}")
     
