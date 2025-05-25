@@ -97,6 +97,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
     private val soundTick: Int
     private val soundPause: Int
     private val soundEnd: Int
+    private val soundStart: Int
 
     // Timer
     private var timerHandler: Handler? = null
@@ -118,6 +119,7 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
         soundTick = soundPool.load(application, R.raw.tick, 1)
         soundPause = soundPool.load(application, R.raw.pause, 1)
         soundEnd = soundPool.load(application, R.raw.ending, 1)
+        soundStart = soundPool.load(application, R.raw.start, 1)
 
         // Inizializza stato del timer dalle preferenze
         _timerState.value = preferences.loadTimerSettings()
@@ -289,6 +291,10 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             isPaused = false,
             isExpired = false
         )
+
+        if (currentState.buzzerEnabled) {
+            soundPool.play(soundStart, 1.0f, 1.0f, 1, 0, 1.0f)
+        }
 
         // Avvia il countdown
         startCountdown(startTimeSeconds)

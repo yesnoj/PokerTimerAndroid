@@ -69,8 +69,8 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Forza l'orientamento landscape
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        // Forza l'orientamento landscape ma permetti la rotazione di 180 gradi
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
         super.onCreate(savedInstanceState)
 
