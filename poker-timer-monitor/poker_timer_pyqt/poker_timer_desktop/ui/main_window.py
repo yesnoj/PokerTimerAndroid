@@ -475,10 +475,12 @@ class MainWindow(QMainWindow):
                 self.last_full_update = current_time
                 return
                 
-            # Aggiorna il contatore dei timer
+            # Ottieni i timer dal server
             timers = self.server.timers
             online_timers = []
             offline_timers = []
+            
+            # Aggiorna lo stato di connessione dei timer
             for timer_id, timer_data in timers.items():
                 timer_data['is_online'] = self.server.is_timer_online(timer_data)
                 if timer_data['is_online']:
@@ -486,16 +488,64 @@ class MainWindow(QMainWindow):
                 else:
                     offline_timers.append(timer_id)
             
+            # Aggiorna il contatore dei timer
             self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
             
-            # Aggiorna i dati delle card esistenti
-            for device_id, card in list(self.timer_cards.items()):
-                if device_id in self.server.timers:
-                    timer_data = self.server.timers[device_id]
+            # Aggiorna solo i dati delle card esistenti
+            cards_to_update = list(self.timer_cards.keys())
+            
+            for device_id in cards_to_update:
+                if device_id in timers:
+                    timer_data = timers[device_id]
                     timer_data['is_online'] = self.server.is_timer_online(timer_data)
-                    card.update_data(timer_data)
+                    
+                    # Aggiorna solo se ci sono modifiche significative
+                    current_card_data = self.timer_cards[device_id].timer_data
+                    if self._has_significant_changes(current_card_data, timer_data):
+                        self.timer_cards[device_id].update_data(timer_data)
+            
+        except Exception as e:
+            print(f"Errore in update_timers_automatic: {e}")
         finally:
             self.update_lock.release()
+
+    def _has_significant_changes(self, old_data, new_data):
+            """
+            Controlla se ci sono modifiche significative tra i dati vecchi e nuovi
+            Per evitare aggiornamenti inutili delle card
+            """
+            # Lista dei campi da confrontare per verificare modifiche significative
+            fields_to_check = [
+                'is_running', 
+                'is_paused', 
+                'table_number', 
+                'battery_level', 
+                'wifi_quality', 
+                'buzzer', 
+                'seat_info',
+                't1_value',
+                't2_value',
+                'voltage',
+                'last_update'
+            ]
+            
+            for field in fields_to_check:
+                old_value = old_data.get(field)
+                new_value = new_data.get(field)
+                
+                # Confronto speciale per seat_info
+                if field == 'seat_info':
+                    old_seats = old_value.get('open_seats', []) if old_value else []
+                    new_seats = new_value.get('open_seats', []) if new_value else []
+                    if set(old_seats) != set(new_seats):
+                        return True
+                    continue
+                
+                # Per tutti gli altri campi
+                if old_value != new_value:
+                    return True
+            
+            return False
     
     def update_timers(self):
         """Aggiorna la visualizzazione dei timer in modo efficiente (ricostruzione completa)"""
@@ -579,25 +629,37 @@ class MainWindow(QMainWindow):
             
             # Aggiorna o crea le card
             for device_id, timer_data in sorted_timers:
+                # Imposta la posizione iniziale della card
+                row, col = positions[device_id]
+                
                 if device_id in self.timer_cards:
-                    # Aggiorna i dati della card esistente E CHIAMA update_data
-                    self.timer_cards[device_id].update_data(timer_data)
+                    # Aggiorna i dati della card esistente
+                    card = self.timer_cards[device_id]
+                    card.update_data(timer_data)
                     
                     # Sposta la card nella nuova posizione se necessario
-                    row, col = positions[device_id]
-                    current_index = self.grid_layout.indexOf(self.timer_cards[device_id])
+                    current_index = self.grid_layout.indexOf(card)
                     if current_index >= 0:
                         current_row, current_col, _, _ = self.grid_layout.getItemPosition(current_index)
                         if current_row != row or current_col != col:
-                            self.grid_layout.removeWidget(self.timer_cards[device_id])
-                            self.grid_layout.addWidget(self.timer_cards[device_id], row, col)
+                            self.grid_layout.removeWidget(card)
+                            self.grid_layout.addWidget(card, row, col)
                 else:
-                    # Crea una nuova card
+                    # Crea una nuova card direttamente nella posizione corretta
                     card = TimerCard(device_id, timer_data, self.server)
-                    row, col = positions[device_id]
                     self.grid_layout.addWidget(card, row, col)
                     self.timer_cards[device_id] = card
                     
+                    # NOVITÀ: Imposta lo stile per una transizione più fluida
+                    card.setStyleSheet(card.styleSheet() + """
+                        opacity: 0;
+                        animation: fadeIn 0.3s ease-in-out forwards;
+                        @keyframes fadeIn {
+                            from { opacity: 0; transform: scale(0.9); }
+                            to { opacity: 1; transform: scale(1); }
+                        }
+                    """)
+            
             # Aggiorna il timestamp dell'ultimo aggiornamento completo
             self.last_full_update = time.time()
         finally:
@@ -626,20 +688,31 @@ class MainWindow(QMainWindow):
             
             # Crea una nuova card
             new_card = TimerCard(device_id, timer_data, self.server)
+            
+            # Aggiungi un'animazione di transizione
+            new_card.setStyleSheet(new_card.styleSheet() + """
+                opacity: 0;
+                animation: fadeIn 0.3s ease-in-out forwards;
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: scale(0.9); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+            """)
+            
             self.grid_layout.addWidget(new_card, row, col)
             self.timer_cards[device_id] = new_card
             
-        # Aggiorna il contatore
-        timers = self.server.timers
-        online_timers = []
-        offline_timers = []
-        for timer_id, timer_data in timers.items():
-            if self.server.is_timer_online(timer_data):
-                online_timers.append(timer_id)
-            else:
-                offline_timers.append(timer_id)
-        
-        self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
+            # Aggiorna il contatore
+            timers = self.server.timers
+            online_timers = []
+            offline_timers = []
+            for timer_id, timer_data in timers.items():
+                if self.server.is_timer_online(timer_data):
+                    online_timers.append(timer_id)
+                else:
+                    offline_timers.append(timer_id)
+            
+            self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
         
     @pyqtSlot(str)
     def on_timer_connected(self, device_id):
