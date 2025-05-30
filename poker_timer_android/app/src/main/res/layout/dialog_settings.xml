@@ -231,75 +231,12 @@
                 android:theme="@style/WhiteSwitch" />
         </LinearLayout>
 
-        <!-- Sezione Configurazione Server -->
-        <TextView
-            android:id="@+id/server_status_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Server: Disconnesso"
-            android:textColor="@color/error_color"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/et_server_url"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/server_url_hint"
-            android:inputType="textUri"
-            android:padding="8dp"
-            android:textColor="@color/white"
-            android:textColorHint="#80FFFFFF"
-            android:backgroundTint="@color/white" />
-
-        <!-- Nuovo pulsante di discovery -->
-        <Button
-            android:id="@+id/btn_discover_server"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/primary_color"
-            android:textColor="@color/white"
-            android:drawableStart="@drawable/ic_wifi"
-            android:drawablePadding="8dp"
-            android:drawableTint="@color/white"
-            android:text="Cerca server sulla rete" />
-
+        <!-- Pulsanti Salva e Annulla -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <Button
-                android:id="@+id/btn_connect"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:backgroundTint="@color/status_color"
-                android:textColor="@color/white"
-                android:text="Connetti" />
-
-            <Button
-                android:id="@+id/btn_disconnect"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:backgroundTint="@color/error_color"
-                android:textColor="@color/white"
-                android:text="Disconnetti" />
-        </LinearLayout>
-
-        <!-- Aggiunti pulsanti Salva e Annulla -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp">
+            android:layout_marginTop="24dp">
 
             <Button
                 android:id="@+id/custom_cancel_button"

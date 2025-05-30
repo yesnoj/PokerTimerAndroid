@@ -98,6 +98,64 @@ class PokerTimerServer(QObject):
                 "message": f"{timer_count} timer cancellati con successo"
             })
         
+        @self.app.route('/api/floorman_request', methods=['POST'])
+        def floorman_request():
+            request_data = request.json
+            table_number = request_data.get('table_number')
+            
+            logger.info(f"Ricevuta chiamata floorman dal tavolo {table_number}")
+            
+            # Trova il dispositivo corrispondente a questo tavolo
+            target_device_id = None
+            for device_id, timer in self.timers.items():
+                if timer.get('table_number') == table_number:
+                    target_device_id = device_id
+                    break
+            
+            if target_device_id:
+                # Aggiungi il timestamp della chiamata floorman
+                self.timers[target_device_id]['floorman_call_timestamp'] = int(time.time() * 1000)  # timestamp in millisecondi
+                
+                # Emetti il segnale per aggiornare l'interfaccia
+                self.timer_updated.emit(target_device_id)
+            
+            # Emetti il segnale per la notifica
+            self.floorman_notification.emit(table_number)
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Floorman chiamato per tavolo {table_number}"
+            })
+
+        # API per cancellare una richiesta floorman
+        @self.app.route('/api/floorman_request/<int:table_number>', methods=['DELETE'])
+        def clear_floorman_request(table_number):
+            """Cancella una richiesta floorman per un tavolo specifico"""
+            logger.info(f"Richiesta cancellazione floorman per tavolo {table_number}")
+            
+            # Trova il timer corrispondente
+            cleared = False
+            for device_id, timer in self.timers.items():
+                if timer.get('table_number') == table_number:
+                    if 'floorman_request' in timer:
+                        del timer['floorman_request']
+                        cleared = True
+                        # Emetti segnale di aggiornamento
+                        self.timer_updated.emit(device_id)
+                        logger.info(f"Richiesta floorman cancellata per tavolo {table_number}")
+                        break
+            
+            if cleared:
+                return jsonify({
+                    "status": "success",
+                    "message": f"Richiesta floorman cancellata per tavolo {table_number}"
+                })
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Nessuna richiesta floorman trovata per tavolo {table_number}"
+                }), 404
+
         # API per aggiornare lo stato di un timer
         @self.app.route('/api/status', methods=['POST'])
         def update_status():
@@ -195,7 +253,6 @@ class PokerTimerServer(QObject):
                 "settings": settings
             })
         
-        # API per inviare comandi a un timer
         @self.app.route('/api/command/<device_id>', methods=['POST'])
         def send_command_api(device_id):
             command_data = request.json
@@ -209,8 +266,21 @@ class PokerTimerServer(QObject):
             if device_id not in self.timers:
                 return jsonify({"error": "Timer not found"}), 404
             
-            # Gestisci il comando reset_seat_info
-            if command == "reset_seat_info":
+            # Gestisci il comando clear_floorman
+            if command == "clear_floorman":
+                logger.info(f"Cancellazione chiamata floorman per device {device_id}")
+                
+                if 'floorman_call_timestamp' in self.timers[device_id]:
+                    del self.timers[device_id]['floorman_call_timestamp']
+                    logger.info(f"Timestamp floorman rimosso per device {device_id}")
+                
+                # Emetti il segnale per aggiornare l'interfaccia
+                self.timer_updated.emit(device_id)
+                
+                return jsonify({"status": "success", "command": command})
+            
+            # Gestisci il comando reset_seat_info (già esistente)
+            elif command == "reset_seat_info":
                 logger.info(f"Reset seat info per device {device_id}")
                 
                 if 'seat_info' in self.timers[device_id]:
@@ -222,10 +292,12 @@ class PokerTimerServer(QObject):
                 
                 return jsonify({"status": "success", "command": command})
             
-            # Imposta il comando in sospeso
-            self.timers[device_id]['pending_command'] = command
-            
-            return jsonify({"status": "command_queued", "command": command})
+            # Altri comandi standard
+            else:
+                # Imposta il comando in sospeso
+                self.timers[device_id]['pending_command'] = command
+                
+                return jsonify({"status": "command_queued", "command": command})
         
         # API per gestire le richieste di posti liberi
         @self.app.route('/api/seat_request', methods=['POST'])
@@ -286,23 +358,6 @@ class PokerTimerServer(QObject):
                     "message": f"No device found for table {table_number}"
                 }), 404
         
-        # API per gestire le chiamate floorman
-        @self.app.route('/api/floorman_request', methods=['POST'])
-        def floorman_request():
-            request_data = request.json
-            table_number = request_data.get('table_number')
-            
-            logger.info(f"Ricevuta chiamata floorman dal tavolo {table_number}")
-            
-            # Emetti il segnale per la notifica
-            self.floorman_notification.emit(table_number)
-            
-            return jsonify({
-                "status": "success",
-                "message": f"Floorman chiamato per tavolo {table_number}"
-            })
-        
-        # API per gestire le richieste di servizio bar
         @self.app.route('/api/bar_service_request', methods=['POST'])
         def bar_service_request():
             request_data = request.json
@@ -310,6 +365,20 @@ class PokerTimerServer(QObject):
             timestamp = request_data.get('timestamp')
             
             logger.info(f"Ricevuta richiesta servizio bar dal tavolo {table_number}")
+            
+            # Trova il dispositivo corrispondente a questo tavolo
+            target_device_id = None
+            for device_id, timer in self.timers.items():
+                if timer.get('table_number') == table_number:
+                    target_device_id = device_id
+                    break
+            
+            if target_device_id:
+                # Aggiungi il timestamp della richiesta bar
+                self.timers[target_device_id]['bar_service_timestamp'] = int(time.time() * 1000)  # timestamp in millisecondi
+                
+                # Emetti il segnale per aggiornare l'interfaccia
+                self.timer_updated.emit(target_device_id)
             
             # Genera un ID univoco per la richiesta
             request_id = f"bar_{table_number}_{timestamp}"
@@ -330,6 +399,7 @@ class PokerTimerServer(QObject):
                 "message": f"Richiesta bar registrata per tavolo {table_number}",
                 "request_id": request_id
             })
+
         
         # API per ottenere le richieste bar
         @self.app.route('/api/bar_requests', methods=['GET'])

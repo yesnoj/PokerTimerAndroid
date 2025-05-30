@@ -21,7 +21,9 @@ data class TimerItem(
     val buzzerEnabled: Boolean = true,
     val pendingCommand: String? = null,
     val seatOpenInfo: String? = null,
-    val playersCount: Int
+    val playersCount: Int,
+    val floormanCallTimestamp: Long? = null,  // NUOVO CAMPO
+    val barServiceTimestamp: Long? = null     // NUOVO CAMPO per futuro supporto bar
 ) {
     /**
      * Verifica se ci sono posti liberi da visualizzare
@@ -30,6 +32,7 @@ data class TimerItem(
         return !seatOpenInfo.isNullOrEmpty() ||
                 (pendingCommand != null && pendingCommand.startsWith("seat_open:"))
     }
+
     /**
      * Ottiene la stringa formattata dei posti liberi
      */
@@ -41,4 +44,39 @@ data class TimerItem(
             else -> ""
         }
     }
+
+    /**
+     * Verifica se c'è una chiamata floorman attiva
+     */
+    fun hasActiveFloormanCall(): Boolean {
+        return floormanCallTimestamp != null &&
+                (System.currentTimeMillis() - floormanCallTimestamp) < 300000 // 5 minuti
+    }
+
+    /**
+     * Verifica se c'è una richiesta bar attiva
+     */
+    fun hasActiveBarRequest(): Boolean {
+        return barServiceTimestamp != null &&
+                (System.currentTimeMillis() - barServiceTimestamp) < 600000 // 10 minuti
+    }
 }
+
+/**
+ * Data class per le richieste floorman
+ */
+data class FloormanRequest(
+    val active: Boolean,
+    val timestamp: String,
+    val tableNumber: Int
+)
+
+/**
+ * Data class per le richieste bar
+ */
+data class BarRequestInfo(
+    val active: Boolean,
+    val timestamp: String,
+    val tableNumber: Int,
+    val requestId: String
+)

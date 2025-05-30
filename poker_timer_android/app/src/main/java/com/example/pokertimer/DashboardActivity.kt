@@ -1,5 +1,6 @@
 package com.example.pokertimer
 
+import kotlinx.coroutines.delay
 import android.app.Dialog
 import android.graphics.Color
 import android.widget.RadioButton
@@ -46,6 +47,7 @@ import androidx.core.app.NotificationCompat
 import android.app.Notification
 import android.graphics.PorterDuff
 import android.graphics.drawable.ColorDrawable
+import android.media.RingtoneManager
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Switch
@@ -54,7 +56,8 @@ import android.widget.ArrayAdapter
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.Spinner
-
+import org.json.JSONArray
+import android.animation.ObjectAnimator
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
  */
@@ -86,6 +89,41 @@ object SeatNotificationTracker {
     }
 }
 
+object FloormanNotificationTracker {
+    // Map per tenere traccia delle notifiche floorman già mostrate
+    private val notifiedFloormanCalls = mutableMapOf<Int, Long>()
+    private const val NOTIFICATION_COOLDOWN_MS = 60000L // 1 minuto di cooldown
+
+    /**
+     * Verifica se una chiamata floorman per un tavolo è già stata notificata di recente
+     * @return true se è una nuova notifica, false se è già stata mostrata di recente
+     */
+    fun isNewNotification(tableNumber: Int): Boolean {
+        val previousTimestamp = notifiedFloormanCalls[tableNumber]
+        val currentTime = System.currentTimeMillis()
+
+        return if (previousTimestamp == null) {
+            true
+        } else {
+            (currentTime - previousTimestamp) > NOTIFICATION_COOLDOWN_MS
+        }
+    }
+
+    /**
+     * Segna una notifica floorman come visualizzata
+     */
+    fun markAsNotified(tableNumber: Int) {
+        notifiedFloormanCalls[tableNumber] = System.currentTimeMillis()
+    }
+
+    /**
+     * Rimuove una notifica dal tracker
+     */
+    fun clearNotification(tableNumber: Int) {
+        notifiedFloormanCalls.remove(tableNumber)
+    }
+}
+
 class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener {
 
     // Costanti per il refresh automatico
@@ -97,7 +135,18 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "poker_timer_seats"
         private const val NOTIFICATION_ID = 1001
-        private const val ONLINE_TIMEOUT_MINUTES = 3 // Timeout per considerare un timer online
+        private const val ONLINE_TIMEOUT_MINUTES = 3
+
+        // Traccia richieste bar già notificate
+        private val notifiedBarRequests = mutableSetOf<String>()
+
+        fun isRequestNotified(requestId: String): Boolean {
+            return notifiedBarRequests.contains(requestId)
+        }
+
+        fun markRequestAsNotified(requestId: String) {
+            notifiedBarRequests.add(requestId)
+        }
     }
 
     private lateinit var timersRecyclerView: RecyclerView
@@ -250,12 +299,280 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         }
     }
 
+    private fun checkForFloormanCalls() {
+        try {
+            // Per ogni timer nella lista, controlla se ha una chiamata floorman attiva
+            allTimerList.forEach { timer ->
+                // Usa il metodo hasActiveFloormanCall() per verificare se c'è una chiamata attiva
+                if (timer.hasActiveFloormanCall()) {
+                    val tableNumber = timer.tableNumber
+
+                    // Verifica se è una nuova notifica da mostrare
+                    if (FloormanNotificationTracker.isNewNotification(tableNumber)) {
+                        // Mostra la notifica
+                        showFloormanNotification(tableNumber)
+                        // Marca come notificata per evitare duplicati
+                        FloormanNotificationTracker.markAsNotified(tableNumber)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore nel controllo chiamate floorman: ${e.message}")
+        }
+    }
+
+    fun clearFloormanCall(timer: TimerItem) {
+        // Soluzione 1: Aggiorna immediatamente il timer nella lista locale
+        val timerIndex = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+        if (timerIndex >= 0) {
+            // Crea una copia del timer senza il timestamp floorman
+            val updatedTimer = allTimerList[timerIndex].copy(
+                floormanCallTimestamp = null
+            )
+            allTimerList[timerIndex] = updatedTimer
+
+            // Aggiorna anche nella lista filtrata se presente
+            val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+            if (filteredIndex >= 0) {
+                filteredTimerList[filteredIndex] = updatedTimer
+            }
+
+            // Forza l'aggiornamento immediato dell'adapter
+            timerAdapter.updateTimers(filteredTimerList)
+        }
+
+        // Mostra subito il toast
+        Toast.makeText(this@DashboardActivity, "Chiamata gestita", Toast.LENGTH_SHORT).show()
+
+        // Poi invia il comando al server in background
+        val url = "$serverUrl/api/command/${timer.deviceId}"
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                    val jsonPayload = """
+                    {
+                        "command": "clear_floorman"
+                    }
+                """.trimIndent()
+
+                    val outputStream = connection.outputStream
+                    outputStream.write(jsonPayload.toByteArray())
+                    outputStream.close()
+
+                    val responseCode = connection.responseCode
+                    connection.disconnect()
+
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        runOnUiThread {
+                            Toast.makeText(this@DashboardActivity, "Errore comunicazione server", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                // Rimuovi dal tracker locale
+                FloormanNotificationTracker.clearNotification(timer.tableNumber)
+
+                // Aggiorna dal server dopo un delay più lungo
+                delay(1000)
+                refreshTimerData(false)
+
+            } catch (e: Exception) {
+                Log.e("DashboardActivity", "Errore cancellazione floorman: ${e.message}")
+
+                // In caso di errore, ripristina lo stato precedente
+                runOnUiThread {
+                    Toast.makeText(this@DashboardActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                    refreshTimerData(false)
+                }
+            }
+        }
+    }
+
     /**
-     * Mostra una notifica di test per verificare che il sistema di notifiche funzioni
+     * Mostra un dialogo personalizzato per la chiamata floorman
      */
+    private fun showFloormanCallDialog(timer: TimerItem) {
+        // Disabilita temporaneamente l'auto-refresh per evitare che il dialogo si chiuda
+        stopAutoRefresh()
+
+        // Crea un AlertDialog personalizzato
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Chiamata Floorman Attiva")
+            .setMessage("Floorman richiesto al tavolo ${timer.tableNumber}")
+            .setPositiveButton("Gestita") { dialogInterface, _ ->
+                // IMPORTANTE: Prima aggiorna la lista locale per rimuovere immediatamente l'highlight
+                val index = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+                if (index >= 0) {
+                    // Crea una copia del timer senza il pendingCommand floorman
+                    val updatedTimer = allTimerList[index].copy(
+                        pendingCommand = if (allTimerList[index].pendingCommand == "floorman_call") null else allTimerList[index].pendingCommand
+                    )
+                    allTimerList[index] = updatedTimer
+
+                    // Aggiorna anche la lista filtrata
+                    val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+                    if (filteredIndex >= 0) {
+                        filteredTimerList[filteredIndex] = updatedTimer
+
+                        // Notifica l'adapter per aggiornare immediatamente la UI
+                        runOnUiThread {
+                            timerAdapter.notifyItemChanged(filteredIndex)
+                        }
+                    }
+                }
+
+                // Poi invia il comando al server
+                sendFloormanHandledCommand(timer.deviceId)
+
+                // Riavvia l'auto-refresh
+                startAutoRefresh()
+
+                dialogInterface.dismiss()
+            }
+            .setNegativeButton("Annulla") { dialogInterface, _ ->
+                // Riavvia l'auto-refresh
+                startAutoRefresh()
+                dialogInterface.dismiss()
+            }
+            .setCancelable(false)  // Non permettere la chiusura con il back button
+            .create()
+
+        dialog.show()
+
+        // Cambia il colore dei pulsanti a bianco
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+    }
     /**
-     * Mostra una notifica di test per verificare che il sistema di notifiche funzioni
+     * Invia il comando per segnare la chiamata floorman come gestita
      */
+    private fun sendFloormanHandledCommand(deviceId: String) {
+        val commandUrl = "$serverUrl/api/command/$deviceId"
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val url = URL(commandUrl)
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                    // Comando per resettare lo stato floorman
+                    val jsonPayload = """
+                    {
+                        "command": "floorman_handled"
+                    }
+                """.trimIndent()
+
+                    val outputStream = connection.outputStream
+                    outputStream.write(jsonPayload.toByteArray())
+                    outputStream.close()
+
+                    val responseCode = connection.responseCode
+                    Log.d("DashboardActivity", "Floorman handled response: $responseCode")
+
+                    connection.disconnect()
+                }
+
+                // Aggiorna i dati dopo aver inviato il comando
+                refreshTimerData(false)
+
+            } catch (e: Exception) {
+                Log.e("DashboardActivity", "Errore nell'invio del comando floorman_handled: ${e.message}")
+            }
+        }
+    }
+
+    private fun showFloormanNotification(tableNumber: Int) {
+        val title = "🚨 FLOORMAN RICHIESTO"
+        val content = "Tavolo $tableNumber richiede l'intervento del floorman"
+
+        try {
+            // Intent principale
+            val intent = Intent(this, DashboardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("table_number", tableNumber)
+                putExtra("floorman_call", true)
+                putExtra("server_url", serverUrl)
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                2000 + tableNumber, // Offset per evitare conflitti con altre notifiche
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            // Costruisci la notifica con priorità massima
+            val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_timer)  // Usa un'icona esistente per ora
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setFullScreenIntent(pendingIntent, true)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500)) // Pattern vibrazione urgente
+
+            // Stile espandibile
+            val bigTextStyle = NotificationCompat.BigTextStyle()
+                .bigText("Il tavolo $tableNumber richiede urgentemente l'intervento del floorman.\nTocca per visualizzare i dettagli.")
+                .setBigContentTitle("🚨 RICHIESTA FLOORMAN URGENTE")
+                .setSummaryText("Intervento richiesto")
+
+            builder.setStyle(bigTextStyle)
+
+            // Verifica permessi
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ActivityCompat.checkSelfPermission(
+                        this@DashboardActivity,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    Log.e("DashboardActivity", "Permesso notifiche mancante!")
+                    return
+                }
+            }
+
+            // Mostra la notifica
+            val notificationManager = NotificationManagerCompat.from(this)
+            notificationManager.notify(3000 + tableNumber, builder.build())
+
+            Log.d("DashboardActivity", "Notifica floorman mostrata per tavolo $tableNumber")
+
+            // Riproduci un suono di allarme aggiuntivo (opzionale)
+            // playAlarmSound() // Decommentare se vuoi il suono di allarme
+
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore durante l'invio della notifica floorman", e)
+        }
+    }
+
+    private fun playAlarmSound() {
+        try {
+            val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
+            ringtone.play()
+
+            // Ferma il suono dopo 3 secondi
+            Handler(Looper.getMainLooper()).postDelayed({
+                ringtone.stop()
+            }, 3000)
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore nella riproduzione del suono di allarme", e)
+        }
+    }
+
     private fun showTestNotification() {
         try {
             val title = "Test Notifica"
@@ -452,6 +769,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     return@launch
                 }
 
+                // AGGIUNGI: Controlla anche le richieste bar pendenti
+                checkForPendingBarRequests()
+
                 try {
                     // Tenta di analizzare la risposta come JSON
                     val jsonResponse = JSONObject(result)
@@ -545,6 +865,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
                     // Applica il filtro corrente e aggiorna la UI
                     updateFilteredList()
+                    checkForFloormanCalls()
 
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -564,6 +885,46 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
     }
+
+    /**
+     * Controlla se ci sono richieste bar pendenti e mostra notifiche
+     */
+    private fun checkForPendingBarRequests() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL("$serverUrl/api/bar_requests")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+
+                    // Usa org.json.JSONArray che è già importato
+                    val jsonArray = org.json.JSONArray(response)
+
+                    withContext(Dispatchers.Main) {
+                        for (i in 0 until jsonArray.length()) {
+                            val request = jsonArray.getJSONObject(i)
+                            val requestId = request.getString("id")
+                            val tableNumber = request.getInt("table_number")
+
+                            // Traccia le richieste già notificate
+                            if (!isRequestNotified(requestId)) {
+                                showBarServiceNotification(tableNumber, requestId)
+                                markRequestAsNotified(requestId)
+                            }
+                        }
+                    }
+                }
+                connection.disconnect()
+            } catch (e: Exception) {
+                Log.e("DashboardActivity", "Errore nel controllo richieste bar: ${e.message}")
+            }
+        }
+    }
+
 
     /**
      * Combina le informazioni sui posti esistenti con quelle nuove
@@ -1374,6 +1735,70 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+
+    /**
+     * Mostra una notifica per richiesta servizio bar
+     */
+    private fun showBarServiceNotification(tableNumber: Int, requestId: String) {
+        val title = "🍹 SERVIZIO BAR"
+        val content = "Il tavolo $tableNumber richiede il servizio bar"
+
+        try {
+            // Intent principale
+            val intent = Intent(this, DashboardActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("table_number", tableNumber)
+                putExtra("notification_type", "bar")
+                putExtra("request_id", requestId)
+                putExtra("server_url", serverUrl)
+            }
+
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                4000 + tableNumber, // ID unico per bar
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            // Costruisci la notifica
+            val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_timer)
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setFullScreenIntent(pendingIntent, true)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+
+            // Vibrazione personalizzata
+            val vibratePattern = longArrayOf(0, 300, 200, 300)
+            builder.setVibrate(vibratePattern)
+
+            // Verifica permessi
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ActivityCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    Log.e("DashboardActivity", "Permesso notifiche mancante!")
+                    return
+                }
+            }
+
+            // Mostra la notifica
+            val notificationManager = NotificationManagerCompat.from(this)
+            notificationManager.notify(5000 + tableNumber, builder.build())
+
+            Log.d("DashboardActivity", "Notifica servizio bar mostrata per tavolo $tableNumber")
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore mostrando notifica bar", e)
         }
     }
 

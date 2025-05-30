@@ -93,6 +93,13 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         // Inizializza il ViewModel
         viewModel = ViewModelProvider(this)[PokerTimerViewModel::class.java]
 
+        // Ottieni l'URL del server dall'intent se presente
+        val serverUrl = intent.getStringExtra("server_url")
+        if (!serverUrl.isNullOrEmpty()) {
+            // Se abbiamo un URL del server, connettiti automaticamente
+            connectToServerOnStartup(serverUrl)
+        }
+
         // Osserva i cambiamenti di stato del timer
         observeTimerState()
 
@@ -125,6 +132,39 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         }
     }
 
+    /**
+     * Connette automaticamente al server all'avvio se viene fornito un URL
+     */
+    private fun connectToServerOnStartup(serverUrl: String) {
+        Log.d("MainActivity", "Tentativo di connessione automatica al server: $serverUrl")
+
+        // Salva l'URL del server nelle impostazioni
+        val currentState = viewModel.timerState.value ?: return
+
+        // Test la connessione
+        viewModel.testServerConnection(serverUrl) { success ->
+            runOnUiThread {
+                if (success) {
+                    Log.d("MainActivity", "Connessione automatica riuscita")
+                    Toast.makeText(this, "Connesso al server", Toast.LENGTH_SHORT).show()
+
+                    // Salva le impostazioni con il nuovo URL
+                    viewModel.saveSettings(
+                        timerT1 = currentState.timerT1,
+                        timerT2 = currentState.timerT2,
+                        operationMode = currentState.operationMode,
+                        buzzerEnabled = currentState.buzzerEnabled,
+                        tableNumber = currentState.tableNumber,
+                        serverUrl = serverUrl,
+                        playersCount = currentState.playersCount
+                    )
+                } else {
+                    Log.e("MainActivity", "Connessione automatica fallita")
+                    Toast.makeText(this, "Impossibile connettersi al server", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     /**
      * Chiama il floorman inviando una notifica al server
@@ -138,15 +178,37 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             return
         }
 
-        // Mostra dialogo di conferma
-        AlertDialog.Builder(this)
-            .setTitle("Chiamata Floorman")
-            .setMessage("Vuoi chiamare il floorman al tavolo ${currentState.tableNumber}?")
-            .setPositiveButton("Chiama") { _, _ ->
-                sendFloormanRequest()
-            }
-            .setNegativeButton("Annulla", null)
-            .show()
+        // Crea il dialog personalizzato
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_floorman)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Imposta le dimensioni del dialogo
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        dialog.window?.attributes = layoutParams
+
+        // Aggiorna il messaggio con il numero del tavolo
+        val messageText = dialog.findViewById<TextView>(R.id.floorman_message)
+        messageText.text = "Vuoi chiamare il floorman al tavolo ${currentState.tableNumber}?"
+
+        // Configura i pulsanti
+        val cancelButton = dialog.findViewById<Button>(R.id.floorman_cancel_button)
+        val callButton = dialog.findViewById<Button>(R.id.floorman_call_button)
+
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        callButton.setOnClickListener {
+            dialog.dismiss()
+            sendFloormanRequest()
+        }
+
+        dialog.show()
     }
 
     /**
@@ -156,43 +218,80 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val currentState = viewModel.timerState.value ?: return
         val serverUrl = currentState.serverUrl
 
+        // Mostra un dialogo di progresso
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Invio richiesta in corso...")
+            setCancelable(false)
+            show()
+        }
+
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                val url = URL("$serverUrl/api/floorman_request")
-                withContext(Dispatchers.IO) {
-                    val connection = url.openConnection() as HttpURLConnection
-                    connection.requestMethod = "POST"
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                val success = withContext(Dispatchers.IO) {
+                    try {
+                        val url = URL("$serverUrl/api/floorman_request")
+                        val connection = url.openConnection() as HttpURLConnection
+                        connection.requestMethod = "POST"
+                        connection.doOutput = true
+                        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                        connection.connectTimeout = 5000
+                        connection.readTimeout = 5000
 
-                    val jsonPayload = """
+                        // IMPORTANTE: Il server si aspetta timestamp come numero, non stringa
+                        val jsonPayload = """
                         {
                             "table_number": ${currentState.tableNumber},
-                            "timestamp": "${System.currentTimeMillis()}"
+                            "timestamp": ${System.currentTimeMillis()}
                         }
                     """.trimIndent()
 
-                    val outputStream = connection.outputStream
-                    outputStream.write(jsonPayload.toByteArray())
-                    outputStream.close()
+                        Log.d("MainActivity", "Invio richiesta floorman: $jsonPayload")
 
-                    val responseCode = connection.responseCode
-                    if (responseCode == HttpURLConnection.HTTP_OK) {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Floorman chiamato con successo", Toast.LENGTH_SHORT).show()
+                        val outputStream = connection.outputStream
+                        outputStream.write(jsonPayload.toByteArray())
+                        outputStream.close()
 
-                            // Effetto visivo sul bottone
-                            animateButton(binding.btnCallFloorman)
+                        val responseCode = connection.responseCode
+                        Log.d("MainActivity", "Response code floorman: $responseCode")
+
+                        // Leggi la risposta per debug
+                        if (responseCode == HttpURLConnection.HTTP_OK) {
+                            val inputStream = connection.inputStream
+                            val response = inputStream.bufferedReader().use { it.readText() }
+                            Log.d("MainActivity", "Response body floorman: $response")
                         }
-                    } else {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Errore nella chiamata al floorman", Toast.LENGTH_SHORT).show()
-                        }
+
+                        connection.disconnect()
+
+                        responseCode == HttpURLConnection.HTTP_OK
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Errore chiamata floorman: ${e.message}", e)
+                        false
                     }
-                    connection.disconnect()
+                }
+
+                progressDialog.dismiss()
+
+                if (success) {
+                    Toast.makeText(this@MainActivity, "Floorman chiamato con successo", Toast.LENGTH_SHORT).show()
+
+                    // Effetto visivo sul bottone
+                    animateButton(binding.btnCallFloorman)
+
+                    // Vibrazione di conferma
+                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(200)
+                    }
+                } else {
+                    Toast.makeText(this@MainActivity, "Errore nella chiamata al floorman", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Errore chiamata floorman: ${e.message}")
+                progressDialog.dismiss()
+                Log.e("MainActivity", "Errore chiamata floorman: ${e.message}", e)
                 Toast.makeText(this@MainActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -210,15 +309,37 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             return
         }
 
-        // Mostra dialogo di conferma
-        AlertDialog.Builder(this)
-            .setTitle("Servizio Bar")
-            .setMessage("Vuoi richiedere il servizio bar al tavolo ${currentState.tableNumber}?")
-            .setPositiveButton("Richiedi") { _, _ ->
-                sendBarServiceRequest()
-            }
-            .setNegativeButton("Annulla", null)
-            .show()
+        // Crea il dialog personalizzato
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_bar_service)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Imposta le dimensioni del dialogo
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
+        layoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+        dialog.window?.attributes = layoutParams
+
+        // Aggiorna il messaggio con il numero del tavolo
+        val messageText = dialog.findViewById<TextView>(R.id.bar_service_message)
+        messageText.text = "Vuoi richiedere il servizio bar al tavolo ${currentState.tableNumber}?"
+
+        // Configura i pulsanti
+        val cancelButton = dialog.findViewById<Button>(R.id.bar_cancel_button)
+        val requestButton = dialog.findViewById<Button>(R.id.bar_request_button)
+
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        requestButton.setOnClickListener {
+            dialog.dismiss()
+            sendBarServiceRequest()
+        }
+
+        dialog.show()
     }
 
     /**
@@ -228,43 +349,80 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val currentState = viewModel.timerState.value ?: return
         val serverUrl = currentState.serverUrl
 
+        // Mostra un dialogo di progresso
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Invio richiesta in corso...")
+            setCancelable(false)
+            show()
+        }
+
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                val url = URL("$serverUrl/api/bar_service_request")
-                withContext(Dispatchers.IO) {
-                    val connection = url.openConnection() as HttpURLConnection
-                    connection.requestMethod = "POST"
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                val success = withContext(Dispatchers.IO) {
+                    try {
+                        val url = URL("$serverUrl/api/bar_service_request")
+                        val connection = url.openConnection() as HttpURLConnection
+                        connection.requestMethod = "POST"
+                        connection.doOutput = true
+                        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                        connection.connectTimeout = 5000
+                        connection.readTimeout = 5000
 
-                    val jsonPayload = """
+                        // IMPORTANTE: Il server si aspetta timestamp come numero, non stringa
+                        val jsonPayload = """
                         {
                             "table_number": ${currentState.tableNumber},
-                            "timestamp": "${System.currentTimeMillis()}"
+                            "timestamp": ${System.currentTimeMillis()}
                         }
                     """.trimIndent()
 
-                    val outputStream = connection.outputStream
-                    outputStream.write(jsonPayload.toByteArray())
-                    outputStream.close()
+                        Log.d("MainActivity", "Invio richiesta bar service: $jsonPayload")
 
-                    val responseCode = connection.responseCode
-                    if (responseCode == HttpURLConnection.HTTP_OK) {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Servizio bar richiesto con successo", Toast.LENGTH_SHORT).show()
+                        val outputStream = connection.outputStream
+                        outputStream.write(jsonPayload.toByteArray())
+                        outputStream.close()
 
-                            // Effetto visivo sul bottone
-                            animateButton(binding.btnBarService)
+                        val responseCode = connection.responseCode
+                        Log.d("MainActivity", "Response code bar service: $responseCode")
+
+                        // Leggi la risposta per debug
+                        if (responseCode == HttpURLConnection.HTTP_OK) {
+                            val inputStream = connection.inputStream
+                            val response = inputStream.bufferedReader().use { it.readText() }
+                            Log.d("MainActivity", "Response body bar service: $response")
                         }
-                    } else {
-                        runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Errore nella richiesta servizio bar", Toast.LENGTH_SHORT).show()
-                        }
+
+                        connection.disconnect()
+
+                        responseCode == HttpURLConnection.HTTP_OK
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Errore richiesta servizio bar: ${e.message}", e)
+                        false
                     }
-                    connection.disconnect()
+                }
+
+                progressDialog.dismiss()
+
+                if (success) {
+                    Toast.makeText(this@MainActivity, "Servizio bar richiesto con successo", Toast.LENGTH_SHORT).show()
+
+                    // Effetto visivo sul bottone
+                    animateButton(binding.btnBarService)
+
+                    // Vibrazione di conferma
+                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(200)
+                    }
+                } else {
+                    Toast.makeText(this@MainActivity, "Errore nella richiesta servizio bar", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Errore richiesta servizio bar: ${e.message}")
+                progressDialog.dismiss()
+                Log.e("MainActivity", "Errore richiesta servizio bar: ${e.message}", e)
                 Toast.makeText(this@MainActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -661,21 +819,9 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val decreasePlayersButton = dialogView.findViewById<Button>(R.id.btn_decrease_players)
         val increasePlayersButton = dialogView.findViewById<Button>(R.id.btn_increase_players)
 
-        // Server URL e pulsanti di connessione
-        val serverUrlInput = dialogView.findViewById<EditText>(R.id.et_server_url)
-        val connectButton = dialogView.findViewById<Button>(R.id.btn_connect)
-        val disconnectButton = dialogView.findViewById<Button>(R.id.btn_disconnect)
-
         // Pulsanti personalizzati
         val saveButton = dialogView.findViewById<Button>(R.id.custom_save_button)
         val cancelButton = dialogView.findViewById<Button>(R.id.custom_cancel_button)
-
-        // Header dello stato del server
-        val serverStatusHeader = dialogView.findViewById<TextView>(R.id.server_status_header)
-        updateServerStatusHeader(serverStatusHeader, currentState.isConnectedToServer)
-
-        // Riferimento al pulsante di discovery
-        val discoverButton = dialogView.findViewById<Button>(R.id.btn_discover_server)
 
         // Valori T1 e T2
         var t1Value = currentState.timerT1
@@ -685,9 +831,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
 
         // Stato buzzer
         buzzerSwitch.isChecked = currentState.buzzerEnabled
-
-        // Imposta l'URL del server nel campo di testo
-        serverUrlInput.setText(currentState.serverUrl)
 
         // Listener per i pulsanti di incremento/decremento di table_number
         decreaseTableButton.setOnClickListener {
@@ -749,74 +892,16 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }
 
-        // Listener per il pulsante Connetti
-        connectButton.setOnClickListener {
-            val serverUrl = serverUrlInput.text.toString()
-            if (serverUrl.isNotEmpty()) {
-                // Disabilita temporaneamente i pulsanti durante il test
-                connectButton.isEnabled = false
-                disconnectButton.isEnabled = false
-                connectButton.text = getString(R.string.testing)
-
-                // Log aggiunto
-                Log.d("MainActivity", "Avvio test connessione su URL: $serverUrl")
-
-                viewModel.testServerConnection(serverUrl) { success ->
-                    // Torna al thread principale
-                    runOnUiThread {
-                        // Log aggiunto
-                        Log.d("MainActivity", "Risultato test connessione: $success")
-
-                        // Aggiorna i pulsanti in base al risultato
-                        updateConnectionButtonsState(disconnectButton, connectButton, success)
-
-                        // Mostra il risultato del test
-                        val message = if (success) R.string.connection_success else R.string.connection_failed
-                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-
-                        // Se la connessione è riuscita, aggiorna lo stato
-                        if (success) {
-                            // Log aggiunto
-                            Log.d("MainActivity", "Aggiornamento stato connessione a true")
-
-                            // Aggiorna l'header dello stato
-                            updateServerStatusHeader(serverStatusHeader, true)
-                        }
-                    }
-                }
-            } else {
-                Toast.makeText(this, R.string.enter_server_url, Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // Listener per il pulsante Disconnetti
-        disconnectButton.setOnClickListener {
-            // Aggiorna lo stato di connessione nel ViewModel
-            viewModel.stopServerPolling()
-
-            // Aggiorna i pulsanti e l'header
-            updateConnectionButtonsState(disconnectButton, connectButton, false)
-            updateServerStatusHeader(serverStatusHeader, false)
-
-            // Mostra un messaggio di conferma
-            Toast.makeText(this, "Disconnesso dal server", Toast.LENGTH_SHORT).show()
-        }
-
-        // Listener per il pulsante di discovery
-        discoverButton.setOnClickListener {
-            discoverServers(serverUrlInput)
-        }
-
         // Listener per il pulsante Salva
         saveButton.setOnClickListener {
-            // Salva le impostazioni usando sempre la modalità 1 (l'unica disponibile ora)
+            // Salva le impostazioni mantenendo l'URL del server corrente
             viewModel.saveSettings(
                 timerT1 = t1Value,
                 timerT2 = t2Value,
                 operationMode = 1, // Manteniamo solo la modalità 1
                 buzzerEnabled = buzzerSwitch.isChecked,
                 tableNumber = tableNumber,
-                serverUrl = serverUrlInput.text.toString(),
+                serverUrl = currentState.serverUrl, // Mantieni l'URL corrente
                 playersCount = playersCount
             )
             dialog.dismiss()
@@ -827,35 +912,10 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             dialog.dismiss()
         }
 
-        // Osserva cambiamenti nello stato del timer mentre il dialogo è aperto
-        val serverStatusObserver = Observer<PokerTimerState> { state ->
-            // Aggiorna lo stato del server quando cambia
-            updateServerStatusHeader(serverStatusHeader, state.isConnectedToServer)
-            updateConnectionButtonsState(disconnectButton, connectButton, state.isConnectedToServer)
-        }
-
-        // Registra l'observer
-        viewModel.timerState.observe(this, serverStatusObserver)
-
-        // Rimuovi l'observer quando il dialogo si chiude
-        dialog.setOnDismissListener {
-            viewModel.timerState.removeObserver(serverStatusObserver)
-        }
-
         // Mostra il dialogo
         dialog.show()
     }
 
-
-    private fun updateServerStatusHeader(headerView: TextView, isConnected: Boolean) {
-        if (isConnected) {
-            headerView.text = "Server: Connesso"
-            headerView.setTextColor(getColor(R.color.status_color))
-        } else {
-            headerView.text = "Server: Disconnesso"
-            headerView.setTextColor(getColor(R.color.error_color))
-        }
-    }
 
     /**
      * Seleziona/deseleziona un posto giocatore
@@ -956,43 +1016,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }
     }
-    /**
-     * Aggiorna lo stato dei pulsanti di connessione in base allo stato attuale
-     */
-    private fun updateConnectionButtonsState(disconnectButton: Button, connectButton: Button, isConnected: Boolean) {
-        if (isConnected) {
-            // Se connesso:
-            // 1. Abilita il pulsante Disconnetti
-            disconnectButton.isEnabled = true
-
-            // 2. Modifica l'aspetto del pulsante Connetti per sembrare premuto:
-            // - Cambia il testo
-            connectButton.text = "Connesso"
-            // - Disabilitalo per evitare interazioni
-            connectButton.isEnabled = false
-            // - Cambia il colore di sfondo a un colore più scuro per sembrare premuto
-            connectButton.backgroundTintList = ContextCompat.getColorStateList(connectButton.context, R.color.primary_dark_color)
-            // - Aggiunge una leggera elevazione "interna" (valore negativo)
-            connectButton.elevation = 0f
-            // - Opzionalmente, aggiungi un'icona di spunta accanto al testo
-            connectButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_check, 0, 0, 0)
-            connectButton.compoundDrawablePadding = 8
-        } else {
-            // Se disconnesso:
-            // 1. Disabilita il pulsante Disconnetti
-            disconnectButton.isEnabled = false
-
-            // 2. Ripristina l'aspetto normale del pulsante Connetti:
-            connectButton.text = "Connetti"
-            connectButton.isEnabled = true
-            // - Ripristina il colore di sfondo originale
-            connectButton.backgroundTintList = ContextCompat.getColorStateList(connectButton.context, R.color.status_color)
-            // - Ripristina l'elevazione normale
-            connectButton.elevation = 4f
-            // - Rimuovi icone
-            connectButton.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
-        }
-    }
 
     /**
      * Invia una richiesta di posti liberi al server
@@ -1035,131 +1058,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }
     }
-    /**
-     * Cerca server disponibili sulla rete locale tramite UDP broadcast
-     */
-    private fun discoverServers(serverUrlField: EditText) {
-        // Mostra un indicatore di progresso
-        val progressDialog = ProgressDialog(this).apply {
-            setMessage("Ricerca server in corso...")
-            setCancelable(false)
-            show()
-        }
 
-        Thread {
-            try {
-                // Crea un socket per il broadcast
-                val socket = DatagramSocket()
-                socket.broadcast = true
 
-                // Crea il messaggio di discovery
-                val message = "POKER_TIMER_DISCOVERY".toByteArray()
-                val packet = DatagramPacket(
-                    message,
-                    message.size,
-                    InetAddress.getByName("255.255.255.255"),
-                    DISCOVERY_PORT
-                )
-
-                Log.d(TAG, "Sending discovery broadcasts")
-
-                // Invia più pacchetti di broadcast per aumentare le possibilità di successo
-                // Invia 3 pacchetti con un intervallo di 300ms tra l'uno e l'altro
-                for (i in 0 until 3) {
-                    // Invia il broadcast
-                    socket.send(packet)
-                    Log.d(TAG, "Sent discovery broadcast #${i+1}")
-
-                    // Breve pausa tra i pacchetti
-                    if (i < 2) { // Non dormiamo dopo l'ultimo pacchetto
-                        Thread.sleep(300)
-                    }
-                }
-
-                // Prepara per ricevere le risposte
-                val buffer = ByteArray(1024)
-                val responsePacket = DatagramPacket(buffer, buffer.size)
-
-                // Imposta un timeout
-                socket.soTimeout = DISCOVERY_TIMEOUT_MS
-
-                // Lista dei server trovati
-                val discoveredServers = mutableListOf<String>()
-
-                try {
-                    // Ricezione delle risposte fino al timeout
-                    while (true) {
-                        socket.receive(responsePacket)
-                        val serverResponse = String(responsePacket.data, 0, responsePacket.length)
-                        val serverIp = responsePacket.address.hostAddress
-
-                        Log.d(TAG, "Received response: '$serverResponse' from $serverIp")
-
-                        // Verifica la risposta
-                        if (serverResponse.trim() == "POKER_TIMER_SERVER") {
-                            // Aggiunge l'indirizzo IP e la porta del server Express
-                            val serverUrl = "http://$serverIp:3000"
-                            Log.d(TAG, "Found server: $serverUrl")
-
-                            // Aggiunge il server alla lista se non è già presente
-                            if (!discoveredServers.contains(serverUrl)) {
-                                discoveredServers.add(serverUrl)
-                            }
-                        }
-                    }
-                } catch (e: SocketTimeoutException) {
-                    // Timeout raggiunto, abbiamo finito la discovery
-                    Log.d(TAG, "Discovery timeout reached after ${DISCOVERY_TIMEOUT_MS}ms")
-                }
-
-                // Chiudi il socket
-                socket.close()
-
-                // Aggiorna l'UI sul thread principale
-                runOnUiThread {
-                    progressDialog.dismiss()
-
-                    if (discoveredServers.isEmpty()) {
-                        Toast.makeText(this, "Nessun server trovato", Toast.LENGTH_SHORT).show()
-                    } else {
-                        showDiscoveredServers(discoveredServers, serverUrlField)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during server discovery", e)
-
-                runOnUiThread {
-                    progressDialog.dismiss()
-                    Toast.makeText(
-                        this,
-                        "Errore durante la ricerca: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }.start()
-    }
-    /**
-     * Mostra un dialogo con i server scoperti
-     */
-    private fun showDiscoveredServers(servers: List<String>, serverUrlField: EditText) {
-        if (servers.size == 1) {
-            // Se è stato trovato un solo server, selezionalo automaticamente
-            val serverUrl = servers[0]
-            serverUrlField.setText(serverUrl)
-            Toast.makeText(this, "Server trovato: $serverUrl", Toast.LENGTH_SHORT).show()
-        } else {
-            // Mostra una lista di selezione
-            val builder = AlertDialog.Builder(this)
-            builder.setTitle("Server trovati")
-
-            builder.setItems(servers.toTypedArray()) { _, which ->
-                val selectedServer = servers[which]
-                serverUrlField.setText(selectedServer)
-            }
-
-            builder.setNegativeButton("Annulla", null)
-            builder.show()
-        }
-    }
 }

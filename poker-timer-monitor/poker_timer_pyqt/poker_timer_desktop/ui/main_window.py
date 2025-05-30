@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Finestra principale dell'applicazione Poker Timer
+Finestra principale dell'applicazione Poker Timer con correzioni per floorman
 """
 
 import sys
@@ -23,6 +23,58 @@ from PyQt6.QtGui import QFont, QIcon, QAction
 from .timer_card import TimerCard
 from .notifications import NotificationManager
 from server import PokerTimerServer
+
+class FloormanCallDialog(QDialog):
+    """Dialog personalizzato per la chiamata floorman con dimensioni corrette"""
+    def __init__(self, table_number, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowTitle("Chiamata Floorman Attiva")
+        self.setModal(True)
+        
+        # Imposta dimensione fissa più piccola
+        self.setFixedSize(350, 200)
+        
+        # Layout principale
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        # Icona e testo
+        icon_label = QLabel("⚠️")
+        icon_label.setStyleSheet("font-size: 48px;")
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(icon_label)
+        
+        # Messaggio
+        message = QLabel(f"Floorman richiesto al tavolo {table_number}")
+        message.setStyleSheet("font-size: 16px; font-weight: bold;")
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        message.setWordWrap(True)
+        layout.addWidget(message)
+        
+        # Spazio flessibile
+        layout.addStretch()
+        
+        # Pulsante Gestita
+        gestita_btn = QPushButton("Gestita")
+        gestita_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2e7d32;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 10px 30px;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #388e3c;
+            }
+        """)
+        gestita_btn.clicked.connect(self.accept)
+        gestita_btn.setFixedHeight(50)
+        layout.addWidget(gestita_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
 class ServerSettingsDialog(QDialog):
     """Dialog per le impostazioni del server"""
@@ -130,6 +182,9 @@ class MainWindow(QMainWindow):
         # Dizionario per memorizzare i riferimenti alle card
         self.timer_cards = {}
         
+        # Dizionario per memorizzare le chiamate floorman attive
+        self.active_floorman_calls = {}
+        
         # Gestore notifiche
         self.notification_manager = NotificationManager()
         
@@ -137,6 +192,8 @@ class MainWindow(QMainWindow):
         self.server.timer_updated.connect(self.on_timer_updated)
         self.server.timer_connected.connect(self.on_timer_connected)
         self.server.seat_notification.connect(self.on_seat_notification)
+        self.server.floorman_notification.connect(self.on_floorman_notification)
+        self.server.bar_service_notification.connect(self.on_bar_service_notification)
         
         # Lock per evitare aggiornamenti concorrenti
         self.update_lock = threading.Lock()
@@ -413,6 +470,8 @@ class MainWindow(QMainWindow):
             self.server.timer_updated.connect(self.on_timer_updated)
             self.server.timer_connected.connect(self.on_timer_connected)
             self.server.seat_notification.connect(self.on_seat_notification)
+            self.server.floorman_notification.connect(self.on_floorman_notification)
+            self.server.bar_service_notification.connect(self.on_bar_service_notification)
             
             # Avvia il server
             self.server.start()
@@ -794,6 +853,65 @@ class MainWindow(QMainWindow):
                 play_repeat_sound=True  # Abilita la riproduzione periodica del suono
             )
             print(f"Nuova notifica creata per tavolo {table_number} con posti {seats_str}")
+    
+    @pyqtSlot(int)
+    def on_floorman_notification(self, table_number):
+        """Gestisce il segnale di chiamata floorman"""
+        # Verifica se c'è già una chiamata attiva per questo tavolo
+        if table_number in self.active_floorman_calls:
+            print(f"Chiamata floorman già attiva per il tavolo {table_number}")
+            return
+        
+        # IMPORTANTE: Mostra sempre la notifica toast
+        self.notification_manager.show_notification(
+            f"⚠️ Chiamata Floorman",
+            f"Floorman richiesto al tavolo {table_number}",
+            "warning",
+            play_sound=True,
+            duration=10000  # 10 secondi
+        )
+        
+        # Trova la card del timer e attiva l'icona floorman
+        for device_id, timer_data in self.server.timers.items():
+            if timer_data.get('table_number') == table_number:
+                if device_id in self.timer_cards:
+                    card = self.timer_cards[device_id]
+                    card.set_floorman_active(True)
+                    self.active_floorman_calls[table_number] = device_id
+                    
+                    # Connetti il segnale per quando viene gestita (usa lambda con parametro di default)
+                    try:
+                        # Disconnetti eventuali connessioni precedenti per evitare duplicati
+                        card.floorman_handled.disconnect()
+                    except:
+                        pass  # Nessuna connessione precedente
+                    
+                    # Connetti il nuovo segnale
+                    card.floorman_handled.connect(lambda dev_id, t_num=table_number: self.on_floorman_handled(t_num))
+                    print(f"Attivata icona floorman per tavolo {table_number}")
+                else:
+                    print(f"Card non trovata per device_id {device_id}")
+                break
+        else:
+            print(f"Nessun timer trovato per tavolo {table_number}")
+
+    def on_floorman_handled(self, table_number):
+        """Gestisce quando una chiamata floorman viene marcata come gestita"""
+        if table_number in self.active_floorman_calls:
+            del self.active_floorman_calls[table_number]
+            print(f"Chiamata floorman per tavolo {table_number} gestita")
+    
+    @pyqtSlot(int)
+    def on_bar_service_notification(self, table_number):
+        """Gestisce il segnale di richiesta servizio bar"""
+        # Mostra notifica
+        self.notification_manager.show_notification(
+            f"Servizio Bar",
+            f"Richiesta servizio bar dal tavolo {table_number}",
+            "info",
+            play_sound=True,
+            duration=8000  # 8 secondi
+        )
     
     def closeEvent(self, event):
         """Gestisce l'evento di chiusura della finestra"""

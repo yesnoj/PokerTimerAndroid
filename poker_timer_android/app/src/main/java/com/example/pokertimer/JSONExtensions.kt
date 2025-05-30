@@ -149,16 +149,45 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 seatOpenInfo = null
             }
 
-            // Verifica se dobbiamo forzare i dati per il tavolo 2 (solo per debug)
-            // Rimuovi questa parte in produzione
-            if (tableNumber == 2 && seatOpenInfo == null && !seatOpenInfoIsReset) {
-                // Non forzare più il valore per tavolo 2 se era già stato resettato
-                // seatOpenInfo = "1, 2, 3" // Forza i posti come nel log
-                // android.util.Log.d("JSONExtensions", "Forcing seat info for table 2: $seatOpenInfo")
+            // Gestione delle richieste floorman
+            var floormanRequest: FloormanRequest? = null
+            if (timerJson.has("floorman_request") && !timerJson.isNull("floorman_request")) {
+                val floormanObj = timerJson.getJSONObject("floorman_request")
+                floormanRequest = FloormanRequest(
+                    active = floormanObj.optBoolean("active", false),
+                    timestamp = floormanObj.optString("timestamp", ""),
+                    tableNumber = floormanObj.optInt("table_number", 0)
+                )
+                android.util.Log.d("JSONExtensions", "Found floorman request for timer $deviceId: active=${floormanRequest.active}")
+            }
+
+            // Gestione delle richieste bar (se implementate lato server)
+            var barRequest: BarRequestInfo? = null
+            if (timerJson.has("bar_request") && !timerJson.isNull("bar_request")) {
+                val barObj = timerJson.getJSONObject("bar_request")
+                barRequest = BarRequestInfo(
+                    active = barObj.optBoolean("active", false),
+                    timestamp = barObj.optString("timestamp", ""),
+                    tableNumber = barObj.optInt("table_number", 0),
+                    requestId = barObj.optString("request_id", "")
+                )
+                android.util.Log.d("JSONExtensions", "Found bar request for timer $deviceId: active=${barRequest.active}")
+            }
+
+            var floormanCallTimestamp: Long? = null
+            if (timerJson.has("floorman_call_timestamp") && !timerJson.isNull("floorman_call_timestamp")) {
+                floormanCallTimestamp = timerJson.optLong("floorman_call_timestamp")
+                android.util.Log.d("JSONExtensions", "Found floorman call timestamp: $floormanCallTimestamp for timer $deviceId")
+            }
+
+            // Gestione del timestamp della richiesta bar
+            var barServiceTimestamp: Long? = null
+            if (timerJson.has("bar_service_timestamp") && !timerJson.isNull("bar_service_timestamp")) {
+                barServiceTimestamp = timerJson.optLong("bar_service_timestamp")
+                android.util.Log.d("JSONExtensions", "Found bar service timestamp: $barServiceTimestamp for timer $deviceId")
             }
 
             // Crea un oggetto TimerItem e aggiungilo alla lista
-
             android.util.Log.d("JSONExtensions", "Creating TimerItem with playersCount=${playersCount}")
 
             val timerItem = TimerItem(
@@ -179,12 +208,24 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 buzzerEnabled = buzzerEnabled,
                 pendingCommand = pendingCommand,
                 seatOpenInfo = seatOpenInfo,
-                playersCount = playersCount
+                playersCount = playersCount,
+                floormanCallTimestamp = floormanCallTimestamp,
+                barServiceTimestamp = barServiceTimestamp
             )
 
             // Log per debug se ci sono informazioni sui posti
             if (timerItem.hasSeatOpenInfo()) {
                 android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) has seat info: ${timerItem.getFormattedSeatInfo()}")
+            }
+
+            // Log per debug se ci sono richieste floorman
+            if (timerItem.hasActiveFloormanCall()) {
+                android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) has active floorman request")
+            }
+
+            // Log per debug se ci sono richieste bar
+            if (timerItem.hasActiveBarRequest()) {
+                android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) has active bar request")
             }
 
             timerList.add(timerItem)

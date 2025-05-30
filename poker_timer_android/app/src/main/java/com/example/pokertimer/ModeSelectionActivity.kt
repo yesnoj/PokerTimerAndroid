@@ -10,8 +10,6 @@ import androidx.cardview.widget.CardView
 import android.view.WindowManager
 import android.graphics.Color
 
-
-
 class ModeSelectionActivity : AppCompatActivity() {
 
     companion object {
@@ -22,7 +20,6 @@ class ModeSelectionActivity : AppCompatActivity() {
         private const val MODE_BAR = "bar"
     }
 
-    // Nel metodo onCreate di ModeSelectionActivity
     override fun onCreate(savedInstanceState: Bundle?) {
         // Nascondi la barra di stato (notifiche)
         window.setFlags(
@@ -55,9 +52,8 @@ class ModeSelectionActivity : AppCompatActivity() {
             // Salva la scelta
             saveLastMode(MODE_TIMER)
 
-            // Avvia la MainActivity (Timer)
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
+            // Avvia la ServerUrlActivity in modalità timer
+            launchTimerMode()
         }
 
         // Imposta listener per il pulsante Dashboard
@@ -116,8 +112,7 @@ class ModeSelectionActivity : AppCompatActivity() {
 
         /*
         if (lastMode == MODE_TIMER) {
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
+            launchTimerMode()
             finish()
         } else if (lastMode == MODE_DASHBOARD) {
             launchDashboardMode()
@@ -127,6 +122,18 @@ class ModeSelectionActivity : AppCompatActivity() {
             finish()
         }
         */
+    }
+
+    /**
+     * Avvia la modalità timer
+     */
+    private fun launchTimerMode() {
+        // Avvia l'activity per inserire l'URL del server, ma con modalità timer
+        val intent = Intent(this, ServerUrlActivity::class.java)
+        intent.putExtra("mode", "timer")
+
+        android.util.Log.d("ModeSelectionActivity", "Starting ServerUrlActivity with mode: timer")
+        startActivity(intent)
     }
 
     /**

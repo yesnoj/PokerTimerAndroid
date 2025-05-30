@@ -41,6 +41,17 @@
                 android:src="@drawable/ic_android"
                 android:visibility="visible"
                 android:contentDescription="Tipo dispositivo" />
+
+            <!-- Icona Alert Floorman -->
+            <ImageView
+                android:id="@+id/floormanAlertIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_alert"
+                android:contentDescription="Chiamata floorman attiva"
+                android:visibility="gone"
+                app:tint="@color/colorAlert" />
         </LinearLayout>
 
         <TextView

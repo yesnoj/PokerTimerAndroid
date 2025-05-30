@@ -71,6 +71,10 @@ class ServerUrlActivity : AppCompatActivity() {
 
         if (titleText != null && subtitleText != null) {
             when (mode) {
+                "timer" -> {
+                    titleText.text = "Configura Server - Timer"
+                    subtitleText.text = "Inserisci l'indirizzo del server per sincronizzare il timer con la rete"
+                }
                 "bar" -> {
                     titleText.text = "Configura Server - Bar"
                     subtitleText.text = "Inserisci l'indirizzo del server per accedere alla gestione delle richieste bar"
@@ -127,22 +131,31 @@ class ServerUrlActivity : AppCompatActivity() {
             disconnectButton.isEnabled = true
             connectButton.isEnabled = true
             connectButton.text = when (mode) {
+                "timer" -> "Vai al Timer"
                 "bar" -> "Vai alla gestione Bar"
                 else -> "Vai alla Dashboard"
             }
             connectButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_color)))
             connectButton.setTextColor(Color.WHITE)
 
-            // Configura il pulsante per andare alla dashboard o bar
+            // Configura il pulsante per andare all'activity corretta
             connectButton.setOnClickListener {
-                if (mode == "bar") {
-                    val intent = Intent(this, BarActivity::class.java)
-                    intent.putExtra("server_url", serverUrlInput.text.toString())
-                    startActivity(intent)
-                } else {
-                    val intent = Intent(this, DashboardActivity::class.java)
-                    intent.putExtra("server_url", serverUrlInput.text.toString())
-                    startActivity(intent)
+                when (mode) {
+                    "timer" -> {
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
+                    "bar" -> {
+                        val intent = Intent(this, BarActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
+                    else -> {
+                        val intent = Intent(this, DashboardActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
                 }
             }
         } else {
@@ -165,18 +178,26 @@ class ServerUrlActivity : AppCompatActivity() {
         // Aggiorna lo stato dei pulsanti
         updateConnectionButtonsState(isConnected)
 
-        // Se è connesso, configura il pulsante Connect per andare alla dashboard/bar
+        // Se è connesso, configura il pulsante Connect per andare all'activity corretta
         if (isConnected) {
             connectButton.setOnClickListener {
                 // Avvia l'activity corretta in base alla modalità
-                if (mode == "bar") {
-                    val intent = Intent(this, BarActivity::class.java)
-                    intent.putExtra("server_url", serverUrlInput.text.toString())
-                    startActivity(intent)
-                } else {
-                    val intent = Intent(this, DashboardActivity::class.java)
-                    intent.putExtra("server_url", serverUrlInput.text.toString())
-                    startActivity(intent)
+                when (mode) {
+                    "timer" -> {
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
+                    "bar" -> {
+                        val intent = Intent(this, BarActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
+                    else -> {
+                        val intent = Intent(this, DashboardActivity::class.java)
+                        intent.putExtra("server_url", serverUrlInput.text.toString())
+                        startActivity(intent)
+                    }
                 }
             }
         } else {
@@ -258,14 +279,22 @@ class ServerUrlActivity : AppCompatActivity() {
                         updateConnectionButtonsState(true)
 
                         // Avvia l'activity appropriata in base alla modalità
-                        if (mode == "bar") {
-                            val intent = Intent(this, BarActivity::class.java)
-                            intent.putExtra("server_url", serverUrl)
-                            startActivity(intent)
-                        } else {
-                            val intent = Intent(this, DashboardActivity::class.java)
-                            intent.putExtra("server_url", serverUrl)
-                            startActivity(intent)
+                        when (mode) {
+                            "timer" -> {
+                                val intent = Intent(this, MainActivity::class.java)
+                                intent.putExtra("server_url", serverUrl)
+                                startActivity(intent)
+                            }
+                            "bar" -> {
+                                val intent = Intent(this, BarActivity::class.java)
+                                intent.putExtra("server_url", serverUrl)
+                                startActivity(intent)
+                            }
+                            else -> {
+                                val intent = Intent(this, DashboardActivity::class.java)
+                                intent.putExtra("server_url", serverUrl)
+                                startActivity(intent)
+                            }
                         }
                     } else {
                         // Connessione fallita

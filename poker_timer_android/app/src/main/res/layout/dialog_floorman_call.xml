@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/colorPrimaryDark"
+    android:padding="24dp">
+
+    <!-- Titolo -->
+    <TextView
+        android:id="@+id/floorman_dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chiamata Floorman Attiva"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Messaggio -->
+    <TextView
+        android:id="@+id/floorman_dialog_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Il tavolo X ha una chiamata floorman attiva."
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Layout orizzontale per i bottoni -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btn_gestita"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="GESTITA"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/status_color"
+            android:padding="12dp" />
+
+        <Button
+            android:id="@+id/btn_chiudi"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:text="CHIUDI"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/primary_color"
+            android:padding="12dp" />
+    </LinearLayout>
+
+</LinearLayout>
