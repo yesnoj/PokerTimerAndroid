@@ -21,6 +21,8 @@ import java.net.URL
 import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.core.content.ContextCompat
+import android.view.WindowManager
+import android.widget.TextView
 
 class ServerUrlActivity : AppCompatActivity() {
 
@@ -38,17 +40,47 @@ class ServerUrlActivity : AppCompatActivity() {
     private lateinit var discoverButton: Button
     private lateinit var disconnectButton: Button
     private var isConnected = false
+    private var mode: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Nascondi la barra di stato (notifiche)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
+        // Nascondi l'action bar
+        supportActionBar?.hide()
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_server_url)
+
+        // Ottieni la modalità dall'intent
+        mode = intent.getStringExtra("mode")
 
         // Inizializza le viste
         serverUrlInput = findViewById(R.id.serverUrlInput)
         connectButton = findViewById(R.id.connectButton)
-        disconnectButton = findViewById(R.id.disconnectButton) // Nuovo pulsante Disconnetti
+        disconnectButton = findViewById(R.id.disconnectButton)
         discoverButton = findViewById(R.id.discoverButton)
         val backButton = findViewById<ImageView>(R.id.backButton)
+
+        // Personalizza il titolo in base alla modalità
+        val titleText = findViewById<TextView>(R.id.serverTitleText)
+        val subtitleText = findViewById<TextView>(R.id.serverSubtitleText)
+
+        if (titleText != null && subtitleText != null) {
+            when (mode) {
+                "bar" -> {
+                    titleText.text = "Configura Server - Bar"
+                    subtitleText.text = "Inserisci l'indirizzo del server per accedere alla gestione delle richieste bar"
+                }
+                else -> {
+                    titleText.text = "Configura Server - Dashboard"
+                    subtitleText.text = "Inserisci l'indirizzo del server per accedere alla dashboard di monitoraggio dei timer"
+                }
+            }
+        }
 
         // Carica l'URL salvato
         loadSavedServerUrl()
@@ -65,6 +97,7 @@ class ServerUrlActivity : AppCompatActivity() {
         // Imposta il listener per il pulsante di disconnessione
         disconnectButton.setOnClickListener { disconnectFromServer() }
     }
+
     /**
      * Disconnetti dal server
      */
@@ -86,9 +119,6 @@ class ServerUrlActivity : AppCompatActivity() {
     /**
      * Aggiorna lo stato dei pulsanti di connessione
      */
-    /**
-     * Aggiorna lo stato dei pulsanti di connessione
-     */
     private fun updateConnectionButtonsState(connected: Boolean) {
         isConnected = connected
 
@@ -96,15 +126,24 @@ class ServerUrlActivity : AppCompatActivity() {
             // Se connesso, abilita Disconnetti e modifica Connetti
             disconnectButton.isEnabled = true
             connectButton.isEnabled = true
-            connectButton.text = "Vai al server"
+            connectButton.text = when (mode) {
+                "bar" -> "Vai alla gestione Bar"
+                else -> "Vai alla Dashboard"
+            }
             connectButton.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_color)))
             connectButton.setTextColor(Color.WHITE)
 
-            // Configura il pulsante per andare alla dashboard
+            // Configura il pulsante per andare alla dashboard o bar
             connectButton.setOnClickListener {
-                val intent = Intent(this, DashboardActivity::class.java)
-                intent.putExtra("server_url", serverUrlInput.text.toString())
-                startActivity(intent)
+                if (mode == "bar") {
+                    val intent = Intent(this, BarActivity::class.java)
+                    intent.putExtra("server_url", serverUrlInput.text.toString())
+                    startActivity(intent)
+                } else {
+                    val intent = Intent(this, DashboardActivity::class.java)
+                    intent.putExtra("server_url", serverUrlInput.text.toString())
+                    startActivity(intent)
+                }
             }
         } else {
             // Se disconnesso, disabilita Disconnetti e ripristina Connetti
@@ -126,13 +165,19 @@ class ServerUrlActivity : AppCompatActivity() {
         // Aggiorna lo stato dei pulsanti
         updateConnectionButtonsState(isConnected)
 
-        // Se è connesso, configura il pulsante Connect per andare alla dashboard
+        // Se è connesso, configura il pulsante Connect per andare alla dashboard/bar
         if (isConnected) {
             connectButton.setOnClickListener {
-                // Avvia la DashboardActivity
-                val intent = Intent(this, DashboardActivity::class.java)
-                intent.putExtra("server_url", serverUrlInput.text.toString())
-                startActivity(intent)
+                // Avvia l'activity corretta in base alla modalità
+                if (mode == "bar") {
+                    val intent = Intent(this, BarActivity::class.java)
+                    intent.putExtra("server_url", serverUrlInput.text.toString())
+                    startActivity(intent)
+                } else {
+                    val intent = Intent(this, DashboardActivity::class.java)
+                    intent.putExtra("server_url", serverUrlInput.text.toString())
+                    startActivity(intent)
+                }
             }
         } else {
             // Se non è connesso, configura il pulsante per connettersi
@@ -161,10 +206,7 @@ class ServerUrlActivity : AppCompatActivity() {
     }
 
     /**
-     * Connetti al server e avvia la DashboardActivity
-     */
-    /**
-     * Connetti al server e avvia la DashboardActivity
+     * Connetti al server e avvia l'activity appropriata
      */
     private fun connectToServer() {
         var serverUrl = serverUrlInput.text.toString().trim()
@@ -215,10 +257,16 @@ class ServerUrlActivity : AppCompatActivity() {
                         // Aggiorna lo stato dei pulsanti
                         updateConnectionButtonsState(true)
 
-                        // Avvia l'activity della dashboard
-                        val intent = Intent(this, DashboardActivity::class.java)
-                        intent.putExtra("server_url", serverUrl)
-                        startActivity(intent)
+                        // Avvia l'activity appropriata in base alla modalità
+                        if (mode == "bar") {
+                            val intent = Intent(this, BarActivity::class.java)
+                            intent.putExtra("server_url", serverUrl)
+                            startActivity(intent)
+                        } else {
+                            val intent = Intent(this, DashboardActivity::class.java)
+                            intent.putExtra("server_url", serverUrl)
+                            startActivity(intent)
+                        }
                     } else {
                         // Connessione fallita
                         Toast.makeText(this, "Errore di connessione: $responseCode", Toast.LENGTH_SHORT).show()
@@ -231,7 +279,9 @@ class ServerUrlActivity : AppCompatActivity() {
                 }
             }
         }.start()
-    }    /**
+    }
+
+    /**
      * Cerca server disponibili sulla rete locale tramite UDP broadcast
      */
     private fun discoverServers() {
@@ -260,14 +310,11 @@ class ServerUrlActivity : AppCompatActivity() {
                 Log.d(TAG, "Sending discovery broadcasts to port $DISCOVERY_PORT")
 
                 // Invia più pacchetti di broadcast per aumentare le possibilità di successo
-                // Invia 3 pacchetti con un intervallo di 300ms tra l'uno e l'altro
                 for (i in 0 until 3) {
-                    // Invia il broadcast
                     socket.send(packet)
                     Log.d(TAG, "Sent discovery broadcast #${i+1}")
 
-                    // Breve pausa tra i pacchetti
-                    if (i < 2) { // Non dormiamo dopo l'ultimo pacchetto
+                    if (i < 2) {
                         Thread.sleep(300)
                     }
                 }
@@ -335,6 +382,7 @@ class ServerUrlActivity : AppCompatActivity() {
             }
         }.start()
     }
+
     /**
      * Mostra un dialogo con i server scoperti
      */

@@ -19,6 +19,7 @@ class ModeSelectionActivity : AppCompatActivity() {
         private const val KEY_LAST_MODE = "last_selected_mode"
         private const val MODE_TIMER = "timer"
         private const val MODE_DASHBOARD = "dashboard"
+        private const val MODE_BAR = "bar"
     }
 
     // Nel metodo onCreate di ModeSelectionActivity
@@ -38,6 +39,7 @@ class ModeSelectionActivity : AppCompatActivity() {
         // Ottieni riferimenti ai pulsanti CardView
         val timerModeCard = findViewById<CardView>(R.id.timerModeCard)
         val dashboardModeCard = findViewById<CardView>(R.id.dashboardModeCard)
+        val barModeCard = findViewById<CardView>(R.id.barModeCard)
 
         // Aggiungi il riferimento al pulsante Help
         val helpButton = findViewById<Button>(R.id.helpButton)
@@ -65,6 +67,17 @@ class ModeSelectionActivity : AppCompatActivity() {
 
             // Avvia la ServerUrlActivity
             launchDashboardMode()
+        }
+
+        // Imposta listener per il pulsante Bar
+        barModeCard.setOnClickListener {
+            android.util.Log.d("ModeSelectionActivity", "Bar card clicked")
+
+            // Salva la scelta
+            saveLastMode(MODE_BAR)
+
+            // Avvia la modalità Bar
+            launchBarMode()
         }
 
         // Controlla se l'utente aveva selezionato una modalità in precedenza
@@ -109,6 +122,9 @@ class ModeSelectionActivity : AppCompatActivity() {
         } else if (lastMode == MODE_DASHBOARD) {
             launchDashboardMode()
             finish()
+        } else if (lastMode == MODE_BAR) {
+            launchBarMode()
+            finish()
         }
         */
     }
@@ -122,5 +138,19 @@ class ModeSelectionActivity : AppCompatActivity() {
         startActivity(intent)
 
         // Nota: in futuro, se implementiamo l'autenticazione, potremmo avviare LoginActivity
+    }
+
+    /**
+     * Avvia la modalità bar
+     */
+    private fun launchBarMode() {
+        android.util.Log.d("ModeSelectionActivity", "launchBarMode() called")
+
+        // Avvia l'activity per inserire l'URL del server, ma con modalità bar
+        val intent = Intent(this, ServerUrlActivity::class.java)
+        intent.putExtra("mode", "bar")
+
+        android.util.Log.d("ModeSelectionActivity", "Starting ServerUrlActivity with mode: bar")
+        startActivity(intent)
     }
 }

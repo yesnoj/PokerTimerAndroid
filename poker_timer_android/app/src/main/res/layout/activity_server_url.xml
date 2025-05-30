@@ -22,6 +22,7 @@
         android:contentDescription="Torna indietro" />
 
     <TextView
+        android:id="@+id/serverTitleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Configura Server"
@@ -32,6 +33,7 @@
         android:gravity="center" />
 
     <TextView
+        android:id="@+id/serverSubtitleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Inserisci l'indirizzo del server per accedere alla dashboard di monitoraggio dei timer"
@@ -98,6 +100,6 @@
             android:backgroundTint="@color/error_color"
             android:textColor="@color/white"
             android:text="Disconnetti" />
-</LinearLayout>
+    </LinearLayout>
 
 </LinearLayout>

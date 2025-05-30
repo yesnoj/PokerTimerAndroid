@@ -78,4 +78,11 @@
     <string name="disconnect">Disconnetti</string>
     <string name="connected">Connesso</string>
     <string name="disconnected">Disconnesso dal server</string>
+
+    <string name="call_floorman">Chiama Floorman</string>
+    <string name="request_bar_service">Servizio Bar</string>
+    <string name="floorman_called">Floorman chiamato con successo</string>
+    <string name="bar_service_requested">Servizio bar richiesto con successo</string>
+    <string name="no_bar_requests">Nessuna richiesta in attesa</string>
+    <string name="bar_requests_title">Gestione Richieste Bar</string>
 </resources>

@@ -41,5 +41,7 @@
     <color name="brown">#795548</color>
 
     <color name="dialog_background">#2D2D2D</color>
+    <color name="orange_color">#FF9800</color>
+    <color name="purple_color">#9C27B0</color>
 
 </resources>

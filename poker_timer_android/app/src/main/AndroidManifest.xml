@@ -60,6 +60,12 @@
             android:screenOrientation="fullSensor"
             android:configChanges="orientation|screenSize">
         </activity>
+
+
+        <activity
+            android:name=".BarActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.PokerTimer" />
     </application>
 
 </manifest>

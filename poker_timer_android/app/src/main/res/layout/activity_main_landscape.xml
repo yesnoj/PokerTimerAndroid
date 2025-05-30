@@ -124,6 +124,32 @@
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_players"
                     app:tint="@color/white" />
+
+                <!-- Bottone per chiamare il floorman -->
+                <ImageButton
+                    android:id="@+id/btn_call_floorman"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_circular_button_orange"
+                    android:contentDescription="Chiama floorman"
+                    android:padding="10dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_floorman"
+                    app:tint="@color/white" />
+
+                <!-- Bottone per servizio bar -->
+                <ImageButton
+                    android:id="@+id/btn_bar_service"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_circular_button_purple"
+                    android:contentDescription="Servizio bar"
+                    android:padding="10dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_cocktail"
+                    app:tint="@color/white" />
             </LinearLayout>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>

@@ -37,6 +37,8 @@ class PokerTimerServer(QObject):
     timer_updated = pyqtSignal(str)  # Emesso quando un timer viene aggiornato
     timer_connected = pyqtSignal(str)  # Emesso quando un nuovo timer si connette
     seat_notification = pyqtSignal(str, list)  # Emesso quando arriva una notifica di posti
+    floorman_notification = pyqtSignal(int)  # Emesso quando arriva una chiamata floorman
+    bar_service_notification = pyqtSignal(int)  # Emesso quando arriva una richiesta servizio bar
     
     def __init__(self, port=3000, discovery_port=8888):
         super().__init__()
@@ -49,6 +51,9 @@ class PokerTimerServer(QObject):
         
         # Memorizza lo stato dei timer
         self.timers = {}
+        
+        # Memorizza le richieste bar
+        self.bar_requests = []
         
         # Thread per il servizio di discovery UDP
         self.discovery_thread = None
@@ -280,6 +285,69 @@ class PokerTimerServer(QObject):
                     "status": "error",
                     "message": f"No device found for table {table_number}"
                 }), 404
+        
+        # API per gestire le chiamate floorman
+        @self.app.route('/api/floorman_request', methods=['POST'])
+        def floorman_request():
+            request_data = request.json
+            table_number = request_data.get('table_number')
+            
+            logger.info(f"Ricevuta chiamata floorman dal tavolo {table_number}")
+            
+            # Emetti il segnale per la notifica
+            self.floorman_notification.emit(table_number)
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Floorman chiamato per tavolo {table_number}"
+            })
+        
+        # API per gestire le richieste di servizio bar
+        @self.app.route('/api/bar_service_request', methods=['POST'])
+        def bar_service_request():
+            request_data = request.json
+            table_number = request_data.get('table_number')
+            timestamp = request_data.get('timestamp')
+            
+            logger.info(f"Ricevuta richiesta servizio bar dal tavolo {table_number}")
+            
+            # Genera un ID univoco per la richiesta
+            request_id = f"bar_{table_number}_{timestamp}"
+            
+            # Aggiungi alla lista delle richieste
+            bar_request = {
+                "id": request_id,
+                "table_number": table_number,
+                "timestamp": timestamp
+            }
+            self.bar_requests.append(bar_request)
+            
+            # Emetti il segnale per la notifica
+            self.bar_service_notification.emit(table_number)
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Richiesta bar registrata per tavolo {table_number}",
+                "request_id": request_id
+            })
+        
+        # API per ottenere le richieste bar
+        @self.app.route('/api/bar_requests', methods=['GET'])
+        def get_bar_requests():
+            return jsonify(self.bar_requests)
+        
+        # API per completare una richiesta bar
+        @self.app.route('/api/bar_requests/<request_id>/complete', methods=['POST'])
+        def complete_bar_request(request_id):
+            # Trova e rimuovi la richiesta
+            self.bar_requests = [r for r in self.bar_requests if r['id'] != request_id]
+            
+            logger.info(f"Richiesta bar {request_id} completata")
+            
+            return jsonify({
+                "status": "success",
+                "message": "Richiesta completata"
+            })
     
     def run_discovery_service(self):
         """Esegue il servizio di discovery UDP per consentire ai client di trovare il server"""

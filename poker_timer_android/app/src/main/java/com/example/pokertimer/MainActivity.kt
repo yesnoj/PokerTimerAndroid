@@ -49,7 +49,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import android.content.pm.ActivityInfo
 import androidx.constraintlayout.widget.ConstraintLayout
-
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
 
@@ -112,7 +113,181 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         binding.btnPlayersSelection.setOnClickListener {
             showPlayerSelectionDialog()
         }
+
+        // Bottone per chiamare il floorman
+        binding.btnCallFloorman.setOnClickListener {
+            callFloorman()
+        }
+
+        // Bottone per servizio bar
+        binding.btnBarService.setOnClickListener {
+            requestBarService()
+        }
     }
+
+
+    /**
+     * Chiama il floorman inviando una notifica al server
+     */
+    private fun callFloorman() {
+        val currentState = viewModel.timerState.value ?: return
+        val serverUrl = currentState.serverUrl
+
+        if (serverUrl.isEmpty() || !currentState.isConnectedToServer) {
+            Toast.makeText(this, "Non connesso al server", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Mostra dialogo di conferma
+        AlertDialog.Builder(this)
+            .setTitle("Chiamata Floorman")
+            .setMessage("Vuoi chiamare il floorman al tavolo ${currentState.tableNumber}?")
+            .setPositiveButton("Chiama") { _, _ ->
+                sendFloormanRequest()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    /**
+     * Invia la richiesta di floorman al server
+     */
+    private fun sendFloormanRequest() {
+        val currentState = viewModel.timerState.value ?: return
+        val serverUrl = currentState.serverUrl
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val url = URL("$serverUrl/api/floorman_request")
+                withContext(Dispatchers.IO) {
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                    val jsonPayload = """
+                        {
+                            "table_number": ${currentState.tableNumber},
+                            "timestamp": "${System.currentTimeMillis()}"
+                        }
+                    """.trimIndent()
+
+                    val outputStream = connection.outputStream
+                    outputStream.write(jsonPayload.toByteArray())
+                    outputStream.close()
+
+                    val responseCode = connection.responseCode
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Floorman chiamato con successo", Toast.LENGTH_SHORT).show()
+
+                            // Effetto visivo sul bottone
+                            animateButton(binding.btnCallFloorman)
+                        }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Errore nella chiamata al floorman", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    connection.disconnect()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore chiamata floorman: ${e.message}")
+                Toast.makeText(this@MainActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /**
+     * Richiede il servizio bar
+     */
+    private fun requestBarService() {
+        val currentState = viewModel.timerState.value ?: return
+        val serverUrl = currentState.serverUrl
+
+        if (serverUrl.isEmpty() || !currentState.isConnectedToServer) {
+            Toast.makeText(this, "Non connesso al server", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Mostra dialogo di conferma
+        AlertDialog.Builder(this)
+            .setTitle("Servizio Bar")
+            .setMessage("Vuoi richiedere il servizio bar al tavolo ${currentState.tableNumber}?")
+            .setPositiveButton("Richiedi") { _, _ ->
+                sendBarServiceRequest()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+
+    /**
+     * Invia la richiesta di servizio bar al server
+     */
+    private fun sendBarServiceRequest() {
+        val currentState = viewModel.timerState.value ?: return
+        val serverUrl = currentState.serverUrl
+
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val url = URL("$serverUrl/api/bar_service_request")
+                withContext(Dispatchers.IO) {
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                    val jsonPayload = """
+                        {
+                            "table_number": ${currentState.tableNumber},
+                            "timestamp": "${System.currentTimeMillis()}"
+                        }
+                    """.trimIndent()
+
+                    val outputStream = connection.outputStream
+                    outputStream.write(jsonPayload.toByteArray())
+                    outputStream.close()
+
+                    val responseCode = connection.responseCode
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Servizio bar richiesto con successo", Toast.LENGTH_SHORT).show()
+
+                            // Effetto visivo sul bottone
+                            animateButton(binding.btnBarService)
+                        }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Errore nella richiesta servizio bar", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    connection.disconnect()
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Errore richiesta servizio bar: ${e.message}")
+                Toast.makeText(this@MainActivity, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /**
+     * Anima un bottone con un effetto di conferma
+     */
+    private fun animateButton(button: ImageButton) {
+        button.animate()
+            .scaleX(1.2f)
+            .scaleY(1.2f)
+            .setDuration(200)
+            .withEndAction {
+                button.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(200)
+                    .start()
+            }
+            .start()
+    }
+
 
     private fun observeTimerState() {
         viewModel.timerState.observe(this) { state ->

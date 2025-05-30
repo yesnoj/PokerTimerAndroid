@@ -1,1 +1,5 @@
 app/src/main/java/com/example/.DS_Store
+.DS_Store
+/poker-timer-monitor/poker_timer_pyqt/poker_timer_desktop/build
+/poker-timer-monitor/poker_timer_pyqt/poker_timer_desktop/dist/Poker Timer Monitor/_internal/flask-3.1.0.dist-info
+/poker_timer_android/.gradle

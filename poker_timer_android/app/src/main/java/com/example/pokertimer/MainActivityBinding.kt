@@ -19,6 +19,8 @@ class MainActivityBinding {
     lateinit var tvTimerStatus: TextView
     lateinit var tvSecondsLabel: TextView
     lateinit var btnPlayersSelection: ImageButton
+    lateinit var btnCallFloorman: ImageButton
+    lateinit var btnBarService: ImageButton
 
     companion object {
         fun bind(activity: MainActivity): MainActivityBinding {
@@ -36,6 +38,8 @@ class MainActivityBinding {
             binding.tvTimerStatus = activity.findViewById(R.id.tv_timer_status)
             binding.tvSecondsLabel = activity.findViewById(R.id.tv_seconds_label)
             binding.btnPlayersSelection = activity.findViewById(R.id.btn_players_selection)
+            binding.btnCallFloorman = activity.findViewById(R.id.btn_call_floorman)
+            binding.btnBarService = activity.findViewById(R.id.btn_bar_service)
 
             return binding
         }

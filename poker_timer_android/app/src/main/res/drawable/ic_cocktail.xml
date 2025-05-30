@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Bicchiere -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M5,5h14l-1.5,6.5L12,17 6.5,11.5Z" />
+    <!-- Gambo -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,17v5"
+        android:strokeWidth="2"
+        android:strokeColor="#000000"/>
+    <!-- Base -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M8,22h8"
+        android:strokeWidth="2"
+        android:strokeColor="#000000"/>
+    <!-- Fetta di limone -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M18,5m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M18,5L18,3"
+        android:strokeWidth="0.5"
+        android:strokeColor="#000000"/>
+</vector>
