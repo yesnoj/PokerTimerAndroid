@@ -358,6 +358,420 @@ class PokerTimerServer(QObject):
                     "message": f"No device found for table {table_number}"
                 }), 404
         
+
+        @self.app.route('/bar-manager')
+        def bar_manager_interface():
+            """Fornisce un'interfaccia web per la gestione delle richieste bar"""
+            
+            # Recupera la lista delle richieste bar attive
+            active_requests = self.bar_requests.copy()
+            
+            # Ordina le richieste per timestamp (più recenti in cima)
+            active_requests.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+            
+            # Crea la pagina HTML
+            html_content = """
+            <!DOCTYPE html>
+            <html lang="it">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Gestione Richieste Bar</title>
+                <style>
+                    * {
+                        box-sizing: border-box;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    }
+                    body {
+                        background-color: #f5f5f5;
+                        padding: 20px;
+                        max-width: 1200px;
+                        margin: 0 auto;
+                        color: #333;
+                    }
+                    h1, h2 {
+                        color: #2196F3;
+                        text-align: center;
+                    }
+                    .dashboard {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                        gap: 20px;
+                        margin-top: 30px;
+                    }
+                    .request-card {
+                        background-color: white;
+                        border-radius: 10px;
+                        padding: 20px;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                        transition: all 0.3s ease;
+                        position: relative;
+                    }
+                    .request-card:hover {
+                        transform: translateY(-5px);
+                        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+                    }
+                    .table-number {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #FF9800;
+                        margin-bottom: 15px;
+                    }
+                    .timestamp {
+                        color: #757575;
+                        font-size: 14px;
+                        margin-bottom: 20px;
+                    }
+                    .source-tag {
+                        position: absolute;
+                        top: 15px;
+                        right: 15px;
+                        background-color: #E3F2FD;
+                        color: #1976D2;
+                        padding: 5px 10px;
+                        border-radius: 15px;
+                        font-size: 12px;
+                        font-weight: bold;
+                    }
+                    .source-tag.qr {
+                        background-color: #E8F5E9;
+                        color: #388E3C;
+                    }
+                    .source-tag.app {
+                        background-color: #FFF3E0;
+                        color: #F57C00;
+                    }
+                    .complete-btn {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 10px 15px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        width: 100%;
+                        font-size: 16px;
+                        font-weight: bold;
+                        transition: background-color 0.3s;
+                    }
+                    .complete-btn:hover {
+                        background-color: #388E3C;
+                    }
+                    .empty-state {
+                        text-align: center;
+                        padding: 40px;
+                        background-color: white;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    }
+                    .empty-state-icon {
+                        font-size: 60px;
+                        margin-bottom: 20px;
+                    }
+                    .refresh-section {
+                        text-align: center;
+                        margin: 20px 0;
+                    }
+                    .refresh-btn {
+                        background-color: #2196F3;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        transition: background-color 0.3s;
+                    }
+                    .refresh-btn:hover {
+                        background-color: #1976D2;
+                    }
+                    .auto-refresh {
+                        margin-top: 10px;
+                        font-size: 14px;
+                        color: #757575;
+                    }
+                    @media (max-width: 600px) {
+                        .dashboard {
+                            grid-template-columns: 1fr;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Gestione Richieste Bar</h1>
+                
+                <div class="refresh-section">
+                    <button class="refresh-btn" onclick="window.location.reload()">Aggiorna</button>
+                    <div class="auto-refresh">La pagina si aggiorna automaticamente ogni 15 secondi</div>
+                </div>
+            """
+            
+            # Aggiungi script per aggiornamento automatico
+            html_content += """
+                <script>
+                    // Auto-refresh every 15 seconds
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 15000);
+                    
+                    // Function to mark a request as complete
+                    function completeRequest(requestId) {
+                        fetch('/api/bar_requests/' + requestId + '/complete', {
+                            method: 'POST'
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                // Remove the card
+                                document.getElementById('request-' + requestId).remove();
+                                
+                                // Check if there are no more requests
+                                if (document.querySelectorAll('.request-card').length === 0) {
+                                    // Show empty state
+                                    const dashboard = document.querySelector('.dashboard');
+                                    dashboard.innerHTML = `
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">🍹</div>
+                                            <h2>Nessuna richiesta attiva</h2>
+                                            <p>Non ci sono richieste bar in attesa.</p>
+                                        </div>
+                                    `;
+                                }
+                            } else {
+                                alert('Errore nel completamento della richiesta');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Errore di rete');
+                        });
+                    }
+                </script>
+            """
+            
+            # Sezione richieste
+            html_content += '<div class="dashboard">'
+            
+            # Se non ci sono richieste, mostra lo stato vuoto
+            if not active_requests:
+                html_content += """
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🍹</div>
+                        <h2>Nessuna richiesta attiva</h2>
+                        <p>Non ci sono richieste bar in attesa.</p>
+                    </div>
+                """
+            else:
+                # Aggiungi una card per ogni richiesta attiva
+                for request in active_requests:
+                    request_id = request.get('id', 'unknown')
+                    table_number = request.get('table_number', 'N/A')
+                    timestamp = request.get('timestamp', 0)
+                    source = request.get('source', 'app')  # Default to 'app' if not specified
+                    
+                    # Converti il timestamp in formato leggibile
+                    from datetime import datetime
+                    readable_time = datetime.fromtimestamp(timestamp / 1000).strftime('%H:%M:%S')
+                    
+                    # Tag della sorgente
+                    source_class = "qr" if source == "qr_code" else "app"
+                    source_text = "QR Code" if source == "qr_code" else "App"
+                    
+                    html_content += f"""
+                        <div class="request-card" id="request-{request_id}">
+                            <div class="source-tag {source_class}">{source_text}</div>
+                            <div class="table-number">Tavolo {table_number}</div>
+                            <div class="timestamp">Richiesta alle {readable_time}</div>
+                            <button class="complete-btn" onclick="completeRequest('{request_id}')">Completata</button>
+                        </div>
+                    """
+            
+            html_content += '</div></body></html>'
+            
+            return Response(html_content, mimetype='text/html')
+
+
+        # Endpoint per gestire le richieste bar tramite scansione QR
+        @self.app.route('/qr/bar-request/<int:table_number>')
+        def qr_bar_request(table_number):
+            """Gestisce le richieste bar provenienti dalla scansione di un codice QR"""
+            
+            # Log della richiesta
+            logger.info(f"Ricevuta richiesta bar via QR per il tavolo {table_number}")
+            
+            # Trova il dispositivo corrispondente a questo tavolo
+            target_device_id = None
+            for device_id, timer in self.timers.items():
+                if timer.get('table_number') == table_number:
+                    target_device_id = device_id
+                    break
+            
+            if target_device_id:
+                # Aggiorna il timestamp della richiesta bar
+                self.timers[target_device_id]['bar_service_timestamp'] = int(time.time() * 1000)  # timestamp in millisecondi
+                
+                # Emetti il segnale per aggiornare l'interfaccia
+                self.timer_updated.emit(target_device_id)
+            
+            # Genera un ID univoco per la richiesta
+            request_id = f"bar_qr_{table_number}_{int(time.time())}"
+            
+            # Aggiungi alla lista delle richieste
+            bar_request = {
+                "id": request_id,
+                "table_number": table_number,
+                "timestamp": int(time.time() * 1000),
+                "source": "qr_code"  # Indica che la richiesta proviene da un codice QR
+            }
+            self.bar_requests.append(bar_request)
+            
+            # Emetti il segnale per la notifica
+            self.bar_service_notification.emit(table_number)
+            
+            # Pagina HTML di conferma
+            html_response = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Richiesta Bar Inviata</title>
+                <style>
+                    body {{
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 20px;
+                        max-width: 500px;
+                        margin: 0 auto;
+                        text-align: center;
+                        background-color: #f5f5f5;
+                        color: #333;
+                    }}
+                    .container {{
+                        background-color: white;
+                        border-radius: 10px;
+                        padding: 30px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+                    h1 {{
+                        color: #4CAF50;
+                        margin-top: 0;
+                    }}
+                    .icon {{
+                        font-size: 60px;
+                        margin-bottom: 20px;
+                    }}
+                    .message {{
+                        font-size: 18px;
+                        margin-bottom: 30px;
+                        line-height: 1.5;
+                    }}
+                    .table-number {{
+                        font-weight: bold;
+                        font-size: 24px;
+                        color: #FF9800;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon">🍹</div>
+                    <h1>Richiesta Bar Inviata!</h1>
+                    <div class="message">
+                        La tua richiesta di servizio bar per il tavolo <span class="table-number">{table_number}</span> è stata inviata con successo.
+                        <br><br>
+                        Un addetto al servizio sarà da te al più presto.
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return Response(html_response, mimetype='text/html')
+
+        # Endpoint per la verifica dello stato del server (utile per testare che tutto funzioni)
+        @self.app.route('/qr/status')
+        def qr_status():
+            """Mostra lo stato del server per il servizio QR"""
+            
+            # Conta le richieste bar attive
+            active_requests = len(self.bar_requests)
+            
+            # Conta i timer online
+            online_timers = 0
+            for device_id, timer in self.timers.items():
+                if self.is_timer_online(timer):
+                    online_timers += 1
+            
+            uptime = time.time() - self.start_time
+            uptime_hours = int(uptime // 3600)
+            uptime_minutes = int((uptime % 3600) // 60)
+            
+            # Pagina HTML di stato
+            html_response = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Stato Server QR Bar</title>
+                <style>
+                    body {{
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 20px;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        text-align: center;
+                        background-color: #f5f5f5;
+                        color: #333;
+                    }}
+                    .container {{
+                        background-color: white;
+                        border-radius: 10px;
+                        padding: 30px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    }}
+                    h1 {{
+                        color: #2196F3;
+                        margin-top: 0;
+                    }}
+                    .status-item {{
+                        margin: 15px 0;
+                        font-size: 18px;
+                    }}
+                    .status-value {{
+                        font-weight: bold;
+                        color: #4CAF50;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        font-size: 14px;
+                        color: #666;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Stato Server QR Bar</h1>
+                    <div class="status-item">
+                        Stato: <span class="status-value">Attivo</span>
+                    </div>
+                    <div class="status-item">
+                        Timer connessi: <span class="status-value">{online_timers}</span>
+                    </div>
+                    <div class="status-item">
+                        Richieste bar attive: <span class="status-value">{active_requests}</span>
+                    </div>
+                    <div class="status-item">
+                        Uptime: <span class="status-value">{uptime_hours}h {uptime_minutes}m</span>
+                    </div>
+                    <div class="footer">
+                        Poker Timer QR Bar Service
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return Response(html_response, mimetype='text/html')
+
         @self.app.route('/api/bar_service_request', methods=['POST'])
         def bar_service_request():
             request_data = request.json

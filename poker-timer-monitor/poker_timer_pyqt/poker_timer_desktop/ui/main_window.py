@@ -76,6 +76,7 @@ class FloormanCallDialog(QDialog):
         gestita_btn.setFixedHeight(50)
         layout.addWidget(gestita_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
+
 class ServerSettingsDialog(QDialog):
     """Dialog per le impostazioni del server"""
     def __init__(self, parent=None, http_port=3000, discovery_port=8888, autostart=False):
@@ -246,6 +247,30 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Server Poker Timer pronto")
         self.statusBar().setFont(QFont("Arial", 12))
         
+
+
+        # Aggiungi voce di menu per il generatore QR
+        qr_action = QAction("Genera Codici QR Bar", self)
+        qr_action.triggered.connect(self.show_qr_generator_dialog)
+
+        # In PyQt6, accediamo direttamente alle azioni del menu bar
+        help_menu = None
+        for action in self.menuBar().actions():
+            if action.text() == "Aiuto":
+                help_menu = action.menu()
+                break
+
+        # Se non troviamo il menu Aiuto, creiamo una nuova voce di menu
+        if help_menu is None:
+            # Soluzione alternativa: crea un nuovo menu QR
+            qr_menu = self.menuBar().addMenu("QR")
+            qr_menu.addAction(qr_action)
+        else:
+            # Aggiungi l'azione al menu Aiuto esistente
+            help_menu.addAction(qr_action)
+
+
+
         # Posiziona la finestra al centro dello schermo
         self.center_window()
         
@@ -1012,3 +1037,477 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+
+
+    def show_qr_generator_dialog(self):
+        """Mostra il dialog del generatore QR"""
+        # Utilizza QRCodeDialog definito più avanti nel file
+        
+        # Ottieni l'indirizzo IP dell'host
+        try:
+            import socket
+            host_name = socket.gethostname()
+            server_ip = socket.gethostbyname(host_name)
+        except Exception as e:
+            # In caso di errore, usa localhost
+            print(f"Errore nel rilevamento dell'IP: {e}")
+            server_ip = "localhost"
+        
+        # Usa la porta configurata nel server
+        server_port = self.http_port
+        
+        # Crea e mostra il dialog
+        qr_dialog = QRCodeDialog(server_ip, server_port, self)
+        qr_dialog.exec()
+
+
+# ----------------------------------------------------------------------------
+# QR CODE GENERATOR - Generatore di codici QR per richieste bar
+# ----------------------------------------------------------------------------
+
+import os
+import sys
+import time
+import tempfile
+import logging
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+                           QPushButton, QSpinBox, QFileDialog,
+                           QProgressBar, QMessageBox, QGridLayout, QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QSize
+from PyQt6.QtGui import QPixmap, QImage
+
+# Verifica se qrcode è installato, altrimenti suggerisce l'installazione
+try:
+    import qrcode
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_QRCODE = True
+except ImportError:
+    print("Modulo 'qrcode' o 'pillow' non trovato. Installalo con 'pip install qrcode pillow'")
+    HAS_QRCODE = False
+
+class QRGeneratorThread(QThread):
+    """Thread separato per la generazione dei codici QR senza bloccare l'UI"""
+    progress_updated = pyqtSignal(int)
+    qr_generated = pyqtSignal(int, QImage)  # Emette l'immagine QR generata
+    finished_all = pyqtSignal()
+    error_occurred = pyqtSignal(str)
+    
+    def __init__(self, server_ip, server_port, output_dir, num_tables, temp_dir=None):
+        super().__init__()
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.output_dir = output_dir
+        self.num_tables = num_tables
+        self.temp_dir = temp_dir  # Directory temporanea per i QR visualizzati nella UI
+        self.abort = False
+    
+    def run(self):
+        """Esegue la generazione dei codici QR"""
+        try:
+            # Crea la directory di output se non esiste
+            if not os.path.exists(self.output_dir):
+                os.makedirs(self.output_dir)
+            
+            # Se specificata, crea anche la directory temporanea
+            if self.temp_dir and not os.path.exists(self.temp_dir):
+                os.makedirs(self.temp_dir)
+            
+            # Per ogni tavolo, genera un codice QR
+            for i, table_num in enumerate(range(1, self.num_tables + 1)):
+                # Controlla se l'operazione è stata annullata
+                if self.abort:
+                    return
+                
+                # Genera l'URL per la richiesta bar
+                qr_url = f"http://{self.server_ip}:{self.server_port}/qr/bar-request/{table_num}"
+                
+                # Crea il codice QR
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(qr_url)
+                qr.make(fit=True)
+                
+                # Crea un'immagine dal codice QR
+                qr_img = qr.make_image(fill_color="black", back_color="white")
+                
+                # Converti in RGB per poter aggiungere testo colorato
+                qr_img = qr_img.convert("RGB")
+                
+                # Aggiungi titolo e istruzioni sotto il QR code
+                img_width, img_height = qr_img.size
+                
+                # Crea una nuova immagine più grande per contenere il QR code e il testo
+                new_height = img_height + 150  # Spazio extra per il testo
+                new_img = Image.new('RGB', (img_width, new_height), color='white')
+                
+                # Incolla il QR code
+                new_img.paste(qr_img, (0, 0))
+                
+                # Aggiungi il testo
+                draw = ImageDraw.Draw(new_img)
+                
+                # Prova a caricare un font, altrimenti usa il default
+                try:
+                    title_font = ImageFont.truetype("Arial Bold.ttf", 36)
+                    text_font = ImageFont.truetype("Arial.ttf", 24)
+                except IOError:
+                    # Usa un font predefinito se Arial non è disponibile
+                    title_font = ImageFont.load_default()
+                    text_font = ImageFont.load_default()
+                
+                # Titolo
+                title = f"SERVIZIO BAR - TAVOLO {table_num}"
+                title_width = draw.textlength(title, font=title_font)
+                title_position = ((img_width - title_width) // 2, img_height + 20)
+                draw.text(title_position, title, font=title_font, fill=(0, 128, 0))  # Verde
+                
+                # Istruzioni
+                instructions = "Inquadra con la fotocamera"
+                instructions_width = draw.textlength(instructions, font=text_font)
+                instructions_position = ((img_width - instructions_width) // 2, img_height + 70)
+                draw.text(instructions_position, instructions, font=text_font, fill=(0, 0, 0))  # Nero
+                
+                instructions2 = "per ordinare al bar"
+                instructions2_width = draw.textlength(instructions2, font=text_font)
+                instructions2_position = ((img_width - instructions2_width) // 2, img_height + 100)
+                draw.text(instructions2_position, instructions2, font=text_font, fill=(0, 0, 0))  # Nero
+                
+                # Salva l'immagine finale
+                output_path = os.path.join(self.output_dir, f"bar_qr_table_{table_num}.png")
+                new_img.save(output_path)
+                
+                # Se richiesto, salva anche nella directory temporanea per la visualizzazione nella UI
+                if self.temp_dir:
+                    temp_path = os.path.join(self.temp_dir, f"qr_preview_{table_num}.png")
+                    new_img.save(temp_path)
+                    
+                    # Converti l'immagine PIL in QImage per la visualizzazione
+                    img_data = new_img.tobytes("raw", "RGB")
+                    q_img = QImage(img_data, new_img.width, new_img.height, new_img.width * 3, QImage.Format.Format_RGB888)
+                    
+                    # Emetti il segnale con l'immagine generata
+                    self.qr_generated.emit(table_num, q_img)
+                
+                # Aggiorna la barra di progresso
+                progress = int((i + 1) / self.num_tables * 100)
+                self.progress_updated.emit(progress)
+                
+                # Piccola pausa per permettere all'UI di aggiornarsi
+                time.sleep(0.1)
+            
+            # Segnala che abbiamo finito
+            self.finished_all.emit()
+                
+        except Exception as e:
+            print(f"Errore nella generazione dei codici QR: {e}")
+            self.error_occurred.emit(str(e))
+
+class QRCodeDialog(QDialog):
+    """Dialog per la generazione e visualizzazione dei codici QR"""
+    
+    def __init__(self, server_ip, server_port, parent=None):
+        super().__init__(parent)
+        
+        if not HAS_QRCODE:
+            QMessageBox.critical(
+                self,
+                "Errore - Librerie mancanti",
+                "Le librerie 'qrcode' e 'pillow' sono necessarie per questa funzionalità.\n\n"
+                "Installale con il comando:\npip install qrcode pillow"
+            )
+            self.reject()
+            return
+            
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.temp_dir = tempfile.mkdtemp(prefix="poker_timer_qr_")
+        
+        self.setWindowTitle("Generatore Codici QR per Servizio Bar")
+        self.setMinimumSize(900, 600)  # Dimensione ampia per visualizzare i QR
+        
+        # Layout principale
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+        
+        # Titolo
+        title_label = QLabel("Generatore Codici QR per Servizio Bar")
+        title_label.setStyleSheet("font-size: 18pt; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(title_label)
+        
+        # Informazioni
+        info_label = QLabel(f"Server: {server_ip}:{server_port}")
+        info_label.setStyleSheet("font-size: 12pt;")
+        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(info_label)
+        
+        # Sezione configurazione
+        config_layout = QHBoxLayout()
+        
+        # Numero di tavoli
+        table_layout = QHBoxLayout()
+        table_label = QLabel("Numero di tavoli:")
+        table_label.setStyleSheet("font-size: 12pt;")
+        self.table_spinner = QSpinBox()
+        self.table_spinner.setMinimum(1)
+        self.table_spinner.setMaximum(100)
+        self.table_spinner.setValue(10)
+        self.table_spinner.setStyleSheet("font-size: 12pt;")
+        table_layout.addWidget(table_label)
+        table_layout.addWidget(self.table_spinner)
+        
+        config_layout.addLayout(table_layout)
+        config_layout.addStretch()
+        
+        # Directory di output
+        output_layout = QHBoxLayout()
+        output_label = QLabel("Directory di output:")
+        output_label.setStyleSheet("font-size: 12pt;")
+        self.output_dir = os.path.join(os.path.expanduser("~"), "poker_timer_qr_codes")
+        self.output_path = QLabel(self.output_dir)
+        self.output_path.setStyleSheet("font-size: 12pt; padding: 3px; background-color: #f0f0f0; border-radius: 3px;")
+        browse_button = QPushButton("Sfoglia...")
+        browse_button.clicked.connect(self.browse_output_dir)
+        output_layout.addWidget(output_label)
+        output_layout.addWidget(self.output_path, 1)  # Stretch
+        output_layout.addWidget(browse_button)
+        
+        main_layout.addLayout(config_layout)
+        main_layout.addLayout(output_layout)
+        
+        # Bottoni per generare e aprire la cartella
+        button_layout = QHBoxLayout()
+        self.generate_button = QPushButton("Genera Codici QR")
+        self.generate_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 14pt;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        self.generate_button.clicked.connect(self.generate_qr_codes)
+        
+        self.open_folder_button = QPushButton("Apri Cartella")
+        self.open_folder_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font-size: 14pt;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #0b7dda;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        self.open_folder_button.clicked.connect(self.open_output_folder)
+        self.open_folder_button.setEnabled(False)  # Disabilitato finché non generiamo
+        
+        button_layout.addWidget(self.generate_button)
+        button_layout.addWidget(self.open_folder_button)
+        
+        main_layout.addLayout(button_layout)
+        
+        # Barra di progresso
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
+        main_layout.addWidget(self.progress_bar)
+        
+        # Area di visualizzazione QR preview
+        preview_label = QLabel("Anteprima Codici QR:")
+        preview_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        main_layout.addWidget(preview_label)
+        
+        # Container scrollabile per le anteprime
+        self.scroll_area = QFrame()
+        self.scroll_area.setStyleSheet("background-color: #f9f9f9; border-radius: 5px; padding: 10px;")
+        self.scroll_layout = QGridLayout(self.scroll_area)
+        
+        main_layout.addWidget(self.scroll_area, 1)  # Stretch
+        
+        # Bottone Chiudi
+        close_button = QPushButton("Chiudi")
+        close_button.setStyleSheet("""
+            QPushButton {
+                padding: 8px 20px;
+                font-size: 12pt;
+            }
+        """)
+        close_button.clicked.connect(self.close)
+        main_layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignRight)
+        
+        # Thread per la generazione
+        self.qr_thread = None
+    
+    def browse_output_dir(self):
+        """Apre un dialog per selezionare la directory di output"""
+        directory = QFileDialog.getExistingDirectory(
+            self, "Seleziona Directory di Output", self.output_dir,
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+        )
+        
+        if directory:
+            self.output_dir = directory
+            self.output_path.setText(directory)
+    
+    def generate_qr_codes(self):
+        """Avvia la generazione dei codici QR"""
+        num_tables = self.table_spinner.value()
+        
+        # Disabilita i controlli durante la generazione
+        self.generate_button.setEnabled(False)
+        self.table_spinner.setEnabled(False)
+        
+        # Mostra la barra di progresso
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+        
+        # Pulisci eventuali preview precedenti
+        self.clear_preview_area()
+        
+        # Crea il thread per la generazione
+        self.qr_thread = QRGeneratorThread(
+            self.server_ip,
+            self.server_port,
+            self.output_dir,
+            num_tables,
+            self.temp_dir
+        )
+        
+        # Connetti i segnali
+        self.qr_thread.progress_updated.connect(self.update_progress)
+        self.qr_thread.qr_generated.connect(self.display_qr_preview)
+        self.qr_thread.finished_all.connect(self.generation_completed)
+        self.qr_thread.error_occurred.connect(self.show_error)
+        
+        # Avvia il thread
+        self.qr_thread.start()
+    
+    def update_progress(self, value):
+        """Aggiorna la barra di progresso"""
+        self.progress_bar.setValue(value)
+    
+    def display_qr_preview(self, table_num, qr_image):
+        """Mostra l'anteprima di un codice QR generato"""
+        # Calcola la posizione nella griglia (3 colonne)
+        row = (table_num - 1) // 3
+        col = (table_num - 1) % 3
+        
+        # Crea un frame per contenere l'immagine e l'etichetta
+        frame = QFrame()
+        frame.setStyleSheet("background-color: white; border-radius: 5px; padding: 5px;")
+        frame_layout = QVBoxLayout(frame)
+        frame_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Crea un label per l'immagine QR
+        qr_label = QLabel()
+        qr_pixmap = QPixmap.fromImage(qr_image)
+        # Ridimensiona per adattarsi al layout
+        qr_pixmap = qr_pixmap.scaled(QSize(200, 250), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        qr_label.setPixmap(qr_pixmap)
+        qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Crea un label per il numero del tavolo
+        table_label = QLabel(f"Tavolo {table_num}")
+        table_label.setStyleSheet("font-size: 12pt; font-weight: bold; color: #2196F3;")
+        table_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Aggiungi al layout del frame
+        frame_layout.addWidget(table_label)
+        frame_layout.addWidget(qr_label)
+        
+        # Aggiungi il frame alla griglia
+        self.scroll_layout.addWidget(frame, row, col)
+    
+    def clear_preview_area(self):
+        """Pulisce l'area di anteprima"""
+        # Rimuovi tutti i widget dal layout
+        while self.scroll_layout.count():
+            item = self.scroll_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+    
+    def generation_completed(self):
+        """Gestisce il completamento della generazione"""
+        # Riabilita i controlli
+        self.generate_button.setEnabled(True)
+        self.table_spinner.setEnabled(True)
+        self.open_folder_button.setEnabled(True)
+        
+        # Mostra un messaggio di completamento
+        num_tables = self.table_spinner.value()
+        QMessageBox.information(
+            self,
+            "Generazione Completata",
+            f"{num_tables} codici QR sono stati generati con successo nella directory:\n{self.output_dir}"
+        )
+    
+    def show_error(self, error_message):
+        """Mostra un messaggio di errore"""
+        # Riabilita i controlli
+        self.generate_button.setEnabled(True)
+        self.table_spinner.setEnabled(True)
+        
+        # Mostra il messaggio di errore
+        QMessageBox.critical(
+            self,
+            "Errore",
+            f"Si è verificato un errore durante la generazione dei codici QR:\n{error_message}"
+        )
+    
+    def open_output_folder(self):
+        """Apre la directory di output nel file explorer"""
+        import subprocess
+        import platform
+        
+        try:
+            if platform.system() == "Windows":
+                os.startfile(self.output_dir)
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.call(["open", self.output_dir])
+            else:  # Linux
+                subprocess.call(["xdg-open", self.output_dir])
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Avviso",
+                f"Impossibile aprire la directory:\n{str(e)}"
+            )
+    
+    def closeEvent(self, event):
+        """Gestisce la chiusura della finestra"""
+        # Se c'è un thread in esecuzione, interrompilo
+        if self.qr_thread and self.qr_thread.isRunning():
+            self.qr_thread.abort = True
+            self.qr_thread.wait(1000)  # Attendi fino a 1 secondo
+        
+        # Pulisci la directory temporanea
+        try:
+            import shutil
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        except:
+            pass
+        
+        event.accept()
