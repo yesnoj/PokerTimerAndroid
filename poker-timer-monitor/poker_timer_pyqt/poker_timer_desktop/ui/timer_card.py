@@ -48,10 +48,13 @@ class TimerCard(QFrame):
         # Imposta dimensioni fisse
         self.setFixedWidth(420)
         
+        # IMPORTANTE: Imposta il nome dell'oggetto per lo stile
+        self.setObjectName("TimerCard")
+        
         # Stile del frame - bordi arrotondati e colore bianco
         self.setFrameStyle(QFrame.Shape.StyledPanel)
         self.setStyleSheet("""
-            QFrame {
+            TimerCard {
                 background-color: white;
                 border: 1px solid #ddd;
                 border-radius: 10px;
@@ -60,7 +63,6 @@ class TimerCard(QFrame):
         
         # Il frame è cliccabile per aprire i dettagli
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mousePressEvent = self.on_card_click
         
         # Layout principale - ridotti margini per compattare
         main_layout = QVBoxLayout(self)
@@ -130,7 +132,7 @@ class TimerCard(QFrame):
         self.floorman_icon.setObjectName("floorman_icon")
         self.floorman_icon.setFixedSize(30, 30)
         self.floorman_icon.setStyleSheet("""
-            QLabel {
+            QLabel#floorman_icon {
                 background-color: #FF9800;
                 border-radius: 15px;
                 font-size: 18px;
@@ -143,9 +145,6 @@ class TimerCard(QFrame):
         self.floorman_icon.setCursor(Qt.CursorShape.PointingHandCursor)
         self.floorman_icon.setToolTip("Chiamata Floorman Attiva - Clicca per gestire")
         self.floorman_icon.setVisible(False)
-        
-        # Gestione del click sull'icona floorman
-        self.floorman_icon.mousePressEvent = lambda e: self.on_floorman_icon_click(e)
         
         header_layout.addWidget(self.floorman_icon)
         
@@ -179,13 +178,18 @@ class TimerCard(QFrame):
         # ---- INFO GRID - Layout a griglia per informazioni ----
         info_grid = QGridLayout()
         info_grid.setSpacing(5)  # Ridotto spazio tra celle
-        
-        # Stile comune per le info
-        info_style = "background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px; font-size: 11pt;"
-        
+
+        # Stile comune per le info - RIMOSSO border: none che causava il problema
+        info_style = """
+            background-color: #f8f9fa; 
+            padding: 4px 6px; 
+            border-radius: 4px; 
+            font-size: 11pt;
+        """
+
         # Prima riga della griglia (0)
         col = 0
-        
+
         # T1 (sempre visibile)
         self.t1_label = QLabel(f"T1: {timer_data.get('t1_value', 'N/A')}s")
         self.t1_label.setObjectName("t1_label")
@@ -199,7 +203,7 @@ class TimerCard(QFrame):
         status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
         self.timer_status_label = QLabel(status_text)
         self.timer_status_label.setObjectName("timer_status_label")
-        
+
         # Utilizza lo stesso stile del badge rimosso
         if status_text == "Running":
             self.timer_status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
@@ -209,7 +213,7 @@ class TimerCard(QFrame):
             self.timer_status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
         info_grid.addWidget(self.timer_status_label, 0, col)
         col += 1
-        
+
         # Buzzer
         self.buzzer_label = QLabel(f"Buzzer: {'On' if timer_data.get('buzzer', False) else 'Off'}")
         self.buzzer_label.setObjectName("buzzer_label")
@@ -298,17 +302,56 @@ class TimerCard(QFrame):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
+    def mousePressEvent(self, event):
+        """Override del mousePressEvent per gestire i click sulla card"""
+        # Verifica se il click è sull'icona floorman
+        if self.floorman_icon.isVisible():
+            # Ottieni la posizione globale dell'icona floorman
+            icon_rect = self.floorman_icon.geometry()
+            # Converti la posizione del click in coordinate relative al widget
+            click_pos = event.pos()
+            
+            # Verifica se il click è nell'area dell'icona
+            if icon_rect.contains(click_pos):
+                # Il click è sull'icona floorman, gestiscilo
+                self.on_floorman_icon_click(event)
+                event.accept()
+                return
+        
+        # Altrimenti, gestisci il click normale sulla card
+        self.on_card_click(event)
+
     def set_floorman_active(self, active=True):
         """Imposta lo stato della chiamata floorman"""
         self.has_active_floorman_call = active
         self.floorman_icon.setVisible(active)
         
         if active:
-            # Fai lampeggiare l'icona
+            # Fai lampeggiare l'icona e aggiungi il bordo arancione
             self.start_floorman_animation()
+            # Aggiungi un bordo arancione SOLO al frame principale
+            self.setStyleSheet("""
+                QFrame#TimerCard {
+                    background-color: white;
+                    border: 3px solid #FF9800;
+                    border-radius: 10px;
+                }
+            """)
         else:
-            # Ferma l'animazione
+            # Ferma l'animazione e rimuovi il bordo
             self.stop_floorman_animation()
+            # Ripristina lo stile originale
+            self.setStyleSheet("""
+                QFrame#TimerCard {
+                    background-color: white;
+                    border: 1px solid #ddd;
+                    border-radius: 10px;
+                }
+            """)
+            
+            # Assicurati che l'icona sia nascosta
+            self.floorman_icon.setVisible(False)
+            self.has_active_floorman_call = False
     
     def start_floorman_animation(self):
         """Avvia l'animazione lampeggiante dell'icona floorman"""
@@ -335,20 +378,29 @@ class TimerCard(QFrame):
         """Gestisce il click sull'icona floorman"""
         event.accept()  # Ferma la propagazione
         
-        # Mostra dialogo di conferma
-        reply = QMessageBox.question(
-            None,
-            "Gestione Chiamata Floorman",
-            f"Chiamata floorman attiva per il tavolo {self.timer_data.get('table_number', 'N/A')}.\n\nVuoi marcarla come gestita?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
-        )
+        # Importa il dialog dalla finestra principale
+        from .main_window import FloormanCallDialog
         
-        if reply == QMessageBox.StandardButton.Yes:
-            # Rimuovi l'icona e ferma l'animazione
+        # Mostra il dialog personalizzato
+        dialog = FloormanCallDialog(self.timer_data.get('table_number', 'N/A'), None)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # L'utente ha cliccato "Gestita"
+            # Invia il comando al server per cancellare la chiamata floorman
+            self.server.send_command(self.device_id, "clear_floorman")
+            
+            # Rimuovi il timestamp floorman dai dati locali
+            if 'floorman_call_timestamp' in self.timer_data:
+                del self.timer_data['floorman_call_timestamp']
+            
+            # Rimuovi l'icona e ferma l'animazione immediatamente
             self.set_floorman_active(False)
+            
             # Emetti il segnale per notificare che è stata gestita
             self.floorman_handled.emit(self.device_id)
+            
+            # Forza un aggiornamento della card dal server
+            QTimer.singleShot(500, lambda: self.server.timer_updated.emit(self.device_id))
 
     def format_wifi_indicator(self, wifi_quality):
         """Formatta l'indicatore WiFi in base alla qualità del segnale"""
@@ -364,38 +416,47 @@ class TimerCard(QFrame):
             return "●○○○○"
         else:
             return "○○○○○"
-
+            
     def update_data(self, new_timer_data):
         """Aggiorna i dati della card senza ricrearla"""
-        if self.timer_data == new_timer_data:
-            # Non fare nulla se i dati sono identici
-            return
-            
+        # Rimuovi il controllo che potrebbe bloccare gli aggiornamenti
+        # if self.timer_data == new_timer_data:
+        #     return
+        
         # Aggiorna i dati interni
-        old_timer_data = self.timer_data
+        old_timer_data = self.timer_data.copy() if self.timer_data else {}
         self.timer_data = new_timer_data
         
-        # IMPORTANTE: Preserva lo stato dell'icona floorman durante l'aggiornamento
-        current_floorman_state = self.has_active_floorman_call
+        # IMPORTANTE: Gestione dello stato floorman
+        # Controlla se c'è un timestamp floorman nei nuovi dati
+        has_floorman_call = 'floorman_call_timestamp' in new_timer_data and new_timer_data['floorman_call_timestamp'] is not None
+        
+        # Aggiorna lo stato dell'icona floorman solo se è cambiato
+        if has_floorman_call != self.has_active_floorman_call:
+            self.set_floorman_active(has_floorman_call)
         
         # Aggiorna il titolo
         title_label = self.findChild(QLabel, "title_label")
         if title_label:
-            title_label.setText(f"Table {new_timer_data.get('table_number', 'N/A')}")
+            new_title = f"Table {new_timer_data.get('table_number', 'N/A')}"
+            if title_label.text() != new_title:
+                title_label.setText(new_title)
         
         # Aggiorna i posti liberi (se presenti o cambiati)
         if ('seat_info' in new_timer_data and 'open_seats' in new_timer_data['seat_info'] and 
             new_timer_data['seat_info']['open_seats']):
             
             seats = ', '.join(map(str, new_timer_data['seat_info']['open_seats']))
+            seat_text = f"SEAT OPEN: {seats}"
             seat_info_label = self.findChild(QLabel, "seat_info_label")
             
             if seat_info_label:
-                # Aggiorna l'etichetta esistente
-                seat_info_label.setText(f"SEAT OPEN: {seats}")
+                # Aggiorna l'etichetta esistente solo se il testo è cambiato
+                if seat_info_label.text() != seat_text:
+                    seat_info_label.setText(seat_text)
             else:
                 # Crea una nuova etichetta
-                self.seat_info = QLabel(f"SEAT OPEN: {seats}")
+                self.seat_info = QLabel(seat_text)
                 self.seat_info.setObjectName("seat_info_label")
                 self.seat_info.setStyleSheet("""
                     background-color: #fde68a; 
@@ -420,79 +481,94 @@ class TimerCard(QFrame):
             if seat_info_label:
                 seat_info_label.setParent(None)
         
-        # IMPORTANTE: Ripristina lo stato dell'icona floorman dopo l'aggiornamento
-        if current_floorman_state:
-            self.set_floorman_active(True)
-        
         # Aggiorna i valori dei timer
         t1_label = self.findChild(QLabel, "t1_label")
         if t1_label:
-            t1_label.setText(f"T1: {new_timer_data.get('t1_value', 'N/A')}s")
+            new_t1_text = f"T1: {new_timer_data.get('t1_value', 'N/A')}s"
+            if t1_label.text() != new_t1_text:
+                t1_label.setText(new_t1_text)
         
         if self.is_hardware_timer(self.device_id):
             t2_label = self.findChild(QLabel, "t2_label")
-            mode_label = self.findChild(QLabel, "mode_label")
-            
             mode = new_timer_data.get('mode', 1)
+            
             if t2_label and mode in [1, 2]:
-                t2_label.setText(f"T2: {new_timer_data.get('t2_value', 'N/A')}s")
+                new_t2_text = f"T2: {new_timer_data.get('t2_value', 'N/A')}s"
+                if t2_label.text() != new_t2_text:
+                    t2_label.setText(new_t2_text)
                 t2_label.setVisible(True)
             elif t2_label:
                 t2_label.setVisible(False)
-            
-            if mode_label:
-                mode_text = f"Mode: {mode}"
-                mode_label.setText(mode_text)
         
-        # Aggiorna stato timer (sostituisce aggiornamento giocatori)
+        # IMPORTANTE: Aggiorna stato timer - questo è il punto critico
         timer_status_label = self.findChild(QLabel, "timer_status_label")
         if timer_status_label:
             is_running = new_timer_data.get('is_running', False)
             is_paused = new_timer_data.get('is_paused', False)
-            status_text = "Paused" if is_paused else "Running" if is_running else "Stopped"
-            timer_status_label.setText(status_text)
             
-            # Utilizza lo stesso stile del badge originale
-            if status_text == "Running":
-                timer_status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-            elif status_text == "Paused":
-                timer_status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
-            else:  # Stopped
-                timer_status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+            # Determina il nuovo stato
+            if is_paused:
+                status_text = "Paused"
+            elif is_running:
+                status_text = "Running"
+            else:
+                status_text = "Stopped"
+            
+            # Aggiorna solo se il testo è cambiato
+            if timer_status_label.text() != status_text:
+                timer_status_label.setText(status_text)
+                
+                # Aggiorna anche lo stile
+                if status_text == "Running":
+                    timer_status_label.setStyleSheet("background-color: #d4edda; color: #155724; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+                elif status_text == "Paused":
+                    timer_status_label.setStyleSheet("background-color: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+                else:  # Stopped
+                    timer_status_label.setStyleSheet("background-color: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 4px; font-size: 13pt;")
+                
+                print(f"Timer {self.device_id} stato aggiornato a: {status_text}")
         
         # Aggiorna buzzer
         buzzer_label = self.findChild(QLabel, "buzzer_label")
         if buzzer_label:
-            buzzer_label.setText(f"Buzzer: {'On' if new_timer_data.get('buzzer', False) else 'Off'}")
+            buzzer_text = f"Buzzer: {'On' if new_timer_data.get('buzzer', False) else 'Off'}"
+            if buzzer_label.text() != buzzer_text:
+                buzzer_label.setText(buzzer_text)
         
         # Aggiorna batteria
         battery_label = self.findChild(QLabel, "battery_label")
         if battery_label:
             battery_level = new_timer_data.get('battery_level', 100)
             battery_text = f"Battery: {battery_level}%"
-            battery_label.setText(battery_text)
+            if battery_label.text() != battery_text:
+                battery_label.setText(battery_text)
         
         # Aggiorna voltage
         voltage_label = self.findChild(QLabel, "voltage_label")
         if voltage_label:
             voltage = new_timer_data.get('voltage', 5.00)
             voltage_text = f"Voltage: {voltage:.2f}V"
-            voltage_label.setText(voltage_text)
-            
+            if voltage_label.text() != voltage_text:
+                voltage_label.setText(voltage_text)
+        
+        # Aggiorna WiFi
         wifi_label = self.findChild(QLabel, "wifi_label")
         if wifi_label:
             wifi_quality = new_timer_data.get('wifi_quality', 100)
             wifi_dots = self.format_wifi_indicator(wifi_quality)
-            wifi_label.setText(f"WiFi: <span style='color: #28a745;'>{wifi_dots}")
+            wifi_text = f"WiFi: <span style='color: #28a745;'>{wifi_dots}</span>"
+            if wifi_label.text() != wifi_text:
+                wifi_label.setText(wifi_text)
         
         # Aggiorna stato online/offline
         online_status = self.findChild(QLabel, "online_status")
         if online_status:
             is_online = new_timer_data.get('is_online', False)
             online_status_text = "● Online" if is_online else "● Offline"
-            online_status_color = "#28a745" if is_online else "#dc3545"
-            online_status.setStyleSheet(f"color: {online_status_color}; font-size: 12pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
-            online_status.setText(online_status_text)
+            if online_status.text() != online_status_text:
+                online_status.setText(online_status_text)
+                online_status_color = "#28a745" if is_online else "#dc3545"
+                online_status.setStyleSheet(f"color: {online_status_color}; font-size: 12pt; background-color: #f8f9fa; padding: 4px 6px; border-radius: 4px;")
         
         # Aggiorna l'orario dell'ultimo aggiornamento
         last_update_label = self.findChild(QLabel, "last_update_label")
@@ -508,7 +584,10 @@ class TimerCard(QFrame):
             except:
                 formatted_time = "N/A"
             
-            last_update_label.setText(f"Last update: {formatted_time}")
+            new_update_text = f"Last update: {formatted_time}"
+            if last_update_label.text() != new_update_text:
+                last_update_label.setText(new_update_text)
+
         
     def on_card_click(self, event):
         """Gestisce il click sulla card - apre i dettagli"""

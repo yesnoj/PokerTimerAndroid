@@ -19,7 +19,6 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             val playersCount = timerJson.optInt("players_count", 10)
             android.util.Log.d("JSONExtensions", "Parsing timer ${deviceId}: players_count=${playersCount}")
 
-
             // Gestione dei valori booleani che potrebbero essere 0/1 invece di true/false
             val isRunning = when (val runVal = timerJson.opt("is_running")) {
                 is Boolean -> runVal
@@ -71,12 +70,34 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 else -> true
             }
 
-            // Fix per l'errore di tipo - gestione corretta dei valori nulli
-            val pendingCommand = if (timerJson.has("pending_command") && !timerJson.isNull("pending_command")) {
-                val cmd = timerJson.optString("pending_command")
-                if (cmd.isEmpty()) null else cmd
-            } else {
-                null
+            // IMPORTANTE: Gestione corretta del pendingCommand
+            var pendingCommand: String? = null
+
+            // Prima controlla se c'è un pending_command nel JSON
+            if (timerJson.has("pending_command") && !timerJson.isNull("pending_command")) {
+                val cmd = timerJson.optString("pending_command", "")
+                if (cmd.isNotEmpty()) {
+                    pendingCommand = cmd
+                    android.util.Log.d("JSONExtensions", "Found pending_command: $pendingCommand for timer $deviceId")
+                }
+            }
+
+            // NUOVO: Controlla anche se c'è un floorman_call_timestamp che indica una chiamata attiva
+            var floormanCallTimestamp: Long? = null
+            if (timerJson.has("floorman_call_timestamp") && !timerJson.isNull("floorman_call_timestamp")) {
+                floormanCallTimestamp = timerJson.optLong("floorman_call_timestamp")
+                android.util.Log.d("JSONExtensions", "Found floorman_call_timestamp: $floormanCallTimestamp for timer $deviceId")
+
+                // Se c'è un timestamp floorman attivo ma non c'è un pending_command, impostiamolo
+                if (floormanCallTimestamp != null && floormanCallTimestamp > 0 && pendingCommand == null) {
+                    // Verifica che la chiamata non sia troppo vecchia (più di 5 minuti)
+                    val currentTime = System.currentTimeMillis()
+                    val timeDiff = currentTime - floormanCallTimestamp
+                    if (timeDiff < 300000) { // 5 minuti in millisecondi
+                        pendingCommand = "floorman_call"
+                        android.util.Log.d("JSONExtensions", "Setting pending_command to floorman_call based on timestamp for timer $deviceId")
+                    }
+                }
             }
 
             // Gestione delle informazioni sui posti liberi
@@ -174,17 +195,16 @@ fun JSONObject.parseTimers(): List<TimerItem> {
                 android.util.Log.d("JSONExtensions", "Found bar request for timer $deviceId: active=${barRequest.active}")
             }
 
-            var floormanCallTimestamp: Long? = null
-            if (timerJson.has("floorman_call_timestamp") && !timerJson.isNull("floorman_call_timestamp")) {
-                floormanCallTimestamp = timerJson.optLong("floorman_call_timestamp")
-                android.util.Log.d("JSONExtensions", "Found floorman call timestamp: $floormanCallTimestamp for timer $deviceId")
-            }
-
             // Gestione del timestamp della richiesta bar
             var barServiceTimestamp: Long? = null
             if (timerJson.has("bar_service_timestamp") && !timerJson.isNull("bar_service_timestamp")) {
                 barServiceTimestamp = timerJson.optLong("bar_service_timestamp")
                 android.util.Log.d("JSONExtensions", "Found bar service timestamp: $barServiceTimestamp for timer $deviceId")
+            }
+
+            // Log dettagliato per debug
+            if (pendingCommand == "floorman_call") {
+                android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) ha una chiamata floorman attiva")
             }
 
             // Crea un oggetto TimerItem e aggiungilo alla lista
@@ -226,6 +246,11 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             // Log per debug se ci sono richieste bar
             if (timerItem.hasActiveBarRequest()) {
                 android.util.Log.d("JSONExtensions", "Timer $deviceId (table $tableNumber) has active bar request")
+            }
+
+            // Log per debug
+            if (timerItem.pendingCommand == "floorman_call") {
+                android.util.Log.d("JSONExtensions", "Created TimerItem for device $deviceId with floorman_call pending")
             }
 
             timerList.add(timerItem)

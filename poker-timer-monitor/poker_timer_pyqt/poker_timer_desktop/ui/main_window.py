@@ -691,10 +691,33 @@ class MainWindow(QMainWindow):
                 # Imposta la posizione iniziale della card
                 row, col = positions[device_id]
                 
+                # Controlla se c'è una chiamata floorman attiva
+                has_floorman_call = 'floorman_call_timestamp' in timer_data and timer_data['floorman_call_timestamp'] is not None
+                
                 if device_id in self.timer_cards:
                     # Aggiorna i dati della card esistente
                     card = self.timer_cards[device_id]
                     card.update_data(timer_data)
+                    
+                    # Gestisci lo stato floorman
+                    if has_floorman_call and not card.has_active_floorman_call:
+                        # Attiva l'icona floorman
+                        card.set_floorman_active(True)
+                        table_number = timer_data.get('table_number', 0)
+                        self.active_floorman_calls[table_number] = device_id
+                        
+                        # Connetti il segnale
+                        try:
+                            card.floorman_handled.disconnect()
+                        except:
+                            pass
+                        card.floorman_handled.connect(lambda dev_id, t_num=table_number: self.on_floorman_handled(t_num))
+                    elif not has_floorman_call and card.has_active_floorman_call:
+                        # Disattiva l'icona floorman
+                        card.set_floorman_active(False)
+                        table_number = timer_data.get('table_number', 0)
+                        if table_number in self.active_floorman_calls:
+                            del self.active_floorman_calls[table_number]
                     
                     # Sposta la card nella nuova posizione se necessario
                     current_index = self.grid_layout.indexOf(card)
@@ -706,6 +729,16 @@ class MainWindow(QMainWindow):
                 else:
                     # Crea una nuova card direttamente nella posizione corretta
                     card = TimerCard(device_id, timer_data, self.server)
+                    
+                    # Se c'è una chiamata floorman, attivala
+                    if has_floorman_call:
+                        card.set_floorman_active(True)
+                        table_number = timer_data.get('table_number', 0)
+                        self.active_floorman_calls[table_number] = device_id
+                        
+                        # Connetti il segnale
+                        card.floorman_handled.connect(lambda dev_id, t_num=table_number: self.on_floorman_handled(t_num))
+                    
                     self.grid_layout.addWidget(card, row, col)
                     self.timer_cards[device_id] = card
                     
@@ -715,46 +748,58 @@ class MainWindow(QMainWindow):
         finally:
             self.update_lock.release()
     
+
     @pyqtSlot(str)
     def on_timer_updated(self, device_id):
         """Gestisce il segnale di aggiornamento timer"""
-        # Forza l'aggiornamento della card corrispondente
-        if device_id in self.timer_cards and device_id in self.server.timers:
-            # Crea una nuova card per sostituire quella esistente
-            timer_data = self.server.timers[device_id]
-            row, col = 0, 0
+        # Controlla se il timer esiste nei dati del server
+        if device_id not in self.server.timers:
+            return
             
-            # Trova la posizione attuale della card
-            current_index = self.grid_layout.indexOf(self.timer_cards[device_id])
-            if current_index >= 0:
-                current_row, current_col, _, _ = self.grid_layout.getItemPosition(current_index)
-                row, col = current_row, current_col
-            
-            # Rimuovi la card esistente
-            old_card = self.timer_cards[device_id]
-            self.grid_layout.removeWidget(old_card)
-            old_card.setParent(None)
-            old_card.deleteLater()
-            
-            # Crea una nuova card
-            new_card = TimerCard(device_id, timer_data, self.server)
-            
-            
-            self.grid_layout.addWidget(new_card, row, col)
-            self.timer_cards[device_id] = new_card
-            
-            # Aggiorna il contatore
-            timers = self.server.timers
-            online_timers = []
-            offline_timers = []
-            for timer_id, timer_data in timers.items():
-                if self.server.is_timer_online(timer_data):
-                    online_timers.append(timer_id)
-                else:
-                    offline_timers.append(timer_id)
-            
-            self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
+        timer_data = self.server.timers[device_id]
         
+        # Controlla se c'è un timestamp floorman
+        has_floorman_call = 'floorman_call_timestamp' in timer_data and timer_data['floorman_call_timestamp'] is not None
+        
+        # Se c'è una card esistente, aggiornala
+        if device_id in self.timer_cards:
+            card = self.timer_cards[device_id]
+            
+            # Aggiorna i dati della card
+            card.update_data(timer_data)
+            
+            # Gestisci specificamente lo stato floorman
+            if has_floorman_call:
+                # Attiva l'icona floorman se non è già attiva
+                if not card.has_active_floorman_call:
+                    card.set_floorman_active(True)
+                    # Connetti il segnale per quando viene gestita
+                    try:
+                        card.floorman_handled.disconnect()
+                    except:
+                        pass
+                    table_number = timer_data.get('table_number', 0)
+                    card.floorman_handled.connect(lambda dev_id, t_num=table_number: self.on_floorman_handled(t_num))
+            else:
+                # Disattiva l'icona floorman se non c'è più la chiamata
+                if card.has_active_floorman_call:
+                    card.set_floorman_active(False)
+        else:
+            # Se non esiste una card, forza un aggiornamento completo
+            self.update_timers()
+        
+        # Aggiorna il contatore
+        timers = self.server.timers
+        online_timers = []
+        offline_timers = []
+        for timer_id, timer_data in timers.items():
+            if self.server.is_timer_online(timer_data):
+                online_timers.append(timer_id)
+            else:
+                offline_timers.append(timer_id)
+        
+        self.timer_count.setText(f"Timer connessi: {len(online_timers)} online, {len(offline_timers)} offline")
+       
     @pyqtSlot(str)
     def on_timer_connected(self, device_id):
         """Gestisce il segnale di connessione nuovo timer"""
@@ -854,6 +899,7 @@ class MainWindow(QMainWindow):
             )
             print(f"Nuova notifica creata per tavolo {table_number} con posti {seats_str}")
     
+
     @pyqtSlot(int)
     def on_floorman_notification(self, table_number):
         """Gestisce il segnale di chiamata floorman"""
@@ -879,21 +925,53 @@ class MainWindow(QMainWindow):
                     card.set_floorman_active(True)
                     self.active_floorman_calls[table_number] = device_id
                     
-                    # Connetti il segnale per quando viene gestita (usa lambda con parametro di default)
+                    # Connetti il segnale per quando viene gestita
                     try:
-                        # Disconnetti eventuali connessioni precedenti per evitare duplicati
                         card.floorman_handled.disconnect()
                     except:
-                        pass  # Nessuna connessione precedente
+                        pass
                     
                     # Connetti il nuovo segnale
                     card.floorman_handled.connect(lambda dev_id, t_num=table_number: self.on_floorman_handled(t_num))
                     print(f"Attivata icona floorman per tavolo {table_number}")
+                    
+                    # Mostra il popup di gestione floorman
+                    QTimer.singleShot(500, lambda: self.show_floorman_popup(table_number))
                 else:
                     print(f"Card non trovata per device_id {device_id}")
                 break
         else:
             print(f"Nessun timer trovato per tavolo {table_number}")
+
+    def show_floorman_popup(self, table_number):
+        """Mostra il popup per gestire la chiamata floorman"""
+        # Usa il dialog personalizzato
+        dialog = FloormanCallDialog(table_number, self)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # L'utente ha cliccato "Gestita"
+            # Trova il device_id corrispondente
+            device_id = self.active_floorman_calls.get(table_number)
+            if device_id and device_id in self.timer_cards:
+                # Invia il comando al server per cancellare il timestamp
+                self.server.send_command(device_id, "clear_floorman")
+                
+                # Rimuovi il timestamp dai dati del server
+                if device_id in self.server.timers and 'floorman_call_timestamp' in self.server.timers[device_id]:
+                    del self.server.timers[device_id]['floorman_call_timestamp']
+                
+                # Aggiorna immediatamente la UI
+                card = self.timer_cards[device_id]
+                card.set_floorman_active(False)
+                
+                # Rimuovi dalla lista delle chiamate attive
+                if table_number in self.active_floorman_calls:
+                    del self.active_floorman_calls[table_number]
+                
+                # Forza un aggiornamento completo della card
+                self.server.timer_updated.emit(device_id)
+                    
+                print(f"Chiamata floorman per tavolo {table_number} gestita tramite popup")
 
     def on_floorman_handled(self, table_number):
         """Gestisce quando una chiamata floorman viene marcata come gestita"""

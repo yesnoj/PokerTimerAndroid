@@ -650,6 +650,21 @@ class PokerTimerViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
+
+    /**
+     * Gestisce il comando floorman_call localmente per aggiornamento immediato UI
+     */
+    fun handleFloormanCallCommand() {
+        val currentState = _timerState.value ?: return
+
+        // Non è necessario modificare lo stato locale del timer
+        // Forza solo un refresh dal server per ottenere lo stato aggiornato
+        refreshFromServer()
+
+        Log.d("PokerTimerViewModel", "Floorman call command handled - refreshing from server")
+    }
+
+
     /**
      * Testa la connessione al server
      */

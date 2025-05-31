@@ -237,12 +237,12 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                         connection.connectTimeout = 5000
                         connection.readTimeout = 5000
 
-                        // IMPORTANTE: Il server si aspetta timestamp come numero, non stringa
+                        // Il server si aspetta timestamp come numero, non stringa
                         val jsonPayload = """
-                        {
-                            "table_number": ${currentState.tableNumber},
-                            "timestamp": ${System.currentTimeMillis()}
-                        }
+                    {
+                        "table_number": ${currentState.tableNumber},
+                        "timestamp": ${System.currentTimeMillis()}
+                    }
                     """.trimIndent()
 
                         Log.d("MainActivity", "Invio richiesta floorman: $jsonPayload")
@@ -286,6 +286,10 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                         @Suppress("DEPRECATION")
                         vibrator.vibrate(200)
                     }
+
+                    // IMPORTANTE: Aggiorna localmente il pending_command per mostrare subito l'icona
+                    viewModel.handleFloormanCallCommand()
+
                 } else {
                     Toast.makeText(this@MainActivity, "Errore nella chiamata al floorman", Toast.LENGTH_SHORT).show()
                 }
@@ -296,7 +300,6 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             }
         }
     }
-
     /**
      * Richiede il servizio bar
      */

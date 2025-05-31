@@ -303,16 +303,21 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         try {
             // Per ogni timer nella lista, controlla se ha una chiamata floorman attiva
             allTimerList.forEach { timer ->
-                // Usa il metodo hasActiveFloormanCall() per verificare se c'è una chiamata attiva
-                if (timer.hasActiveFloormanCall()) {
+                // Verifica se c'è un pendingCommand floorman_call
+                if (timer.pendingCommand == "floorman_call") {
                     val tableNumber = timer.tableNumber
+
+                    android.util.Log.d("DashboardActivity", "Trovata chiamata floorman per tavolo $tableNumber")
 
                     // Verifica se è una nuova notifica da mostrare
                     if (FloormanNotificationTracker.isNewNotification(tableNumber)) {
-                        // Mostra la notifica
+                        // Mostra la notifica toast
                         showFloormanNotification(tableNumber)
                         // Marca come notificata per evitare duplicati
                         FloormanNotificationTracker.markAsNotified(tableNumber)
+
+                        // Mostra anche il dialogo di gestione
+                        showFloormanCallDialog(timer)
                     }
                 }
             }
@@ -397,58 +402,98 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     /**
      * Mostra un dialogo personalizzato per la chiamata floorman
      */
+    // In DashboardActivity.kt - Modifica del metodo showFloormanCallDialog()
+
     private fun showFloormanCallDialog(timer: TimerItem) {
         // Disabilita temporaneamente l'auto-refresh per evitare che il dialogo si chiuda
         stopAutoRefresh()
 
-        // Crea un AlertDialog personalizzato
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Chiamata Floorman Attiva")
-            .setMessage("Floorman richiesto al tavolo ${timer.tableNumber}")
-            .setPositiveButton("Gestita") { dialogInterface, _ ->
-                // IMPORTANTE: Prima aggiorna la lista locale per rimuovere immediatamente l'highlight
-                val index = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
-                if (index >= 0) {
-                    // Crea una copia del timer senza il pendingCommand floorman
-                    val updatedTimer = allTimerList[index].copy(
-                        pendingCommand = if (allTimerList[index].pendingCommand == "floorman_call") null else allTimerList[index].pendingCommand
-                    )
-                    allTimerList[index] = updatedTimer
+        // Crea il dialog usando il layout esistente
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_floorman_call)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
-                    // Aggiorna anche la lista filtrata
-                    val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
-                    if (filteredIndex >= 0) {
-                        filteredTimerList[filteredIndex] = updatedTimer
+        // IMPORTANTE: Imposta le dimensioni del dialogo per essere più stretto
+        val layoutParams = WindowManager.LayoutParams()
+        layoutParams.copyFrom(dialog.window?.attributes)
 
-                        // Notifica l'adapter per aggiornare immediatamente la UI
-                        runOnUiThread {
-                            timerAdapter.notifyItemChanged(filteredIndex)
-                        }
+        // Imposta larghezza fissa invece di MATCH_PARENT
+        val displayMetrics = resources.displayMetrics
+        val dialogWidth = (displayMetrics.widthPixels * 0.5).toInt() // 50% della larghezza dello schermo
+        layoutParams.width = dialogWidth.coerceIn(400, 600) // Min 400dp, Max 600dp in pixel
+        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
+
+        dialog.window?.attributes = layoutParams
+
+        // Ottieni i riferimenti alle viste
+        val titleText = dialog.findViewById<TextView>(R.id.floorman_dialog_title)
+        val messageText = dialog.findViewById<TextView>(R.id.floorman_dialog_message)
+        val btnGestita = dialog.findViewById<Button>(R.id.btn_gestita)
+        val btnChiudi = dialog.findViewById<Button>(R.id.btn_chiudi)
+
+        // Imposta il messaggio con il numero del tavolo
+        messageText.text = "Il tavolo ${timer.tableNumber} ha una chiamata floorman attiva."
+
+        // Configura il bottone "GESTITA"
+        btnGestita.setOnClickListener {
+            // IMPORTANTE: Prima aggiorna la lista locale per rimuovere immediatamente l'highlight
+            val index = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+            if (index >= 0) {
+                // Crea una copia del timer senza il pendingCommand floorman
+                val updatedTimer = allTimerList[index].copy(
+                    pendingCommand = null,
+                    floormanCallTimestamp = null
+                )
+                allTimerList[index] = updatedTimer
+
+                // Aggiorna anche la lista filtrata
+                val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
+                if (filteredIndex >= 0) {
+                    filteredTimerList[filteredIndex] = updatedTimer
+
+                    // Notifica l'adapter per aggiornare immediatamente la UI
+                    runOnUiThread {
+                        timerAdapter.notifyItemChanged(filteredIndex)
                     }
                 }
-
-                // Poi invia il comando al server
-                sendFloormanHandledCommand(timer.deviceId)
-
-                // Riavvia l'auto-refresh
-                startAutoRefresh()
-
-                dialogInterface.dismiss()
             }
-            .setNegativeButton("Annulla") { dialogInterface, _ ->
-                // Riavvia l'auto-refresh
-                startAutoRefresh()
-                dialogInterface.dismiss()
-            }
-            .setCancelable(false)  // Non permettere la chiusura con il back button
-            .create()
 
+            // Poi invia il comando al server
+            sendFloormanHandledCommand(timer.deviceId)
+
+            // Rimuovi dal tracker
+            FloormanNotificationTracker.clearNotification(timer.tableNumber)
+
+            // Chiudi il dialogo
+            dialog.dismiss()
+
+            // Riavvia l'auto-refresh
+            startAutoRefresh()
+
+            Toast.makeText(this, "Chiamata floorman gestita", Toast.LENGTH_SHORT).show()
+        }
+
+        // Configura il bottone "CHIUDI"
+        btnChiudi.setOnClickListener {
+            // Riavvia l'auto-refresh
+            startAutoRefresh()
+            dialog.dismiss()
+        }
+
+        // Non permettere la chiusura con il back button
+        dialog.setCancelable(false)
+
+        // Mostra il dialogo
         dialog.show()
-
-        // Cambia il colore dei pulsanti a bianco
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.WHITE)
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
     }
+
+    override fun onFloormanIconClicked(timer: TimerItem) {
+        // Mostra il dialogo quando si clicca sull'icona floorman
+        showFloormanCallDialog(timer)
+    }
+
+
     /**
      * Invia il comando per segnare la chiamata floorman come gestita
      */
@@ -467,9 +512,9 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     // Comando per resettare lo stato floorman
                     val jsonPayload = """
                     {
-                        "command": "floorman_handled"
+                        "command": "clear_floorman"
                     }
-                """.trimIndent()
+                    """.trimIndent()
 
                     val outputStream = connection.outputStream
                     outputStream.write(jsonPayload.toByteArray())
@@ -485,10 +530,11 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 refreshTimerData(false)
 
             } catch (e: Exception) {
-                Log.e("DashboardActivity", "Errore nell'invio del comando floorman_handled: ${e.message}")
+                Log.e("DashboardActivity", "Errore nell'invio del comando clear_floorman: ${e.message}")
             }
         }
     }
+
 
     private fun showFloormanNotification(tableNumber: Int) {
         val title = "🚨 FLOORMAN RICHIESTO"
