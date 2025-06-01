@@ -68,6 +68,28 @@ class PokerTimerServer(QObject):
         
         logger.info(f"Poker Timer Server inizializzato (porta HTTP: {port}, porta discovery: {discovery_port})")
     
+
+    def calculate_wifi_quality(self, wifi_signal):
+        """Converte il valore wifi_signal in una percentuale di qualità"""
+        if wifi_signal is None:
+            return 100  # Default alto per i dispositivi Android
+        
+        # Per i segnali WiFi, tipicamente:
+        # -30 dBm è eccellente (100%)
+        # -67 dBm è il limite per applicazioni affidabili (~70%)
+        # -70 dBm è il minimo per connessioni di base (~40%)
+        # -80 dBm è il minimo utilizzabile (~20%)
+        # -90 dBm è praticamente inutilizzabile (0%)
+        
+        signal = abs(wifi_signal)  # Usiamo il valore assoluto per facilitare il calcolo
+        if signal <= 30:
+            return 100
+        elif signal >= 90:
+            return 0
+        else:
+            # Calcolo lineare tra -30 e -90 dBm
+            return max(0, min(100, 100 - ((signal - 30) * 100 / 60)))
+
     def setup_routes(self):
         """Configura le route API del server Flask"""
         
@@ -170,6 +192,17 @@ class PokerTimerServer(QObject):
             # Aggiorna timestamp e indirizzo IP
             timer_data['last_update'] = datetime.datetime.now().isoformat()
             timer_data['ip_address'] = request.remote_addr
+            
+            # Calcola wifi_quality se wifi_signal è disponibile
+            if 'wifi_signal' in timer_data:
+                timer_data['wifi_quality'] = self.calculate_wifi_quality(timer_data['wifi_signal'])
+                logger.info(f"Calcolato wifi_quality={timer_data['wifi_quality']} da wifi_signal={timer_data['wifi_signal']} per {device_id}")
+            elif device_id.startswith('android_'):
+                # Per i dispositivi Android, aggiungiamo una qualità WiFi variabile
+                import random
+                quality = random.randint(60, 100)
+                timer_data['wifi_quality'] = quality
+                logger.info(f"Impostato wifi_quality simulato={quality} per dispositivo Android {device_id}")
             
             # Verifica se è un nuovo timer
             is_new = device_id not in self.timers

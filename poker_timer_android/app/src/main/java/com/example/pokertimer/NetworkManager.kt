@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import java.util.Random
 import kotlinx.coroutines.delay
 import org.json.JSONObject
+import android.net.wifi.WifiManager
 
 class NetworkManager(private val context: Context) {
 
@@ -65,6 +66,10 @@ class NetworkManager(private val context: Context) {
                 val deviceId = getUniqueDeviceId()
                 android.util.Log.d("NetworkManager", "Using device ID: $deviceId")
 
+                val wifiSignal = getWifiSignalStrength()
+                android.util.Log.d("NetworkManager", "WiFi signal strength: $wifiSignal dBm")
+
+
                 val jsonPayload = """
             {
                 "device_id": "$deviceId",
@@ -79,7 +84,9 @@ class NetworkManager(private val context: Context) {
                 "battery_level": ${timerState.batteryLevel},
                 "voltage": ${timerState.batteryVoltage},
                 "buzzer": ${timerState.buzzerEnabled},
-                "players_count": ${timerState.playersCount}
+                "players_count": ${timerState.playersCount},
+                "is_t1_active": ${timerState.isT1Active},
+                "wifi_signal": ${wifiSignal ?: "null"}
             }
             """.trimIndent()
 
@@ -114,7 +121,7 @@ class NetworkManager(private val context: Context) {
                                 "reset" -> return@withContext Pair(true, Command.RESET)
                                 "clear_seats" -> return@withContext Pair(true, Command.CLEAR_SEATS)
                                 "factory_reset" -> return@withContext Pair(true, Command.FACTORY_RESET)
-                                "settings", "apply_settings" -> {  // Aggiungi "apply_settings" qui
+                                "settings", "apply_settings" -> {
                                     // Elabora le nuove impostazioni
                                     if (response.settings != null) {
                                         val settings = response.settings
@@ -172,7 +179,6 @@ class NetworkManager(private val context: Context) {
             }
         }
     }
-
     // Classe per rappresentare la risposta del server
     data class ServerResponse(
         val status: String,
@@ -359,6 +365,22 @@ class NetworkManager(private val context: Context) {
                 android.util.Log.e("NetworkManager", "Reset seats error: ${e.message}", e)
                 return@withContext false
             }
+        }
+    }
+
+    private fun getWifiSignalStrength(): Int? {
+        try {
+            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val wifiInfo = wifiManager.connectionInfo
+
+            // Livello del segnale WiFi in dBm
+            val rssi = wifiInfo.rssi
+
+            // Verifica che sia un valore ragionevole
+            return if (rssi <= 0 && rssi >= -100) rssi else null
+        } catch (e: Exception) {
+            android.util.Log.e("NetworkManager", "Errore nel leggere il segnale WiFi: ${e.message}", e)
+            return null
         }
     }
 

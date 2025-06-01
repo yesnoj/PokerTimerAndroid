@@ -519,42 +519,45 @@ class MainWindow(QMainWindow):
             self.update_lock.release()
 
     def _has_significant_changes(self, old_data, new_data):
-            """
-            Controlla se ci sono modifiche significative tra i dati vecchi e nuovi
-            Per evitare aggiornamenti inutili delle card
-            """
-            # Lista dei campi da confrontare per verificare modifiche significative
-            fields_to_check = [
-                'is_running', 
-                'is_paused', 
-                'table_number', 
-                'battery_level', 
-                'wifi_quality', 
-                'buzzer', 
-                'seat_info',
-                't1_value',
-                't2_value',
-                'voltage',
-                'last_update'
-            ]
+        """
+        Controlla se ci sono modifiche significative tra i dati vecchi e nuovi
+        Per evitare aggiornamenti inutili delle card
+        """
+        # Lista dei campi da confrontare per verificare modifiche significative
+        fields_to_check = [
+            'is_running', 
+            'is_paused', 
+            'table_number', 
+            'battery_level', 
+            'wifi_quality', 
+            'buzzer', 
+            'seat_info',
+            't1_value',
+            't2_value',
+            'voltage',
+            'last_update',
+            'is_online',       # Aggiunto per verificare cambiamenti online/offline
+            'is_t1_active',    # Aggiunto per verificare cambiamenti T1/T2
+            'current_timer'    # Aggiunto per verificare cambiamenti nel timer attuale
+        ]
+        
+        for field in fields_to_check:
+            old_value = old_data.get(field)
+            new_value = new_data.get(field)
             
-            for field in fields_to_check:
-                old_value = old_data.get(field)
-                new_value = new_data.get(field)
-                
-                # Confronto speciale per seat_info
-                if field == 'seat_info':
-                    old_seats = old_value.get('open_seats', []) if old_value else []
-                    new_seats = new_value.get('open_seats', []) if new_value else []
-                    if set(old_seats) != set(new_seats):
-                        return True
-                    continue
-                
-                # Per tutti gli altri campi
-                if old_value != new_value:
+            # Confronto speciale per seat_info
+            if field == 'seat_info':
+                old_seats = old_value.get('open_seats', []) if old_value else []
+                new_seats = new_value.get('open_seats', []) if new_value else []
+                if set(old_seats) != set(new_seats):
                     return True
+                continue
             
-            return False
+            # Per tutti gli altri campi
+            if old_value != new_value:
+                return True
+        
+        return False
     
     def update_timers(self):
         """Aggiorna la visualizzazione dei timer in modo efficiente (ricostruzione completa)"""

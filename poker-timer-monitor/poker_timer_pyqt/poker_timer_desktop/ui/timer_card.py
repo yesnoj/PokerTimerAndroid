@@ -192,10 +192,11 @@ class TimerCard(QFrame):
         # Prima riga della griglia (0)
         col = 0
 
-        # T1 (sempre visibile)
-        self.t1_label = QLabel(f"T1: {timer_data.get('t1_value', 'N/A')}s")
+        is_t1_active = timer_data.get('is_t1_active', True)
+        active_timer_text = "T1" if is_t1_active else "T2"
+        self.t1_label = QLabel(f"Timer: {active_timer_text} - {timer_data.get('t1_value', 'N/A')}s")
         self.t1_label.setObjectName("t1_label")
-        self.t1_label.setStyleSheet(info_style)
+        self.t1_label.setStyleSheet(f"{info_style} font-weight: bold;")
         info_grid.addWidget(self.t1_label, 0, col)
         col += 1
 
@@ -346,10 +347,13 @@ class TimerCard(QFrame):
             
     def update_data(self, new_timer_data):
         """Aggiorna i dati della card senza ricrearla"""
-        # Rimuovi il controllo che potrebbe bloccare gli aggiornamenti
-        # if self.timer_data == new_timer_data:
-        #     return
-        
+
+        print(f"Timer {self.device_id} dati ricevuti: {list(new_timer_data.keys())}")
+        if 'is_t1_active' in new_timer_data:
+            print(f"Timer {self.device_id} is_t1_active={new_timer_data['is_t1_active']}")
+        if 'wifi_quality' in new_timer_data:
+            print(f"Timer {self.device_id} wifi_quality={new_timer_data['wifi_quality']}")
+
         # Aggiorna i dati interni
         old_timer_data = self.timer_data.copy() if self.timer_data else {}
         self.timer_data = new_timer_data
@@ -407,9 +411,12 @@ class TimerCard(QFrame):
         # Aggiorna i valori dei timer
         t1_label = self.findChild(QLabel, "t1_label")
         if t1_label:
-            new_t1_text = f"T1: {new_timer_data.get('t1_value', 'N/A')}s"
+            is_t1_active = new_timer_data.get('is_t1_active', True)
+            active_timer_text = "T1" if is_t1_active else "T2"
+            new_t1_text = f"Timer: {active_timer_text} - {new_timer_data.get('t1_value', 'N/A')}s"
             if t1_label.text() != new_t1_text:
                 t1_label.setText(new_t1_text)
+                print(f"Timer {self.device_id} aggiornato: {new_t1_text}")
         
         if self.is_hardware_timer(self.device_id):
             t2_label = self.findChild(QLabel, "t2_label")
@@ -422,6 +429,39 @@ class TimerCard(QFrame):
                 t2_label.setVisible(True)
             elif t2_label:
                 t2_label.setVisible(False)
+        
+        # AGGIUNTA: Aggiorna l'indicatore del timer attivo (T1/T2)
+        active_timer_text = self.findChild(QLabel, "activeTimerText")
+        if active_timer_text:
+            mode = new_timer_data.get('mode', 1)
+            if mode in [3, 4]:  # Modalità solo T1
+                new_active_text = "T1"
+            else:
+                # Verifica se 'is_t1_active' è disponibile nei dati
+                if 'is_t1_active' in new_timer_data:
+                    is_t1_active = new_timer_data['is_t1_active']
+                    new_active_text = "T1" if is_t1_active else "T2"
+                else:
+                    # Fallback: controlla se il timer corrente corrisponde a T1 o T2
+                    current_timer = new_timer_data.get('current_timer', 0)
+                    t1_value = new_timer_data.get('t1_value', 0)
+                    t2_value = new_timer_data.get('t2_value', 0)
+                    
+                    if current_timer == t1_value:
+                        new_active_text = "T1"
+                    elif current_timer == t2_value:
+                        new_active_text = "T2"
+                    else:
+                        # Se non corrisponde esattamente a nessuno dei due, determina il più vicino
+                        if abs(current_timer - t1_value) <= abs(current_timer - t2_value):
+                            new_active_text = "T1"
+                        else:
+                            new_active_text = "T2"
+            
+            # Aggiorna solo se il testo è cambiato
+            if active_timer_text.text() != new_active_text:
+                active_timer_text.setText(new_active_text)
+                print(f"Timer {self.device_id} timer attivo aggiornato a: {new_active_text}")
         
         # IMPORTANTE: Aggiorna stato timer - questo è il punto critico
         timer_status_label = self.findChild(QLabel, "timer_status_label")
@@ -458,6 +498,16 @@ class TimerCard(QFrame):
             if buzzer_label.text() != buzzer_text:
                 buzzer_label.setText(buzzer_text)
         
+
+        # Aggiorna indicatore timer attivo (T1/T2)
+        active_timer_label = self.findChild(QLabel, "active_timer_label")
+        if active_timer_label:
+            is_t1_active = new_timer_data.get('is_t1_active', True)
+            new_active_text = f"Timer: T1" if is_t1_active else f"Timer: T2"
+            if active_timer_label.text() != new_active_text:
+                active_timer_label.setText(new_active_text)
+                print(f"Timer {self.device_id} timer attivo aggiornato a: {new_active_text}")
+
         # Aggiorna batteria
         battery_label = self.findChild(QLabel, "battery_label")
         if battery_label:
