@@ -144,7 +144,7 @@
                     android:layout_width="80dp"
                     android:layout_height="80dp"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_circular_button_purple"
+                    android:background="@drawable/bg_circular_button_green"
                     android:contentDescription="Servizio bar"
                     android:padding="10dp"
                     android:scaleType="fitCenter"
