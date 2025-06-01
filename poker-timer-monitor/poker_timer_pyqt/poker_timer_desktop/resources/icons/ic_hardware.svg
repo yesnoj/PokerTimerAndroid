@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:android="http://schemas.android.com/apk/res/android" width="24dp" height="24dp" viewportWidth="24" viewportHeight="24">
+	<path fill="#FF000000" d="M6,4L18,4A2,2 0,0 1,20 6L20,18A2,2 0,0 1,18 20L6,20A2,2 0,0 1,4 18L4,6A2,2 0,0 1,6 4z"/>
+	<path fill="#FF000000" d="M9,9L15,9A1,1 0,0 1,16 10L16,14A1,1 0,0 1,15 15L9,15A1,1 0,0 1,8 14L8,10A1,1 0,0 1,9 9z"/>
+	<path fill="#FF000000" d="M2,8L4,8L4,9.5L2,9.5z"/>
+	<path fill="#FF000000" d="M2,11L4,11L4,12.5L2,12.5z"/>
+	<path fill="#FF000000" d="M2,14L4,14L4,15.5L2,15.5z"/>
+	<path fill="#FF000000" d="M20,8L22,8L22,9.5L20,9.5z"/>
+	<path fill="#FF000000" d="M20,11L22,11L22,12.5L20,12.5z"/>
+	<path fill="#FF000000" d="M20,14L22,14L22,15.5L20,15.5z"/>
+	<path fill="#FF000000" d="M8,2L9.5,2L9.5,4L8,4z"/>
+	<path fill="#FF000000" d="M11,2L12.5,2L12.5,4L11,4z"/>
+	<path fill="#FF000000" d="M14,2L15.5,2L15.5,4L14,4z"/>
+	<path fill="#FF000000" d="M8,20L9.5,20L9.5,22L8,22z"/>
+	<path fill="#FF000000" d="M11,20L12.5,20L12.5,22L11,22z"/>
+	<path fill="#FF000000" d="M14,20L15.5,20L15.5,22L14,22z"/>
+</svg>

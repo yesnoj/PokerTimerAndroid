@@ -331,19 +331,26 @@ class TimerCard(QFrame):
         """)
 
     def format_wifi_indicator(self, wifi_quality):
-        """Formatta l'indicatore WiFi in base alla qualità del segnale"""
+        """Formatta l'indicatore WiFi con simboli di dimensione uniforme"""
+        filled = "▶"  # Pallino pieno
+        empty = "▷"   # Alternativa al pallino vuoto che potrebbe funzionare meglio
+        
+        # Oppure usa simboli di quadrato che hanno in genere dimensioni più coerenti
+        # filled = "▶"
+        # empty = "▷"
+        
         if wifi_quality >= 80:
-            return "●●●●●"
+            return f"{filled}{filled}{filled}{filled}{filled}"
         elif wifi_quality >= 60:
-            return "●●●●○"
+            return f"{filled}{filled}{filled}{filled}{empty}"
         elif wifi_quality >= 40:
-            return "●●●○○"
+            return f"{filled}{filled}{filled}{empty}{empty}"
         elif wifi_quality >= 20:
-            return "●●○○○"
+            return f"{filled}{filled}{empty}{empty}{empty}"
         elif wifi_quality > 0:
-            return "●○○○○"
+            return f"{filled}{empty}{empty}{empty}{empty}"
         else:
-            return "○○○○○"
+            return f"{empty}{empty}{empty}{empty}{empty}"
             
     def update_data(self, new_timer_data):
         """Aggiorna i dati della card senza ricrearla"""
