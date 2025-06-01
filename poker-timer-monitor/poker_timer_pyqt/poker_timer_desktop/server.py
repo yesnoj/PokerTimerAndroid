@@ -659,7 +659,11 @@ class PokerTimerServer(QObject):
             # Emetti il segnale per la notifica
             self.bar_service_notification.emit(table_number)
             
-            # Pagina HTML di conferma
+            # Determina se la richiesta proviene da un browser mobile
+            user_agent = request.headers.get('User-Agent', '').lower()
+            is_mobile = 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent or 'ipad' in user_agent
+            
+            # Pagina HTML di conferma migliorata (senza il bottone Stato Server)
             html_response = f"""
             <!DOCTYPE html>
             <html>
@@ -690,6 +694,7 @@ class PokerTimerServer(QObject):
                     .icon {{
                         font-size: 60px;
                         margin-bottom: 20px;
+                        animation: bounce 1.5s ease infinite;
                     }}
                     .message {{
                         font-size: 18px;
@@ -701,18 +706,69 @@ class PokerTimerServer(QObject):
                         font-size: 24px;
                         color: #FF9800;
                     }}
+                    .timer {{
+                        margin-top: 20px;
+                        font-size: 14px;
+                        color: #777;
+                    }}
+                    .count {{
+                        font-weight: bold;
+                        color: #2196F3;
+                    }}
+                    .success-badge {{
+                        display: inline-block;
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-weight: bold;
+                        margin-bottom: 20px;
+                        animation: fadeIn 0.5s ease;
+                    }}
+                    @keyframes fadeIn {{
+                        from {{ opacity: 0; transform: translateY(-10px); }}
+                        to {{ opacity: 1; transform: translateY(0); }}
+                    }}
+                    @keyframes bounce {{
+                        0%, 20%, 50%, 80%, 100% {{ transform: translateY(0); }}
+                        40% {{ transform: translateY(-20px); }}
+                        60% {{ transform: translateY(-10px); }}
+                    }}
                 </style>
             </head>
             <body>
                 <div class="container">
+                    <div class="success-badge">Richiesta Inviata</div>
                     <div class="icon">🍹</div>
-                    <h1>Richiesta Bar Inviata!</h1>
+                    <h1>Il servizio bar è in arrivo!</h1>
                     <div class="message">
-                        La tua richiesta di servizio bar per il tavolo <span class="table-number">{table_number}</span> è stata inviata con successo.
+                        La tua richiesta per il tavolo <span class="table-number">{table_number}</span> è stata registrata.
                         <br><br>
-                        Un addetto al servizio sarà da te al più presto.
+                        Un addetto al servizio bar sarà da te al più presto.
+                    </div>
+                    <div class="timer">
+                        Richiesta inviata alle <span class="count">{time.strftime('%H:%M:%S')}</span>
                     </div>
                 </div>
+                <script>
+                    // Vibra il dispositivo mobile se supportato
+                    if ('vibrate' in navigator) {{
+                        navigator.vibrate(200);
+                    }}
+                    
+                    // Auto-chiusura dopo 10 secondi per dispositivi mobili
+                    if ({str(is_mobile).lower()}) {{
+                        setTimeout(function() {{
+                            // Mostra messaggio di chiusura
+                            document.querySelector('.timer').innerHTML += '<br>Questa pagina si chiuderà automaticamente...';
+                            
+                            // Chiudi dopo un ulteriore secondo
+                            setTimeout(function() {{
+                                window.close();
+                            }}, 1000);
+                        }}, 10000);
+                    }}
+                </script>
             </body>
             </html>
             """

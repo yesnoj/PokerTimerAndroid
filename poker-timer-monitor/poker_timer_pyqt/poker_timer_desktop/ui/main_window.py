@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont, QIcon, QAction
 from .timer_card import TimerCard
 from .notifications import NotificationManager
 from server import PokerTimerServer
+from .ngrok_integration import NgrokConfigDialog, NgrokService
 
 
 
@@ -138,6 +139,11 @@ class MainWindow(QMainWindow):
         # Gestore notifiche
         self.notification_manager = NotificationManager()
         
+        # Configurazione ngrok
+        self.ngrok_active = False
+        self.ngrok_public_url = None
+        self.setup_ngrok()
+        
         # Connessione segnali del server
         self.server.timer_updated.connect(self.on_timer_updated)
         self.server.timer_connected.connect(self.on_timer_connected)
@@ -251,6 +257,18 @@ class MainWindow(QMainWindow):
         settings_action.triggered.connect(self.show_server_settings)
         server_menu.addAction(settings_action)
         
+        # Aggiungi nuova azione per ngrok
+        self.ngrok_action = QAction("Configura Accesso Esterno", self)
+        self.ngrok_action.triggered.connect(self.show_ngrok_config)
+        server_menu.addAction(self.ngrok_action)
+        
+        server_menu.addSeparator()
+        
+        # Aggiungi azione per generare QR code
+        generate_qr_action = QAction("Genera QR Code", self)
+        generate_qr_action.triggered.connect(self.show_qr_generator_dialog)
+        server_menu.addAction(generate_qr_action)
+        
         server_menu.addSeparator()
         
         # Azione Esci
@@ -265,6 +283,91 @@ class MainWindow(QMainWindow):
         about_action = QAction("Informazioni", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+    
+    def show_ngrok_config(self):
+        """Mostra il dialog di configurazione ngrok"""
+        # Ottieni il token salvato dalle impostazioni, se esiste
+        authtoken = self.settings.value("ngrok_authtoken", "", str)
+        autostart = self.settings.value("ngrok_autostart", False, bool)
+        
+        # Crea e mostra il dialog
+        dialog = NgrokConfigDialog(
+            self,
+            http_port=self.http_port,
+            authtoken=authtoken
+        )
+        
+        # Imposta lo stato di autostart
+        dialog.autostart_check.setChecked(autostart)
+        
+        # Mostra il dialog in modalità modale
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Salva le impostazioni
+            settings = dialog.get_settings()
+            self.settings.setValue("ngrok_authtoken", settings['authtoken'])
+            self.settings.setValue("ngrok_autostart", settings['autostart'])
+            
+            # Se il tunnel è attivo, memorizza il suo stato
+            self.ngrok_active = settings['is_running']
+            if self.ngrok_active:
+                self.ngrok_public_url = settings['public_url']
+                # Mostra info nella barra di stato
+                self.statusBar().showMessage(f"Server locale accessibile da: {self.ngrok_public_url}")
+            else:
+                self.ngrok_public_url = None
+
+
+    # Aggiungi questo metodo alla classe MainWindow
+    def setup_ngrok(self):
+        """Configura il servizio ngrok"""
+        # Crea l'istanza del servizio
+        self.ngrok_service = NgrokService(http_port=self.http_port)
+        
+        # Connetti i segnali
+        self.ngrok_service.tunnel_started.connect(self.on_ngrok_tunnel_started)
+        self.ngrok_service.tunnel_stopped.connect(self.on_ngrok_tunnel_stopped)
+        self.ngrok_service.tunnel_error.connect(self.on_ngrok_tunnel_error)
+        
+        # Avvia automaticamente se configurato
+        if self.settings.value("ngrok_autostart", False, bool):
+            authtoken = self.settings.value("ngrok_authtoken", "", str)
+            if authtoken:
+                self.ngrok_service.start_tunnel(authtoken)
+
+
+    # Aggiungi questi metodi alla classe MainWindow
+    def on_ngrok_tunnel_started(self, public_url):
+        """Gestisce l'evento di avvio del tunnel ngrok"""
+        self.ngrok_active = True
+        self.ngrok_public_url = public_url
+        
+        # Aggiorna la barra di stato
+        self.statusBar().showMessage(f"Server locale accessibile da: {public_url}")
+        
+        # Aggiorna eventuali QR code generati con il nuovo URL
+        # Se implementi un sistema di QR code, potrebbe essere necessario rigenerarli qui
+
+
+    def on_ngrok_tunnel_stopped(self):
+        """Gestisce l'evento di arresto del tunnel ngrok"""
+        self.ngrok_active = False
+        self.ngrok_public_url = None
+        
+        # Aggiorna la barra di stato
+        if self.is_server_running:
+            self.statusBar().showMessage(f"Server avviato su porta {self.http_port}, discovery su porta {self.discovery_port}")
+        else:
+            self.statusBar().showMessage("Server fermato")
+
+
+    def on_ngrok_tunnel_error(self, error_message):
+        """Gestisce gli errori del tunnel ngrok"""
+        self.ngrok_active = False
+        self.ngrok_public_url = None
+        
+        # Mostra l'errore nella barra di stato
+        self.statusBar().showMessage(f"Errore ngrok: {error_message}")
+
     
     def show_server_settings(self):
         """Mostra la finestra di dialogo per le impostazioni del server"""
@@ -433,10 +536,20 @@ class MainWindow(QMainWindow):
             self.status_label.setObjectName("status-label-active")
             
             # Aggiorna la barra di stato
-            self.statusBar().showMessage(f"Server avviato su porta {self.http_port}, discovery su porta {self.discovery_port}")
+            if self.ngrok_active and self.ngrok_public_url:
+                self.statusBar().showMessage(f"Server avviato su porta {self.http_port} - Accessibile da: {self.ngrok_public_url}")
+            else:
+                self.statusBar().showMessage(f"Server avviato su porta {self.http_port}, discovery su porta {self.discovery_port}")
+            
+            # Avvia ngrok se autostart è configurato
+            if self.settings.value("ngrok_autostart", False, bool) and not self.ngrok_active:
+                authtoken = self.settings.value("ngrok_authtoken", "", str)
+                if authtoken:
+                    self.ngrok_service.start_tunnel(authtoken)
             
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Impossibile avviare il server: {str(e)}")
+
             
     def stop_server(self):
         """Ferma il server"""
@@ -452,6 +565,10 @@ class MainWindow(QMainWindow):
             
             # Aggiorna la barra di stato
             self.statusBar().showMessage("Server fermato")
+            
+            # Ferma ngrok se configurato per avviarsi solo con il server
+            if self.ngrok_active and not self.settings.value("ngrok_keep_running", False, bool):
+                self.ngrok_service.stop_tunnel()
             
             # Pulisci tutte le card e mostra "Nessun timer connesso"
             for device_id in list(self.timer_cards.keys()):
@@ -849,6 +966,10 @@ class MainWindow(QMainWindow):
         # Salva le impostazioni
         self.settings.setValue("show_filter", self.show_offline)
         
+        # Ferma ngrok se attivo
+        if hasattr(self, 'ngrok_service') and self.ngrok_active:
+            self.ngrok_service.stop_tunnel()
+        
         # Se il server è attivo
         if self.is_server_running:
             reply = QMessageBox.question(
@@ -867,11 +988,8 @@ class MainWindow(QMainWindow):
             event.accept()
 
 
-
     def show_qr_generator_dialog(self):
         """Mostra il dialog del generatore QR"""
-        # Utilizza QRCodeDialog definito più avanti nel file
-        
         # Ottieni l'indirizzo IP dell'host
         try:
             import socket
@@ -885,10 +1003,15 @@ class MainWindow(QMainWindow):
         # Usa la porta configurata nel server
         server_port = self.http_port
         
-        # Crea e mostra il dialog
-        qr_dialog = QRCodeDialog(server_ip, server_port, self)
+        # Crea e mostra il dialog, passando l'URL ngrok se disponibile
+        qr_dialog = QRCodeDialog(
+            server_ip, 
+            server_port, 
+            self,
+            ngrok_url=self.ngrok_public_url if self.ngrok_active else None
+        )
+        
         qr_dialog.exec()
-
 
 # ----------------------------------------------------------------------------
 # QR CODE GENERATOR - Generatore di codici QR per richieste bar
@@ -921,13 +1044,14 @@ class QRGeneratorThread(QThread):
     finished_all = pyqtSignal()
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, server_ip, server_port, output_dir, num_tables, temp_dir=None):
+    def __init__(self, server_ip, server_port, output_dir, num_tables, temp_dir=None, ngrok_url=None):
         super().__init__()
         self.server_ip = server_ip
         self.server_port = server_port
         self.output_dir = output_dir
         self.num_tables = num_tables
         self.temp_dir = temp_dir  # Directory temporanea per i QR visualizzati nella UI
+        self.ngrok_url = ngrok_url  # URL pubblico fornito da ngrok
         self.abort = False
     
     def run(self):
@@ -948,7 +1072,17 @@ class QRGeneratorThread(QThread):
                     return
                 
                 # Genera l'URL per la richiesta bar
-                qr_url = f"http://{self.server_ip}:{self.server_port}/qr/bar-request/{table_num}"
+                # Se è disponibile un URL ngrok, usalo invece dell'IP locale
+                if self.ngrok_url:
+                    # Usa l'URL ngrok completo
+                    base_url = self.ngrok_url
+                    # Rimuovi eventuali slash finali
+                    if base_url.endswith('/'):
+                        base_url = base_url[:-1]
+                    qr_url = f"{base_url}/qr/bar-request/{table_num}"
+                else:
+                    # Usa l'IP locale (funziona solo sulla stessa rete)
+                    qr_url = f"http://{self.server_ip}:{self.server_port}/qr/bar-request/{table_num}"
                 
                 # Crea il codice QR
                 qr = qrcode.QRCode(
@@ -1005,6 +1139,13 @@ class QRGeneratorThread(QThread):
                 instructions2_position = ((img_width - instructions2_width) // 2, img_height + 100)
                 draw.text(instructions2_position, instructions2, font=text_font, fill=(0, 0, 0))  # Nero
                 
+                # Se stiamo usando ngrok, aggiungi un'indicazione che funziona da qualsiasi rete
+                if self.ngrok_url:
+                    access_info = "Funziona da qualsiasi rete"
+                    access_width = draw.textlength(access_info, font=text_font)
+                    access_position = ((img_width - access_width) // 2, img_height + 130)
+                    draw.text(access_position, access_info, font=text_font, fill=(0, 0, 255))  # Blu
+                
                 # Salva l'immagine finale
                 output_path = os.path.join(self.output_dir, f"bar_qr_table_{table_num}.png")
                 new_img.save(output_path)
@@ -1034,11 +1175,10 @@ class QRGeneratorThread(QThread):
         except Exception as e:
             print(f"Errore nella generazione dei codici QR: {e}")
             self.error_occurred.emit(str(e))
-
 class QRCodeDialog(QDialog):
     """Dialog per la generazione e visualizzazione dei codici QR"""
     
-    def __init__(self, server_ip, server_port, parent=None):
+    def __init__(self, server_ip, server_port, parent=None, ngrok_url=None):
         super().__init__(parent)
         
         if not HAS_QRCODE:
@@ -1053,6 +1193,7 @@ class QRCodeDialog(QDialog):
             
         self.server_ip = server_ip
         self.server_port = server_port
+        self.ngrok_url = ngrok_url  # URL pubblico fornito da ngrok
         self.temp_dir = tempfile.mkdtemp(prefix="poker_timer_qr_")
         
         self.setWindowTitle("Generatore Codici QR per Servizio Bar")
@@ -1069,8 +1210,20 @@ class QRCodeDialog(QDialog):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
         
-        # Informazioni
-        info_label = QLabel(f"Server: {server_ip}:{server_port}")
+        # Informazioni sul server
+        if self.ngrok_url:
+            info_label = QLabel(f"Server: Locale ({server_ip}:{server_port}) - Accessibile globalmente via {self.ngrok_url}")
+            # Aggiungi un messaggio informativo
+            note_label = QLabel("I QR code utilizzeranno l'URL pubblico per consentire l'accesso da qualsiasi rete.")
+            note_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            main_layout.addWidget(note_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        else:
+            info_label = QLabel(f"Server: {server_ip}:{server_port} (solo rete locale)")
+            # Aggiungi un messaggio di avviso
+            warning_label = QLabel("ATTENZIONE: I QR code funzioneranno solo sulla stessa rete WiFi del server.")
+            warning_label.setStyleSheet("color: #f44336; font-weight: bold;")
+            main_layout.addWidget(warning_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        
         info_label.setStyleSheet("font-size: 12pt;")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(info_label)
@@ -1214,13 +1367,14 @@ class QRCodeDialog(QDialog):
         # Pulisci eventuali preview precedenti
         self.clear_preview_area()
         
-        # Crea il thread per la generazione
+        # Crea il thread per la generazione, passando l'URL ngrok se disponibile
         self.qr_thread = QRGeneratorThread(
             self.server_ip,
             self.server_port,
             self.output_dir,
             num_tables,
-            self.temp_dir
+            self.temp_dir,
+            ngrok_url=self.ngrok_url  # Passa l'URL pubblico al thread
         )
         
         # Connetti i segnali
@@ -1231,6 +1385,7 @@ class QRCodeDialog(QDialog):
         
         # Avvia il thread
         self.qr_thread.start()
+
     
     def update_progress(self, value):
         """Aggiorna la barra di progresso"""

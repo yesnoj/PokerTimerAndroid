@@ -157,7 +157,7 @@
                 android:layout_height="64dp"
                 android:src="@drawable/ic_cocktail"
                 android:contentDescription="Icona bar"
-                app:tint="@color/purple_color" />
+                app:tint="@color/colorSuccess" />
 
             <TextView
                 android:layout_width="wrap_content"

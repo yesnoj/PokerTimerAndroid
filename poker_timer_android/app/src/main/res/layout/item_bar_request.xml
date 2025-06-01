@@ -20,7 +20,7 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:src="@drawable/ic_cocktail"
-            android:tint="@color/purple_color"
+            android:tint="@color/colorSuccess"
             android:contentDescription="Icona richiesta bar" />
 
         <LinearLayout
