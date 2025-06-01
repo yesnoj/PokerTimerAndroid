@@ -34,7 +34,7 @@ class TimerAdapter(
         fun onSettingsClicked(timer: TimerItem)
         // Nuovo metodo per gestire il reset dei posti liberi
         fun onSeatInfoResetRequested(timer: TimerItem)
-        // NUOVO: Metodo per gestire il click sull'icona floorman
+        // NUOVO: Metodo per gestire il click sull'icona floorman (mantenuto per compatibilità)
         fun onFloormanIconClicked(timer: TimerItem)
     }
 
@@ -97,23 +97,18 @@ class TimerAdapter(
         private val pauseButton: Button = itemView.findViewById(R.id.pauseButton)
         private val resetButton: Button = itemView.findViewById(R.id.resetButton)
 
-        // Flag per tenere traccia dello stato floorman
-        private var hasActiveFloormanCall = false
-        private var highlightAnimator: ObjectAnimator? = null
-        private var iconAnimator: ObjectAnimator? = null
-
         /**
          * Verifica se un timer è un dispositivo Android basato sul device_id
          */
         private fun isAndroidTimer(deviceId: String): Boolean {
-            return deviceId.startsWith("android_")
+            return deviceId.startsWith("android_")  // Usa apici doppi per le stringhe
         }
 
         /**
          * Verifica se un timer è un dispositivo hardware (Arduino/ESP) basato sul device_id
          */
         private fun isHardwareTimer(deviceId: String): Boolean {
-            return deviceId.startsWith("arduino_")
+            return deviceId.startsWith("arduino_")  // Usa apici doppi per le stringhe
         }
 
         fun bind(timer: TimerItem, context: Context, listener: TimerActionListener) {
@@ -153,56 +148,13 @@ class TimerAdapter(
                 modeInfoText.text = "Modo: ${timer.operationMode}"
             }
 
-            // IMPORTANTE: Controlla se c'è una chiamata floorman attiva
-            val hasFloormanCall = timer.pendingCommand == "floorman_call"
-            android.util.Log.d("TimerAdapter", "Timer ${timer.deviceId} (tavolo ${timer.tableNumber}) - pendingCommand: ${timer.pendingCommand}, hasFloormanCall: $hasFloormanCall")
+            // MODIFICATO: Nascondi sempre l'icona floorman
+            floormanAlertIcon.visibility = View.GONE
 
-            // Gestione icona floorman
-            val floormanIcon = itemView.findViewById<ImageView>(R.id.floormanAlertIcon)
-            if (floormanIcon != null) {
-                // Mostra/nascondi l'icona alert basandosi sul pendingCommand
-                floormanIcon.visibility = if (hasFloormanCall) {
-                    android.util.Log.d("TimerAdapter", "Mostrando icona floorman per tavolo ${timer.tableNumber}")
-                    View.VISIBLE
-                } else {
-                    View.GONE
-                }
-
-                // NUOVO: Rendi l'icona cliccabile se c'è una chiamata attiva
-                if (hasFloormanCall) {
-                    floormanIcon.setOnClickListener {
-                        // Chiama il listener per gestire il click sull'icona floorman
-                        listener.onFloormanIconClicked(timer)
-                    }
-                    // Imposta il cursore per indicare che è cliccabile
-                    floormanIcon.isClickable = true
-                    floormanIcon.isFocusable = true
-                } else {
-                    // Rimuovi il listener se non c'è chiamata attiva
-                    floormanIcon.setOnClickListener(null)
-                    floormanIcon.isClickable = false
-                    floormanIcon.isFocusable = false
-                }
-
-                // Se lo stato è cambiato, aggiorna l'highlight
-                if (hasFloormanCall != hasActiveFloormanCall) {
-                    hasActiveFloormanCall = hasFloormanCall
-
-                    if (hasActiveFloormanCall) {
-                        // Avvia l'animazione di highlight del testo e dell'icona
-                        startFloormanHighlight()
-                        startIconAnimation()
-                    } else {
-                        // Ferma l'animazione e rimuovi l'highlight
-                        stopFloormanHighlight()
-                    }
-                } else if (!hasFloormanCall) {
-                    // Assicurati che non ci siano animazioni residue
-                    stopFloormanHighlight()
-                }
-            } else {
-                android.util.Log.e("TimerAdapter", "floormanAlertIcon non trovata nel layout!")
-            }
+            // Rimuovi qualsiasi listener dall'icona floorman (non più cliccabile)
+            floormanAlertIcon.setOnClickListener(null)
+            floormanAlertIcon.isClickable = false
+            floormanAlertIcon.isFocusable = false
 
             timerValueText.text = formatTimerValue(timer.currentTimer)
 
@@ -296,93 +248,8 @@ class TimerAdapter(
             }
 
             // Configurazione dei pulsanti nascosti ma necessari per compatibilità con il codice
-            // Questi pulsanti sono invisibili nell'UI ma ancora funzionali nel codice
             startButton.setOnClickListener { listener.onStartClicked(timer) }
             pauseButton.setOnClickListener { listener.onPauseClicked(timer) }
-        }
-
-        private fun startFloormanHighlight() {
-            // Crea un'animazione che fa lampeggiare il titolo del tavolo tra bianco e arancione
-            highlightAnimator = ObjectAnimator.ofArgb(
-                tableNumberText,
-                "textColor",
-                Color.WHITE,  // Cambiato da BLACK a WHITE
-                Color.parseColor("#FF9800"),  // Arancione
-                Color.WHITE   // Cambiato da BLACK a WHITE
-            ).apply {
-                duration = 1000
-                repeatCount = ObjectAnimator.INFINITE
-                repeatMode = ObjectAnimator.REVERSE
-                start()
-            }
-
-            // Aggiungi solo il bordo colorato alla card, senza cambiare lo sfondo
-            val cardView = itemView as? com.google.android.material.card.MaterialCardView
-            cardView?.apply {
-                strokeColor = Color.parseColor("#FF9800")
-                strokeWidth = 8  // Aumentato per maggiore visibilità
-            }
-        }
-
-        private fun startIconAnimation() {
-            val floormanIcon = itemView.findViewById<ImageView>(R.id.floormanAlertIcon)
-
-            // Animazione di lampeggio per l'icona
-            iconAnimator = ObjectAnimator.ofFloat(
-                floormanIcon,
-                "alpha",
-                1f,
-                0.3f,
-                1f
-            ).apply {
-                duration = 800
-                repeatCount = ObjectAnimator.INFINITE
-                start()
-            }
-
-            // Animazione di scala per rendere l'icona più visibile
-            val scaleAnimator = ObjectAnimator.ofPropertyValuesHolder(
-                floormanIcon,
-                PropertyValuesHolder.ofFloat("scaleX", 1f, 1.3f, 1f),
-                PropertyValuesHolder.ofFloat("scaleY", 1f, 1.3f, 1f)
-            ).apply {
-                duration = 1000
-                repeatCount = ObjectAnimator.INFINITE
-                start()
-            }
-        }
-
-        private fun stopIconAnimation() {
-            iconAnimator?.cancel()
-            iconAnimator = null
-
-            val floormanIcon = itemView.findViewById<ImageView>(R.id.floormanAlertIcon)
-            floormanIcon?.alpha = 1f
-            floormanIcon?.scaleX = 1f
-            floormanIcon?.scaleY = 1f
-        }
-
-        fun stopFloormanHighlight() {
-            // Ferma l'animazione del testo
-            highlightAnimator?.cancel()
-            highlightAnimator = null
-
-            // Ferma l'animazione dell'icona
-            stopIconAnimation()
-
-            // Nascondi l'icona
-            val floormanIcon = itemView.findViewById<ImageView>(R.id.floormanAlertIcon)
-            floormanIcon?.visibility = View.GONE
-
-            // Ripristina il colore originale del testo (bianco invece di colorPrimaryDark)
-            tableNumberText.setTextColor(Color.WHITE)
-
-            // Rimuovi il bordo colorato dalla card senza toccare il background
-            val cardView = itemView as? com.google.android.material.card.MaterialCardView
-            cardView?.apply {
-                strokeColor = Color.TRANSPARENT
-                strokeWidth = 0
-            }
         }
 
         private fun showSeatResetConfirmation(
@@ -431,12 +298,5 @@ class TimerAdapter(
                 return "N/A"
             }
         }
-    }
-
-    // Override per assicurarsi che le animazioni vengano fermate quando le view vengono riciclate
-    override fun onViewRecycled(holder: TimerViewHolder) {
-        super.onViewRecycled(holder)
-        // Ferma eventuali animazioni attive
-        holder.stopFloormanHighlight()
     }
 }

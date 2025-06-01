@@ -1,3 +1,4 @@
+
 package com.example.pokertimer
 
 import kotlinx.coroutines.delay
@@ -163,6 +164,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private val filteredTimerList = mutableListOf<TimerItem>()
     private var currentFilter = TimerFilterOption.ALL
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dashboard)
@@ -263,6 +265,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         handleNotificationIntent(intent)
     }
 
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -315,9 +318,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                         showFloormanNotification(tableNumber)
                         // Marca come notificata per evitare duplicati
                         FloormanNotificationTracker.markAsNotified(tableNumber)
-
-                        // Mostra anche il dialogo di gestione
-                        showFloormanCallDialog(timer)
                     }
                 }
             }
@@ -400,101 +400,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     }
 
     /**
-     * Mostra un dialogo personalizzato per la chiamata floorman
-     */
-    // In DashboardActivity.kt - Modifica del metodo showFloormanCallDialog()
-
-    private fun showFloormanCallDialog(timer: TimerItem) {
-        // Disabilita temporaneamente l'auto-refresh per evitare che il dialogo si chiuda
-        stopAutoRefresh()
-
-        // Crea il dialog usando il layout esistente
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.dialog_floorman_call)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        // IMPORTANTE: Imposta le dimensioni del dialogo per essere più stretto
-        val layoutParams = WindowManager.LayoutParams()
-        layoutParams.copyFrom(dialog.window?.attributes)
-
-        // Imposta larghezza fissa invece di MATCH_PARENT
-        val displayMetrics = resources.displayMetrics
-        val dialogWidth = (displayMetrics.widthPixels * 0.5).toInt() // 50% della larghezza dello schermo
-        layoutParams.width = dialogWidth.coerceIn(400, 600) // Min 400dp, Max 600dp in pixel
-        layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
-
-        dialog.window?.attributes = layoutParams
-
-        // Ottieni i riferimenti alle viste
-        val titleText = dialog.findViewById<TextView>(R.id.floorman_dialog_title)
-        val messageText = dialog.findViewById<TextView>(R.id.floorman_dialog_message)
-        val btnGestita = dialog.findViewById<Button>(R.id.btn_gestita)
-        val btnChiudi = dialog.findViewById<Button>(R.id.btn_chiudi)
-
-        // Imposta il messaggio con il numero del tavolo
-        messageText.text = "Il tavolo ${timer.tableNumber} ha una chiamata floorman attiva."
-
-        // Configura il bottone "GESTITA"
-        btnGestita.setOnClickListener {
-            // IMPORTANTE: Prima aggiorna la lista locale per rimuovere immediatamente l'highlight
-            val index = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
-            if (index >= 0) {
-                // Crea una copia del timer senza il pendingCommand floorman
-                val updatedTimer = allTimerList[index].copy(
-                    pendingCommand = null,
-                    floormanCallTimestamp = null
-                )
-                allTimerList[index] = updatedTimer
-
-                // Aggiorna anche la lista filtrata
-                val filteredIndex = filteredTimerList.indexOfFirst { it.deviceId == timer.deviceId }
-                if (filteredIndex >= 0) {
-                    filteredTimerList[filteredIndex] = updatedTimer
-
-                    // Notifica l'adapter per aggiornare immediatamente la UI
-                    runOnUiThread {
-                        timerAdapter.notifyItemChanged(filteredIndex)
-                    }
-                }
-            }
-
-            // Poi invia il comando al server
-            sendFloormanHandledCommand(timer.deviceId)
-
-            // Rimuovi dal tracker
-            FloormanNotificationTracker.clearNotification(timer.tableNumber)
-
-            // Chiudi il dialogo
-            dialog.dismiss()
-
-            // Riavvia l'auto-refresh
-            startAutoRefresh()
-
-            Toast.makeText(this, "Chiamata floorman gestita", Toast.LENGTH_SHORT).show()
-        }
-
-        // Configura il bottone "CHIUDI"
-        btnChiudi.setOnClickListener {
-            // Riavvia l'auto-refresh
-            startAutoRefresh()
-            dialog.dismiss()
-        }
-
-        // Non permettere la chiusura con il back button
-        dialog.setCancelable(false)
-
-        // Mostra il dialogo
-        dialog.show()
-    }
-
-    override fun onFloormanIconClicked(timer: TimerItem) {
-        // Mostra il dialogo quando si clicca sull'icona floorman
-        showFloormanCallDialog(timer)
-    }
-
-
-    /**
      * Invia il comando per segnare la chiamata floorman come gestita
      */
     private fun sendFloormanHandledCommand(deviceId: String) {
@@ -534,7 +439,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
         }
     }
-
 
     private fun showFloormanNotification(tableNumber: Int) {
         val title = "🚨 FLOORMAN RICHIESTO"
@@ -1894,6 +1798,13 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 "ERROR:${e.message}"
             }
         }
+    }
+
+
+    override fun onFloormanIconClicked(timer: TimerItem) {
+        // MODIFICATO: Metodo vuoto che non fa nulla
+        // Non mostra più alcun dialogo, ma deve essere implementato per soddisfare l'interfaccia
+        Log.d("DashboardActivity", "onFloormanIconClicked chiamato ma non fa niente - implementazione vuota")
     }
 
     // Implementazione dei metodi dell'interfaccia TimerActionListener

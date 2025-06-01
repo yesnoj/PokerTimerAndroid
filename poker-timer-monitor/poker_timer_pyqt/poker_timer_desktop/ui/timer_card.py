@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
-Widget per visualizzare un singolo timer con icona floorman
+Widget per visualizzare un singolo timer con modifiche per rimuovere visual floorman
 """
 
 import os
 import time
+import threading
+
 from PyQt6.QtWidgets import (QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QMenu, QDialog, QMessageBox, QGridLayout)
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QAction, QIcon, QPixmap, QPainter, QColor
-
-from .timer_details import TimerDetailsDialog
+from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor
 
 # Funzione sicura per mostrare messaggi che non causa crash
 def safe_message_box(title, text, icon=QMessageBox.Icon.Question,
@@ -30,7 +30,7 @@ def safe_message_box(title, text, icon=QMessageBox.Icon.Question,
 class TimerCard(QFrame):
     """Widget che rappresenta un singolo timer nel pannello principale (versione compatta)"""
     
-    # Segnale emesso quando la chiamata floorman viene gestita
+    # Segnale emesso quando la chiamata floorman viene gestita (mantenuto per compatibilità)
     floorman_handled = pyqtSignal(str)  # device_id
     
     def __init__(self, device_id, timer_data, server, parent=None):
@@ -127,7 +127,7 @@ class TimerCard(QFrame):
         # Spazio flessibile per allineare il titolo a sinistra
         header_layout.addStretch()
         
-        # Icona floorman (inizialmente nascosta)
+        # Icona floorman (nascosta - MODIFICATO)
         self.floorman_icon = QLabel()
         self.floorman_icon.setObjectName("floorman_icon")
         self.floorman_icon.setFixedSize(30, 30)
@@ -144,6 +144,8 @@ class TimerCard(QFrame):
         self.floorman_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.floorman_icon.setCursor(Qt.CursorShape.PointingHandCursor)
         self.floorman_icon.setToolTip("Chiamata Floorman Attiva - Clicca per gestire")
+        
+        # MODIFICATO: Nascondere sempre l'icona floorman
         self.floorman_icon.setVisible(False)
         
         header_layout.addWidget(self.floorman_icon)
@@ -304,103 +306,28 @@ class TimerCard(QFrame):
 
     def mousePressEvent(self, event):
         """Override del mousePressEvent per gestire i click sulla card"""
-        # Verifica se il click è sull'icona floorman
-        if self.floorman_icon.isVisible():
-            # Ottieni la posizione globale dell'icona floorman
-            icon_rect = self.floorman_icon.geometry()
-            # Converti la posizione del click in coordinate relative al widget
-            click_pos = event.pos()
-            
-            # Verifica se il click è nell'area dell'icona
-            if icon_rect.contains(click_pos):
-                # Il click è sull'icona floorman, gestiscilo
-                self.on_floorman_icon_click(event)
-                event.accept()
-                return
+        # Nessuna verifica per l'icona floorman, dato che ora è sempre nascosta
         
-        # Altrimenti, gestisci il click normale sulla card
+        # Gestisci il click normale sulla card
         self.on_card_click(event)
 
-    def set_floorman_active(self, active=True):
+    def set_floorman_active(self, active=False):
         """Imposta lo stato della chiamata floorman"""
+        # MODIFICATO: Impostiamo sempre il flag per compatibilità
         self.has_active_floorman_call = active
-        self.floorman_icon.setVisible(active)
         
-        if active:
-            # Fai lampeggiare l'icona e aggiungi il bordo arancione
-            self.start_floorman_animation()
-            # Aggiungi un bordo arancione SOLO al frame principale
-            self.setStyleSheet("""
-                QFrame#TimerCard {
-                    background-color: white;
-                    border: 3px solid #FF9800;
-                    border-radius: 10px;
-                }
-            """)
-        else:
-            # Ferma l'animazione e rimuovi il bordo
-            self.stop_floorman_animation()
-            # Ripristina lo stile originale
-            self.setStyleSheet("""
-                QFrame#TimerCard {
-                    background-color: white;
-                    border: 1px solid #ddd;
-                    border-radius: 10px;
-                }
-            """)
-            
-            # Assicurati che l'icona sia nascosta
-            self.floorman_icon.setVisible(False)
-            self.has_active_floorman_call = False
-    
-    def start_floorman_animation(self):
-        """Avvia l'animazione lampeggiante dell'icona floorman"""
-        if not hasattr(self, 'floorman_timer'):
-            self.floorman_timer = QTimer(self)
-            self.floorman_timer.timeout.connect(self.toggle_floorman_icon)
-        
-        self.floorman_visible = True
-        self.floorman_timer.start(500)  # Lampeggia ogni 500ms
-    
-    def stop_floorman_animation(self):
-        """Ferma l'animazione dell'icona floorman"""
-        if hasattr(self, 'floorman_timer') and self.floorman_timer.isActive():
-            self.floorman_timer.stop()
+        # MODIFICATO: Nasconde sempre l'icona floorman
         self.floorman_icon.setVisible(False)
-    
-    def toggle_floorman_icon(self):
-        """Alterna la visibilità dell'icona per l'effetto lampeggiante"""
-        if self.has_active_floorman_call:
-            self.floorman_visible = not self.floorman_visible
-            self.floorman_icon.setVisible(self.floorman_visible)
-    
-    def on_floorman_icon_click(self, event):
-        """Gestisce il click sull'icona floorman"""
-        event.accept()  # Ferma la propagazione
         
-        # Importa il dialog dalla finestra principale
-        from .main_window import FloormanCallDialog
-        
-        # Mostra il dialog personalizzato
-        dialog = FloormanCallDialog(self.timer_data.get('table_number', 'N/A'), None)
-        
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            # L'utente ha cliccato "Gestita"
-            # Invia il comando al server per cancellare la chiamata floorman
-            self.server.send_command(self.device_id, "clear_floorman")
-            
-            # Rimuovi il timestamp floorman dai dati locali
-            if 'floorman_call_timestamp' in self.timer_data:
-                del self.timer_data['floorman_call_timestamp']
-            
-            # Rimuovi l'icona e ferma l'animazione immediatamente
-            self.set_floorman_active(False)
-            
-            # Emetti il segnale per notificare che è stata gestita
-            self.floorman_handled.emit(self.device_id)
-            
-            # Forza un aggiornamento della card dal server
-            QTimer.singleShot(500, lambda: self.server.timer_updated.emit(self.device_id))
+        # MODIFICATO: Non avvia l'animazione né modifica il bordo
+        # Manteniamo lo stile originale del frame
+        self.setStyleSheet("""
+            QFrame#TimerCard {
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+            }
+        """)
 
     def format_wifi_indicator(self, wifi_quality):
         """Formatta l'indicatore WiFi in base alla qualità del segnale"""
@@ -427,13 +354,9 @@ class TimerCard(QFrame):
         old_timer_data = self.timer_data.copy() if self.timer_data else {}
         self.timer_data = new_timer_data
         
-        # IMPORTANTE: Gestione dello stato floorman
-        # Controlla se c'è un timestamp floorman nei nuovi dati
-        has_floorman_call = 'floorman_call_timestamp' in new_timer_data and new_timer_data['floorman_call_timestamp'] is not None
-        
-        # Aggiorna lo stato dell'icona floorman solo se è cambiato
-        if has_floorman_call != self.has_active_floorman_call:
-            self.set_floorman_active(has_floorman_call)
+        # MODIFICATO: Non gestire specificamente lo stato floorman
+        # Solo impostiamo il flag interno se presente un floorman_call_timestamp
+        self.has_active_floorman_call = 'floorman_call_timestamp' in new_timer_data and new_timer_data['floorman_call_timestamp'] is not None
         
         # Aggiorna il titolo
         title_label = self.findChild(QLabel, "title_label")
@@ -587,7 +510,6 @@ class TimerCard(QFrame):
             new_update_text = f"Last update: {formatted_time}"
             if last_update_label.text() != new_update_text:
                 last_update_label.setText(new_update_text)
-
         
     def on_card_click(self, event):
         """Gestisce il click sulla card - apre i dettagli"""
@@ -637,6 +559,7 @@ class TimerCard(QFrame):
         """Implementazione dell'apertura dei dettagli"""
         try:
             # Crea e mostra la finestra di dialogo
+            from .timer_details import TimerDetailsDialog
             dialog = TimerDetailsDialog(self.device_id, self.timer_data, self.server, None)  # Usa None come parent
             dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)  # Assicura che il widget venga distrutto
             dialog.exec()
