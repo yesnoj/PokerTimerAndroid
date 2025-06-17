@@ -194,7 +194,14 @@ class TimerCard(QFrame):
 
         is_t1_active = timer_data.get('is_t1_active', True)
         active_timer_text = "T1" if is_t1_active else "T2"
-        self.t1_label = QLabel(f"Timer: {active_timer_text} - {timer_data.get('t1_value', 'N/A')}s")
+        
+        # Determina quale valore mostrare basandosi su quale timer è attivo
+        if is_t1_active:
+            timer_value = timer_data.get('t1_value', 20)
+        else:
+            timer_value = timer_data.get('t2_value', 30)
+            
+        self.t1_label = QLabel(f"Timer: {active_timer_text} - {timer_value}s")
         self.t1_label.setObjectName("t1_label")
         self.t1_label.setStyleSheet(f"{info_style} font-weight: bold;")
         info_grid.addWidget(self.t1_label, 0, col)
@@ -420,7 +427,14 @@ class TimerCard(QFrame):
         if t1_label:
             is_t1_active = new_timer_data.get('is_t1_active', True)
             active_timer_text = "T1" if is_t1_active else "T2"
-            new_t1_text = f"Timer: {active_timer_text} - {new_timer_data.get('t1_value', 'N/A')}s"
+            
+            # IMPORTANTE: Usa il valore del timer attivo, non sempre t1_value
+            if is_t1_active:
+                timer_value = new_timer_data.get('t1_value', 20)
+            else:
+                timer_value = new_timer_data.get('t2_value', 30)
+            
+            new_t1_text = f"Timer: {active_timer_text} - {timer_value}s"
             if t1_label.text() != new_t1_text:
                 t1_label.setText(new_t1_text)
                 print(f"Timer {self.device_id} aggiornato: {new_t1_text}")
