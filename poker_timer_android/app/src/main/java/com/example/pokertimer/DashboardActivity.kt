@@ -93,40 +93,53 @@ object SeatNotificationTracker {
     }
 }
 
+/**
+ * Singleton object che gestisce lo stato delle notifiche floorman
+ */
 object FloormanNotificationTracker {
     // Costante per il nome delle preferenze
     private const val PREFS_NAME = "floorman_notifications"
     private const val NOTIFICATION_COOLDOWN_MS = 60000L // 1 minuto di cooldown
-
-    // Map in memoria per le notifiche recenti (per il cooldown)
-    private val recentNotifications = mutableMapOf<Int, Long>()
+    private const val KEY_PREFIX_DISMISSED = "dismissed_"
+    private const val KEY_PREFIX_TIMESTAMP = "timestamp_"
 
     /**
      * Verifica se è una nuova notifica da mostrare
      */
     fun isNewNotification(context: Context, tableNumber: Int): Boolean {
-        // 1. Controlla se è stata ignorata tramite SharedPreferences
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (prefs.getBoolean("dismissed_$tableNumber", false)) {
+
+        // Ottieni il timestamp dell'ultima notifica mostrata per questo tavolo
+        val lastTimestamp = prefs.getLong(KEY_PREFIX_TIMESTAMP + tableNumber, 0)
+        val currentTime = System.currentTimeMillis()
+
+        // Verifica se è stato dismesso manualmente (swipe)
+        val isDismissed = prefs.getBoolean(KEY_PREFIX_DISMISSED + tableNumber, false)
+
+        // Se è stato dismesso, ma è passato il cooldown normale, rimuovi il flag dismissed
+        // e consenti di mostrare nuovamente la notifica
+        if (isDismissed && (currentTime - lastTimestamp) > NOTIFICATION_COOLDOWN_MS) {
+            prefs.edit().putBoolean(KEY_PREFIX_DISMISSED + tableNumber, false).apply()
+            return true
+        }
+
+        // Se è stato dismesso recentemente, non mostrare la notifica
+        if (isDismissed) {
             return false
         }
 
-        // 2. Controlla il cooldown per evitare spam di notifiche
-        val lastNotifiedTime = recentNotifications[tableNumber]
-        val currentTime = System.currentTimeMillis()
-
-        return if (lastNotifiedTime == null) {
-            true
-        } else {
-            (currentTime - lastNotifiedTime) > NOTIFICATION_COOLDOWN_MS
-        }
+        // Verifica se è passato abbastanza tempo dall'ultima notifica (cooldown)
+        return (currentTime - lastTimestamp) > NOTIFICATION_COOLDOWN_MS
     }
 
     /**
      * Segna una notifica come appena mostrata (per il cooldown)
      */
-    fun markAsNotified(tableNumber: Int) {
-        recentNotifications[tableNumber] = System.currentTimeMillis()
+    fun markAsNotified(context: Context, tableNumber: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_PREFIX_TIMESTAMP + tableNumber, System.currentTimeMillis())
+            .apply()
     }
 
     /**
@@ -134,20 +147,21 @@ object FloormanNotificationTracker {
      */
     fun markAsDismissed(context: Context, tableNumber: Int) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("dismissed_$tableNumber", true).apply()
-
-        // Rimuovi anche dalla mappa in memoria
-        recentNotifications.remove(tableNumber)
+        prefs.edit()
+            .putBoolean(KEY_PREFIX_DISMISSED + tableNumber, true)
+            .putLong(KEY_PREFIX_TIMESTAMP + tableNumber, System.currentTimeMillis())
+            .apply()
     }
 
     /**
      * Cancella lo stato di una notifica (quando viene gestita)
      */
     fun clearNotification(context: Context, tableNumber: Int) {
-        // Rimuovi sia dalle preferenze che dalla mappa in memoria
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().remove("dismissed_$tableNumber").apply()
-        recentNotifications.remove(tableNumber)
+        prefs.edit()
+            .remove(KEY_PREFIX_DISMISSED + tableNumber)
+            .remove(KEY_PREFIX_TIMESTAMP + tableNumber)
+            .apply()
     }
 }
 
@@ -334,18 +348,29 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         try {
             // Per ogni timer nella lista, controlla se ha una chiamata floorman attiva
             allTimerList.forEach { timer ->
-                // Verifica se c'è un pendingCommand floorman_call
-                if (timer.pendingCommand == "floorman_call") {
+                // Verifica se c'è un pendingCommand floorman_call o un timestamp floorman attivo
+                val hasFloormanCall = timer.pendingCommand == "floorman_call" ||
+                        timer.hasActiveFloormanCall()
+
+                if (hasFloormanCall) {
                     val tableNumber = timer.tableNumber
 
                     android.util.Log.d("DashboardActivity", "Trovata chiamata floorman per tavolo $tableNumber")
 
                     // Verifica se è una nuova notifica da mostrare
                     if (FloormanNotificationTracker.isNewNotification(this, tableNumber)) {
-                        // Mostra la notifica toast
+                        // Mostra la notifica toast e popup
                         showFloormanNotification(tableNumber)
+
                         // Marca come notificata per evitare duplicati
-                        FloormanNotificationTracker.markAsNotified(tableNumber)
+                        FloormanNotificationTracker.markAsNotified(this, tableNumber)
+
+                        // Mostra un toast anche all'interno dell'app
+                        Toast.makeText(
+                            this,
+                            "Richiesta floorman attiva: Tavolo $tableNumber",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
@@ -353,7 +378,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             Log.e("DashboardActivity", "Errore nel controllo chiamate floorman: ${e.message}")
         }
     }
-
     fun clearFloormanCall(timer: TimerItem) {
         // Soluzione 1: Aggiorna immediatamente il timer nella lista locale
         val timerIndex = allTimerList.indexOfFirst { it.deviceId == timer.deviceId }
@@ -471,9 +495,10 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private fun showFloormanNotification(tableNumber: Int) {
         val title = "🚨 FLOORMAN RICHIESTO"
         val content = "Tavolo $tableNumber richiede l'intervento del floorman"
+        val notificationId = 3000 + tableNumber // ID univoco per ogni tavolo
 
         try {
-            // Intent principale
+            // Intent principale - semplificato e con tutti i parametri necessari
             val intent = Intent(this, DashboardActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra("table_number", tableNumber)
@@ -483,7 +508,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
             val pendingIntent = PendingIntent.getActivity(
                 this,
-                2000 + tableNumber, // Offset per evitare conflitti con altre notifiche
+                notificationId, // ID univoco
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             )
@@ -494,14 +519,14 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
             }
             val dismissPendingIntent = PendingIntent.getActivity(
                 this,
-                6000 + tableNumber, // Un altro ID univoco
+                notificationId + 3000, // Un altro ID univoco
                 dismissIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             )
 
             // Costruisci la notifica con priorità massima
             val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_timer)  // Usa un'icona esistente per ora
+                .setSmallIcon(R.drawable.ic_alert)  // Cambiato l'icona per essere più evidente
                 .setContentTitle(title)
                 .setContentText(content)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -512,8 +537,10 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 .setFullScreenIntent(pendingIntent, true)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500)) // Pattern vibrazione urgente
-                // Aggiungi il DeleteIntent
+                .setLights(Color.RED, 1000, 500) // Aggiunta luce LED rossa lampeggiante
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)) // Suono di allarme
                 .setDeleteIntent(dismissPendingIntent)
+                .setOngoing(true) // Imposta come notifica persistente
 
             // Stile espandibile
             val bigTextStyle = NotificationCompat.BigTextStyle()
@@ -522,6 +549,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 .setSummaryText("Intervento richiesto")
 
             builder.setStyle(bigTextStyle)
+
+            // RIMOSSO: Non aggiungiamo più il pulsante "Gestisci"
 
             // Verifica permessi
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -537,13 +566,23 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
 
             // Mostra la notifica
             val notificationManager = NotificationManagerCompat.from(this)
-            notificationManager.notify(3000 + tableNumber, builder.build())
+            notificationManager.notify(notificationId, builder.build())
 
             Log.d("DashboardActivity", "Notifica floorman mostrata per tavolo $tableNumber")
 
-            // Riproduci un suono di allarme aggiuntivo (opzionale)
-            // playAlarmSound() // Decommentare se vuoi il suono di allarme
+            // Riproduci anche un breve suono di allarme
+            try {
+                val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
+                ringtone.play()
 
+                // Ferma il suono dopo 1 secondo
+                Handler(Looper.getMainLooper()).postDelayed({
+                    ringtone.stop()
+                }, 1000)
+            } catch (e: Exception) {
+                Log.e("DashboardActivity", "Errore nella riproduzione del suono", e)
+            }
         } catch (e: Exception) {
             Log.e("DashboardActivity", "Errore durante l'invio della notifica floorman", e)
         }
@@ -619,25 +658,104 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     }
 
     private fun handleNotificationIntent(intent: Intent) {
-        // Gestisci l'apertura da notifica
-        if (intent.hasExtra("table_number") && intent.hasExtra("highlight_timer")) {
-            val tableNumber = intent.getIntExtra("table_number", -1)
-            val timerDeviceId = intent.getStringExtra("highlight_timer")
+        try {
+            // Gestisci l'apertura da notifica floorman
+            if (intent.hasExtra("table_number")) {
+                val tableNumber = intent.getIntExtra("table_number", -1)
+                val isFloormanCall = intent.getBooleanExtra("floorman_call", false)
 
-            // Trova la posizione del timer
-            if (tableNumber != -1 && timerDeviceId != null) {
-                // Aspetta che la recyclerView sia pronta
-                timersRecyclerView.post {
-                    val position = filteredTimerList.indexOfFirst { it.tableNumber == tableNumber }
-                    if (position >= 0) {
-                        // Scrolla alla posizione del timer
-                        timersRecyclerView.smoothScrollToPosition(position)
+                if (tableNumber != -1) {
+                    Log.d("DashboardActivity", "Gestendo notifica per tavolo $tableNumber, floorman=$isFloormanCall")
 
-                        // Evidenzia la card
-                        highlightTimerCard(position)
+                    // Se non ci sono dati disponibili o non sono ancora caricati, forza un refresh
+                    if (allTimerList.isEmpty()) {
+                        refreshTimerData(true)
                     }
+
+                    // Attendi che i dati siano caricati prima di procedere
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        // Trova la posizione del timer corrispondente
+                        val timer = allTimerList.find { it.tableNumber == tableNumber }
+
+                        if (timer != null) {
+                            // Aggiorna la lista filtrata se necessario
+                            if (!filteredTimerList.any { it.tableNumber == tableNumber }) {
+                                // Se il timer non è nella lista filtrata, cambia il filtro a ALL
+                                currentFilter = TimerFilterOption.ALL
+                                updateFilteredList()
+                            }
+
+                            // Trova la posizione nella lista filtrata
+                            val position = filteredTimerList.indexOfFirst { it.tableNumber == tableNumber }
+
+                            if (position >= 0) {
+                                // Scrolla alla posizione del timer
+                                timersRecyclerView.post {
+                                    timersRecyclerView.smoothScrollToPosition(position)
+
+                                    // Evidenzia la card
+                                    highlightTimerCard(position)
+
+                                    // Se è una chiamata floorman, mostra anche il dialogo di gestione
+                                    if (isFloormanCall) {
+                                        showFloormanHandleDialog(filteredTimerList[position])
+                                    }
+                                }
+                            } else {
+                                Toast.makeText(this, "Timer trovato ma non nella lista filtrata", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(this, "Timer per il tavolo $tableNumber non trovato", Toast.LENGTH_SHORT).show()
+
+                            // Forza un altro refresh per vedere se il timer appare
+                            refreshTimerData(true)
+                        }
+                    }, 500) // Breve ritardo per dare tempo al refresh di completarsi
                 }
             }
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore nel gestire l'intent della notifica: ${e.message}")
+            Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    /**
+     * Mostra un dialogo per gestire la chiamata floorman
+     */
+    private fun showFloormanHandleDialog(timer: TimerItem) {
+        try {
+            // Crea il dialog
+            val dialog = Dialog(this)
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+            dialog.setContentView(R.layout.dialog_floorman_call)
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+            // Imposta il titolo e il messaggio
+            val titleText = dialog.findViewById<TextView>(R.id.floorman_dialog_title)
+            val messageText = dialog.findViewById<TextView>(R.id.floorman_dialog_message)
+
+            titleText.text = "Chiamata Floorman Attiva"
+            messageText.text = "Il tavolo ${timer.tableNumber} ha una chiamata floorman attiva."
+
+            // Pulsante "Gestita"
+            val btnGestita = dialog.findViewById<Button>(R.id.btn_gestita)
+            btnGestita.setOnClickListener {
+                // Invia il comando per marcare come gestita
+                clearFloormanCall(timer)
+
+                // Chiudi il dialogo
+                dialog.dismiss()
+            }
+
+            // Pulsante "Chiudi"
+            val btnChiudi = dialog.findViewById<Button>(R.id.btn_chiudi)
+            btnChiudi.setOnClickListener {
+                dialog.dismiss()
+            }
+
+            // Mostra il dialogo
+            dialog.show()
+        } catch (e: Exception) {
+            Log.e("DashboardActivity", "Errore nel mostrare il dialogo floorman: ${e.message}")
         }
     }
 
@@ -1693,6 +1811,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     .create()
 
                 dialog.show()
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.WHITE)
+
                 true
             }
             R.id.action_refresh -> {
