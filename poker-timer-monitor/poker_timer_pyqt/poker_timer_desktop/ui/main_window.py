@@ -905,7 +905,7 @@ class MainWindow(QMainWindow):
         
         if has_existing_notification:
             # Aggiorna la notifica esistente
-            self.notification_manager.update_notification(table_number, f"Posti disponibili: {seats_str}", seats)
+            self.notification_manager.update_notification(table_number, f"Seat Open: {seats_str}", seats)
             print(f"Notifica per tavolo {table_number} aggiornata con posti {seats_str}")
         else:
             # Crea una nuova notifica con suono ripetuto ogni minuto (play_repeat_sound=True)
