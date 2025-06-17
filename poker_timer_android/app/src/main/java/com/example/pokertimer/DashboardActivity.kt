@@ -59,6 +59,9 @@ import android.widget.ImageView
 import android.widget.Spinner
 import org.json.JSONArray
 import android.animation.ObjectAnimator
+import android.app.Activity
+
+
 /**
  * Classe singleton per tenere traccia delle notifiche dei posti liberi già mostrate
  */
@@ -91,37 +94,60 @@ object SeatNotificationTracker {
 }
 
 object FloormanNotificationTracker {
-    // Map per tenere traccia delle notifiche floorman già mostrate
-    private val notifiedFloormanCalls = mutableMapOf<Int, Long>()
+    // Costante per il nome delle preferenze
+    private const val PREFS_NAME = "floorman_notifications"
     private const val NOTIFICATION_COOLDOWN_MS = 60000L // 1 minuto di cooldown
 
+    // Map in memoria per le notifiche recenti (per il cooldown)
+    private val recentNotifications = mutableMapOf<Int, Long>()
+
     /**
-     * Verifica se una chiamata floorman per un tavolo è già stata notificata di recente
-     * @return true se è una nuova notifica, false se è già stata mostrata di recente
+     * Verifica se è una nuova notifica da mostrare
      */
-    fun isNewNotification(tableNumber: Int): Boolean {
-        val previousTimestamp = notifiedFloormanCalls[tableNumber]
+    fun isNewNotification(context: Context, tableNumber: Int): Boolean {
+        // 1. Controlla se è stata ignorata tramite SharedPreferences
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean("dismissed_$tableNumber", false)) {
+            return false
+        }
+
+        // 2. Controlla il cooldown per evitare spam di notifiche
+        val lastNotifiedTime = recentNotifications[tableNumber]
         val currentTime = System.currentTimeMillis()
 
-        return if (previousTimestamp == null) {
+        return if (lastNotifiedTime == null) {
             true
         } else {
-            (currentTime - previousTimestamp) > NOTIFICATION_COOLDOWN_MS
+            (currentTime - lastNotifiedTime) > NOTIFICATION_COOLDOWN_MS
         }
     }
 
     /**
-     * Segna una notifica floorman come visualizzata
+     * Segna una notifica come appena mostrata (per il cooldown)
      */
     fun markAsNotified(tableNumber: Int) {
-        notifiedFloormanCalls[tableNumber] = System.currentTimeMillis()
+        recentNotifications[tableNumber] = System.currentTimeMillis()
     }
 
     /**
-     * Rimuove una notifica dal tracker
+     * Segna una notifica come ignorata (tramite swipe)
      */
-    fun clearNotification(tableNumber: Int) {
-        notifiedFloormanCalls.remove(tableNumber)
+    fun markAsDismissed(context: Context, tableNumber: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("dismissed_$tableNumber", true).apply()
+
+        // Rimuovi anche dalla mappa in memoria
+        recentNotifications.remove(tableNumber)
+    }
+
+    /**
+     * Cancella lo stato di una notifica (quando viene gestita)
+     */
+    fun clearNotification(context: Context, tableNumber: Int) {
+        // Rimuovi sia dalle preferenze che dalla mappa in memoria
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().remove("dismissed_$tableNumber").apply()
+        recentNotifications.remove(tableNumber)
     }
 }
 
@@ -163,6 +189,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
     private val allTimerList = mutableListOf<TimerItem>()
     private val filteredTimerList = mutableListOf<TimerItem>()
     private var currentFilter = TimerFilterOption.ALL
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -302,6 +329,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         }
     }
 
+
     private fun checkForFloormanCalls() {
         try {
             // Per ogni timer nella lista, controlla se ha una chiamata floorman attiva
@@ -313,7 +341,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                     android.util.Log.d("DashboardActivity", "Trovata chiamata floorman per tavolo $tableNumber")
 
                     // Verifica se è una nuova notifica da mostrare
-                    if (FloormanNotificationTracker.isNewNotification(tableNumber)) {
+                    if (FloormanNotificationTracker.isNewNotification(this, tableNumber)) {
                         // Mostra la notifica toast
                         showFloormanNotification(tableNumber)
                         // Marca come notificata per evitare duplicati
@@ -381,7 +409,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 }
 
                 // Rimuovi dal tracker locale
-                FloormanNotificationTracker.clearNotification(timer.tableNumber)
+                FloormanNotificationTracker.clearNotification(this@DashboardActivity, timer.tableNumber)
 
                 // Aggiorna dal server dopo un delay più lungo
                 delay(1000)
@@ -460,6 +488,17 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             )
 
+            // Intent per gestire il dismiss della notifica
+            val dismissIntent = Intent(this, NotificationDismissActivity::class.java).apply {
+                putExtra("table_number", tableNumber)
+            }
+            val dismissPendingIntent = PendingIntent.getActivity(
+                this,
+                6000 + tableNumber, // Un altro ID univoco
+                dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
             // Costruisci la notifica con priorità massima
             val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_timer)  // Usa un'icona esistente per ora
@@ -473,6 +512,8 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 .setFullScreenIntent(pendingIntent, true)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500)) // Pattern vibrazione urgente
+                // Aggiungi il DeleteIntent
+                .setDeleteIntent(dismissPendingIntent)
 
             // Stile espandibile
             val bigTextStyle = NotificationCompat.BigTextStyle()
@@ -612,14 +653,6 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
         stopAutoRefresh()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Assicurati di rimuovere il runnable quando l'activity viene distrutta
-        stopAutoRefresh()
-        timerRefreshHandler = null
-        refreshRunnable = null
-    }
-
     /**
      * Crea il canale di notifica (richiesto per Android 8.0+)
      */
@@ -720,7 +753,7 @@ class DashboardActivity : AppCompatActivity(), TimerAdapter.TimerActionListener 
                 }
 
                 // AGGIUNGI: Controlla anche le richieste bar pendenti
-                checkForPendingBarRequests()
+                //checkForPendingBarRequests()
 
                 try {
                     // Tenta di analizzare la risposta come JSON

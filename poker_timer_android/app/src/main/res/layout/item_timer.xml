@@ -224,8 +224,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:drawablePadding="4dp"
-                android:textSize="12sp"
                 android:textColor="@color/white"
+                android:textSize="12sp"
                 app:drawableStartCompat="@drawable/ic_clock"
                 app:drawableTint="@color/white"
                 tools:text="2s fa" />

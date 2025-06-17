@@ -19,6 +19,7 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             val playersCount = timerJson.optInt("players_count", 10)
             android.util.Log.d("JSONExtensions", "Parsing timer ${deviceId}: players_count=${playersCount}")
 
+
             // Gestione dei valori booleani che potrebbero essere 0/1 invece di true/false
             val isRunning = when (val runVal = timerJson.opt("is_running")) {
                 is Boolean -> runVal
@@ -55,6 +56,7 @@ fun JSONObject.parseTimers(): List<TimerItem> {
             // Alcuni campi potrebbero non essere presenti in tutti i dispositivi
             val wifiSignal = if (timerJson.has("wifi_signal")) timerJson.optInt("wifi_signal") else null
             val lastUpdateTimestamp = timerJson.optString("last_update", "")
+            android.util.Log.d("JSONExtensions", "Timestamp estratto per timer $deviceId: '$lastUpdateTimestamp'")
 
             // Fix per l'errore di tipo - gestione corretta dei valori nulli
             val ipAddress = if (timerJson.has("ip_address") && !timerJson.isNull("ip_address"))

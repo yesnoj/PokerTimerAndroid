@@ -20,6 +20,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
+import android.util.Log
 
 class TimerAdapter(
     private val context: Context,
@@ -280,21 +281,72 @@ class TimerAdapter(
         }
 
         private fun formatLastUpdate(timestamp: String): String {
-            try {
-                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-                sdf.timeZone = TimeZone.getTimeZone("UTC")
-                val time = sdf.parse(timestamp)
-                val now = Date()
-                val diffInMs = now.time - (time?.time ?: 0)
-                val diffInSeconds = diffInMs / 1000
+            if (timestamp.isEmpty()) {
+                return "N/A"
+            }
 
-                return when {
-                    diffInSeconds < 60 -> "${diffInSeconds}s fa"
-                    diffInSeconds < 3600 -> "${diffInSeconds / 60}m fa"
-                    diffInSeconds < 86400 -> "${diffInSeconds / 3600}h fa"
-                    else -> "${diffInSeconds / 86400}g fa"
+            try {
+                // Ottieni una versione "pulita" del timestamp
+                val cleanTimestamp = if (timestamp.contains(".")) {
+                    val parts = timestamp.split(".")
+                    val prefix = parts[0]  // La parte prima del punto
+                    val suffix = parts[1]  // La parte dopo il punto
+
+                    // Prendi solo i primi 3 caratteri della parte decimale (millisecondi)
+                    val milliseconds = if (suffix.length > 3) suffix.substring(0, 3) else suffix
+
+                    // Ricostruisci il timestamp con solo millisecondi
+                    if (suffix.endsWith("Z")) {
+                        "$prefix.$milliseconds"
+                    } else {
+                        "$prefix.${milliseconds}Z"
+                    }
+                } else {
+                    // Se non ci sono decimali, assicurati che termini con Z
+                    if (timestamp.endsWith("Z")) timestamp else "${timestamp}Z"
                 }
+
+                android.util.Log.d("TimerAdapter", "Pulito timestamp da '$timestamp' a '$cleanTimestamp'")
+
+                // OPZIONE 1: Il timestamp è già nell'ora locale (ma con il formato ISO)
+                // In questo caso, dobbiamo ignorare la 'Z' che indica UTC
+                if (cleanTimestamp.endsWith("Z")) {
+                    // Rimuovi la 'Z' per trattare il timestamp come ora locale
+                    val localTimestamp = cleanTimestamp.substring(0, cleanTimestamp.length - 1)
+                    val localFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", java.util.Locale.getDefault())
+
+                    // Non impostare alcun fuso orario esplicito
+                    // localFormat.timeZone = java.util.TimeZone.getDefault()
+
+                    val date = localFormat.parse(localTimestamp)
+                    if (date != null) {
+                        val outputFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                        return outputFormat.format(date)
+                    }
+                }
+
+                // OPZIONE 2: Il timestamp è effettivamente in UTC e dobbiamo correggere lo sfasamento
+                // Se il server invia timestamp in UTC (standard per ISO 8601 con 'Z')
+                val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                inputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+
+                // Imposta il fuso orario locale, che dovrebbe essere Europe/Rome per l'Italia
+                val outputFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+
+                // CORREZIONE: Non impostiamo un fuso orario specifico, ma usiamo quello del sistema
+                // Questo dovrebbe correggere automaticamente lo sfasamento
+                // outputFormat.timeZone = java.util.TimeZone.getDefault()
+
+                val date = inputFormat.parse(cleanTimestamp)
+                if (date == null) {
+                    return "N/A"
+                }
+
+                // Formatta l'orario nel formato desiderato
+                return outputFormat.format(date)
+
             } catch (e: Exception) {
+                android.util.Log.e("TimerAdapter", "Errore nel parsing: ${e.message}", e)
                 return "N/A"
             }
         }

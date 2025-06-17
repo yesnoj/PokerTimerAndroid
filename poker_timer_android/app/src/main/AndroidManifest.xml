@@ -61,6 +61,13 @@
             android:configChanges="orientation|screenSize">
         </activity>
 
+        <activity
+            android:name=".NotificationDismissActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance" />
 
         <activity
             android:name=".BarActivity"
