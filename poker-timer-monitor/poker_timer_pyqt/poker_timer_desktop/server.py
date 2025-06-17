@@ -657,7 +657,7 @@ class PokerTimerServer(QObject):
             self.bar_requests.append(bar_request)
             
             # Emetti il segnale per la notifica
-            self.bar_service_notification.emit(table_number)
+            #self.bar_service_notification.emit(table_number)
             
             # Determina se la richiesta proviene da un browser mobile
             user_agent = request.headers.get('User-Agent', '').lower()
@@ -895,7 +895,7 @@ class PokerTimerServer(QObject):
             self.bar_requests.append(bar_request)
             
             # Emetti il segnale per la notifica
-            self.bar_service_notification.emit(table_number)
+            #self.bar_service_notification.emit(table_number)
             
             return jsonify({
                 "status": "success",

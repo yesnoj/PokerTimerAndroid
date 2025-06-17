@@ -911,7 +911,7 @@ class MainWindow(QMainWindow):
             # Crea una nuova notifica con suono ripetuto ogni minuto (play_repeat_sound=True)
             self.notification_manager.show_notification(
                 f"Tavolo {table_number} - Seat Open",
-                f"Posti disponibili: {seats_str}",
+                f"Seat Open: {seats_str}",
                 "success",
                 action_button="OK",
                 action_callback=reset_seats_callback,
@@ -926,28 +926,49 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def on_floorman_notification(self, table_number):
-        """Gestisce il segnale di chiamata floorman"""
-        # Verifica se c'è già una chiamata attiva per questo tavolo
-        if table_number in self.active_floorman_calls:
-            print(f"Chiamata floorman già attiva per il tavolo {table_number}")
+        """Gestisce il segnale di notifica chiamata floorman"""
+        # Trova il device_id dal numero del tavolo
+        device_id = None
+        device_type = None
+        
+        for dev_id, timer_data in self.server.timers.items():
+            if timer_data.get('table_number') == table_number:
+                device_id = dev_id
+                if device_id.startswith('android_'):
+                    device_type = "android"
+                elif device_id.startswith('arduino_'):
+                    device_type = "hardware"
+                break
+        
+        if not device_id:
+            print(f"Avviso: Nessun timer trovato per il tavolo {table_number}")
             return
         
-        # IMPORTANTE: Mostra sempre la notifica toast
+        # Mostra sempre la notifica quando viene ricevuta una chiamata floorman
+        print(f"Ricevuta notifica floorman per tavolo {table_number} da device {device_id}")
+        
+        # IMPORTANTE: Riproduci sempre il suono per ogni notifica
+        self.notification_manager.play_notification_sound()
+        
+        # Mostra la notifica senza pulsante di azione
+        # Nota: play_sound è impostato su False perché abbiamo già riprodotto il suono sopra
         self.notification_manager.show_notification(
-            f"⚠️ Chiamata Floorman",
-            f"Floorman richiesto al tavolo {table_number}",
+            f"Chiamata Floorman - Tavolo {table_number}",
+            f"Il tavolo {table_number} richiede l'intervento del floorman.",
             "warning",
-            play_sound=True,
-            duration=10000  # 10 secondi
+            action_button=None,  # Nessun pulsante di azione
+            action_callback=None,  # Nessun callback
+            device_type=device_type,
+            auto_close=False,  # Non chiudere automaticamente
+            table_number=table_number,
+            play_sound=False,  # Suono già riprodotto sopra
+            play_repeat_sound=True  # Ripeti il suono ogni minuto
         )
         
-        # MODIFICATO: Non attiviamo più l'icona floorman sulla card
-        # Teniamo traccia della chiamata attiva nel dizionario
-        for device_id, timer_data in self.server.timers.items():
-            if timer_data.get('table_number') == table_number:
-                self.active_floorman_calls[table_number] = device_id
-                break
-
+        # Aggiorna il timestamp dell'ultima chiamata per questo tavolo
+        if not hasattr(self, '_active_floorman_timestamps'):
+            self._active_floorman_timestamps = {}
+        self._active_floorman_timestamps[table_number] = time.time()
     
     @pyqtSlot(int)
     def on_bar_service_notification(self, table_number):
