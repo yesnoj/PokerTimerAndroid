@@ -654,6 +654,7 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         // Già gestito in onLongPress del GestureDetector
     }
 
+/*
     private fun showPlayerSelectionDialog() {
         // Crea il dialogo
         val dialog = Dialog(this)
@@ -667,9 +668,10 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
         val mainContainer = dialog.findViewById<ConstraintLayout>(R.id.dialog_main_container)
         mainContainer.rotation = 180f
 
-        // Ottieni il numero del tavolo corrente
+        // Ottieni il numero del tavolo corrente e il numero di giocatori
         val currentState = viewModel.timerState.value
         val tableNumber = currentState?.tableNumber ?: 1
+        val playersCount = currentState?.playersCount ?: 10 // Usa il numero di giocatori configurato
 
         // Verifica se ci sono posti già selezionati
         val existingSeats = viewModel.getExistingSeats()
@@ -692,6 +694,15 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             dialog.findViewById<Button>(R.id.playerButton10)
         )
 
+        // Configura la visibilità dei bottoni in base al numero di giocatori
+        playerButtons.forEachIndexed { index, button ->
+            // Mostra solo i bottoni per il numero di giocatori configurato
+            button.visibility = if (index < playersCount) View.VISIBLE else View.GONE
+        }
+
+        // Adatta il layout in base al numero di giocatori
+        adjustLayoutForPlayerCount(dialog, playersCount)
+
         // Configura i listener per i bottoni dei giocatori e preseleziona posti esistenti
         playerButtons.forEachIndexed { index, button ->
             val playerNumber = index + 1
@@ -701,8 +712,11 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
                 button.isSelected = true
             }
 
-            button.setOnClickListener {
-                togglePlayerSelection(playerNumber, button)
+            // Aggiungi listener solo ai bottoni visibili
+            if (index < playersCount) {
+                button.setOnClickListener {
+                    togglePlayerSelection(playerNumber, button)
+                }
             }
         }
 
@@ -772,10 +786,388 @@ class MainActivity : AppCompatActivity(), GestureDetector.OnGestureListener, Ges
             dialog.dismiss()
         }
 
-
         dialog.show()
+    }
 
-        // Cambia il colore del pulsante Cancel a bianco
+    */
+private fun showPlayerSelectionDialog() {
+    // Crea il dialogo
+    val dialog = Dialog(this)
+    dialog.setContentView(R.layout.dialog_player_selection)
+
+    // Imposta la larghezza del dialogo
+    val window = dialog.window
+    window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+
+    // CODICE CORRETTO: Ottieni la vista principale del dialogo e ruotala
+    val mainContainer = dialog.findViewById<ConstraintLayout>(R.id.dialog_main_container)
+    mainContainer.rotation = 180f
+
+    // Ottieni il numero del tavolo corrente e il numero di giocatori
+    val currentState = viewModel.timerState.value
+    val tableNumber = currentState?.tableNumber ?: 1
+    val playersCount = currentState?.playersCount ?: 10 // Usa il numero di giocatori configurato
+
+    // Verifica se ci sono posti già selezionati
+    val existingSeats = viewModel.getExistingSeats()
+
+    // Resetta e carica le selezioni precedenti
+    selectedPlayerSeats.clear()
+    selectedPlayerSeats.addAll(existingSeats)
+
+    // Lista dei bottoni dei giocatori
+    val firstRowButtons = listOf(
+        dialog.findViewById<Button>(R.id.playerButton1),
+        dialog.findViewById<Button>(R.id.playerButton2),
+        dialog.findViewById<Button>(R.id.playerButton3),
+        dialog.findViewById<Button>(R.id.playerButton4),
+        dialog.findViewById<Button>(R.id.playerButton5)
+    )
+
+    val secondRowButtons = listOf(
+        dialog.findViewById<Button>(R.id.playerButton6),
+        dialog.findViewById<Button>(R.id.playerButton7),
+        dialog.findViewById<Button>(R.id.playerButton8),
+        dialog.findViewById<Button>(R.id.playerButton9),
+        dialog.findViewById<Button>(R.id.playerButton10)
+    )
+
+    val allButtons = firstRowButtons + secondRowButtons
+
+    // Adatta il layout in base al numero di giocatori
+    adjustLayoutForPlayerCount(dialog, playersCount)
+
+    // Configura i listener per i bottoni dei giocatori visibili
+    allButtons.forEach { button ->
+        if (button.visibility == View.VISIBLE) {
+            // Ottieni il numero del giocatore dal tag del bottone
+            val playerNumber = button.tag as Int
+
+            // Preseleziona posti esistenti
+            if (selectedPlayerSeats.contains(playerNumber)) {
+                button.isSelected = true
+            }
+
+            button.setOnClickListener {
+                togglePlayerSelection(playerNumber, button)
+            }
+        }
+    }
+
+    // Configura i listener per i pulsanti di azione
+    val sendButton = dialog.findViewById<Button>(R.id.sendButton)
+
+    sendButton.setOnClickListener {
+        // Verifica se ci sono posti selezionati
+        if (selectedPlayerSeats.isEmpty()) {
+            Toast.makeText(this, "Nessun posto selezionato", Toast.LENGTH_SHORT).show()
+            return@setOnClickListener
+        }
+
+        // Log per debug
+        Log.d("MainActivity", "Invio posti selezionati: $selectedPlayerSeats")
+
+        // Crea l'oggetto richiesta - fai una copia della lista per sicurezza
+        val seatsList = ArrayList(selectedPlayerSeats) // crea una copia sicura
+        val seatRequest = PlayerSeatRequest(tableNumber, seatsList)
+
+        // Mostra un dialogo di caricamento
+        val progressDialog = ProgressDialog(this).apply {
+            setMessage("Invio richiesta posti in corso...")
+            setCancelable(false)
+            show()
+        }
+
+        // Utilizza una coroutine per la chiamata di rete
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val networkManager = NetworkManager(applicationContext)
+
+                // Invia la richiesta usando il NetworkManager
+                val success = networkManager.sendSeatRequest(currentState?.serverUrl ?: "", seatRequest)
+
+                // Nascondi il dialogo di caricamento
+                progressDialog.dismiss()
+
+                // Gestisci la risposta
+                if (success) {
+                    // Solo ora svuota la lista e chiudi il dialogo
+                    selectedPlayerSeats.clear()
+                    viewModel.saveSelectedSeats(emptyList())
+                    dialog.dismiss()
+
+                    Toast.makeText(applicationContext, "Posti inviati con successo", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(applicationContext, "Errore nell'invio della richiesta", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                // Nascondi il dialogo di caricamento in caso di errore
+                progressDialog.dismiss()
+
+                Log.e("MainActivity", "Errore nell'invio dei posti: ${e.message}", e)
+                Toast.makeText(applicationContext, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val closeButton = dialog.findViewById<ImageButton>(R.id.closeButton)
+    closeButton.setOnClickListener {
+        // Ripristina la lista originale
+        selectedPlayerSeats.clear()
+        selectedPlayerSeats.addAll(existingSeats)
+
+        // Chiudi il dialogo senza inviare nulla
+        dialog.dismiss()
+    }
+
+    dialog.show()
+}
+
+    /**
+     * Adatta il layout del dialogo in base al numero di giocatori
+     */
+    /*
+    private fun adjustLayoutForPlayerCount(dialog: Dialog, playersCount: Int) {
+        // Ottieni il container dei bottoni
+        val buttonsContainer = dialog.findViewById<ConstraintLayout>(R.id.buttonsContainer)
+
+        // Riferimenti ai bottoni nella prima e seconda fila
+        val firstRowButtons = listOf(
+            dialog.findViewById<Button>(R.id.playerButton1),
+            dialog.findViewById<Button>(R.id.playerButton2),
+            dialog.findViewById<Button>(R.id.playerButton3),
+            dialog.findViewById<Button>(R.id.playerButton4),
+            dialog.findViewById<Button>(R.id.playerButton5)
+        )
+
+        val secondRowButtons = listOf(
+            dialog.findViewById<Button>(R.id.playerButton6),
+            dialog.findViewById<Button>(R.id.playerButton7),
+            dialog.findViewById<Button>(R.id.playerButton8),
+            dialog.findViewById<Button>(R.id.playerButton9),
+            dialog.findViewById<Button>(R.id.playerButton10)
+        )
+
+        // Calcola quanti bottoni visualizzare nella prima e seconda fila
+        val firstRowCount = minOf(5, playersCount)
+        val secondRowCount = maxOf(0, playersCount - 5)
+
+        // Se c'è solo una fila, nascondi completamente la seconda
+        if (secondRowCount == 0) {
+            secondRowButtons.forEach { it.visibility = View.GONE }
+
+            // Ridimensiona e posiziona i bottoni della prima fila in modo uniforme
+            if (firstRowCount < 5) {
+                // Calcola lo spazio tra i bottoni per distribuirli uniformemente
+                val buttonWidth = 0.18f // width_percent di ogni bottone
+                val totalWidth = buttonWidth * firstRowCount
+                val spacing = (1f - totalWidth) / (firstRowCount + 1)
+
+                // Aggiorna i vincoli dei bottoni
+                for (i in 0 until firstRowCount) {
+                    val button = firstRowButtons[i]
+                    val params = button.layoutParams as ConstraintLayout.LayoutParams
+
+                    // Imposta nuovi margini per distribuire uniformemente i bottoni
+                    val startPercent = spacing + i * (buttonWidth + spacing)
+                    val endPercent = 1f - startPercent - buttonWidth
+
+                    // Utilizza i nuovi margini
+                    params.leftMargin = (startPercent * buttonsContainer.width).toInt()
+                    params.rightMargin = (endPercent * buttonsContainer.width).toInt()
+
+                    button.layoutParams = params
+                }
+            }
+        }
+        // Se abbiamo una seconda fila incompleta
+        else if (secondRowCount < 5) {
+            // Nascondi i bottoni non necessari nella seconda fila
+            for (i in secondRowCount until 5) {
+                secondRowButtons[i].visibility = View.GONE
+            }
+
+            // Calcola lo spazio tra i bottoni per distribuirli uniformemente nella seconda fila
+            val buttonWidth = 0.18f // width_percent di ogni bottone
+            val totalWidth = buttonWidth * secondRowCount
+            val spacing = (1f - totalWidth) / (secondRowCount + 1)
+
+            // Aggiorna i vincoli dei bottoni della seconda fila
+            for (i in 0 until secondRowCount) {
+                val button = secondRowButtons[i]
+                val params = button.layoutParams as ConstraintLayout.LayoutParams
+
+                // Imposta nuovi margini per distribuire uniformemente i bottoni
+                val startPercent = spacing + i * (buttonWidth + spacing)
+                val endPercent = 1f - startPercent - buttonWidth
+
+                // Utilizza i nuovi margini
+                params.leftMargin = (startPercent * buttonsContainer.width).toInt()
+                params.rightMargin = (endPercent * buttonsContainer.width).toInt()
+
+                button.layoutParams = params
+            }
+        }
+    }
+*/
+    /**
+     * Adatta il layout del dialogo in base al numero di giocatori secondo la nuova distribuzione
+     */
+    /**
+     * Adatta il layout del dialogo in base al numero di giocatori
+     */
+    private fun adjustLayoutForPlayerCount(dialog: Dialog, playersCount: Int) {
+        // Ottieni il container dei bottoni
+        val buttonsContainer = dialog.findViewById<ConstraintLayout>(R.id.buttonsContainer)
+
+        // Riferimenti ai bottoni nella prima e seconda fila
+        val firstRowButtons = listOf(
+            dialog.findViewById<Button>(R.id.playerButton1),
+            dialog.findViewById<Button>(R.id.playerButton2),
+            dialog.findViewById<Button>(R.id.playerButton3),
+            dialog.findViewById<Button>(R.id.playerButton4),
+            dialog.findViewById<Button>(R.id.playerButton5)
+        )
+
+        val secondRowButtons = listOf(
+            dialog.findViewById<Button>(R.id.playerButton6),
+            dialog.findViewById<Button>(R.id.playerButton7),
+            dialog.findViewById<Button>(R.id.playerButton8),
+            dialog.findViewById<Button>(R.id.playerButton9),
+            dialog.findViewById<Button>(R.id.playerButton10)
+        )
+
+        // Tutti i bottoni in un'unica lista
+        val allButtons = firstRowButtons + secondRowButtons
+
+        // Determina il numero di bottoni in ciascuna riga in base al conteggio totale
+        val (firstRowCount, secondRowCount) = when (playersCount) {
+            1 -> 1 to 0  // 1 giocatore: 1 nella prima riga
+            2 -> 2 to 0  // 2 giocatori: 2 nella prima riga
+            3 -> 3 to 0  // 3 giocatori: 3 nella prima riga
+            4 -> 2 to 2  // 4 giocatori: 2 per riga
+            5 -> 3 to 2  // 5 giocatori: 3 nella prima, 2 nella seconda
+            6 -> 3 to 3  // 6 giocatori: 3 per riga
+            7 -> 4 to 3  // 7 giocatori: 4 nella prima, 3 nella seconda
+            8 -> 4 to 4  // 8 giocatori: 4 per riga
+            9 -> 5 to 4  // 9 giocatori: 5 nella prima, 4 nella seconda
+            else -> 5 to 5  // 10 giocatori: 5 per riga (layout originale)
+        }
+
+        // Nascondi tutti i bottoni inizialmente
+        allButtons.forEach { it.visibility = View.GONE }
+
+        // Contatore per i numeri dei bottoni
+        var playerNumber = 1
+
+        // Gestisci i bottoni della prima riga
+        for (i in 0 until firstRowCount) {
+            val button = firstRowButtons[i]
+            button.visibility = View.VISIBLE
+
+            // Imposta il numero corretto sul bottone
+            button.text = playerNumber.toString()
+
+            // Associa il player number corretto al bottone per l'utilizzo in togglePlayerSelection
+            button.tag = playerNumber
+
+            // Incrementa il contatore
+            playerNumber++
+
+            // Aggiorna i parametri del layout per distribuire uniformemente
+            val layoutParams = button.layoutParams as ConstraintLayout.LayoutParams
+
+            when (firstRowCount) {
+                1 -> {
+                    // Un solo bottone centrato
+                    layoutParams.horizontalBias = 0.5f
+                }
+                2 -> {
+                    // Due bottoni distribuiti (posizioni 1 e 5)
+                    if (i == 0) {
+                        layoutParams.horizontalBias = 0.25f
+                    } else {
+                        layoutParams.horizontalBias = 0.75f
+                    }
+                }
+                3 -> {
+                    // Tre bottoni distribuiti (posizioni 1, 3, 5)
+                    layoutParams.horizontalBias = when (i) {
+                        0 -> 0.17f
+                        1 -> 0.5f
+                        else -> 0.83f
+                    }
+                }
+                4 -> {
+                    // Quattro bottoni distribuiti (posizioni 1, 2, 4, 5)
+                    layoutParams.horizontalBias = when (i) {
+                        0 -> 0.125f
+                        1 -> 0.375f
+                        2 -> 0.625f
+                        else -> 0.875f
+                    }
+                }
+                5 -> {
+                    // Cinque bottoni (layout originale - nessuna modifica necessaria)
+                }
+            }
+
+            button.layoutParams = layoutParams
+        }
+
+        // Se ci sono bottoni nella seconda riga
+        if (secondRowCount > 0) {
+            // Mostra e posiziona i bottoni della seconda riga
+            for (i in 0 until secondRowCount) {
+                val button = secondRowButtons[i]
+                button.visibility = View.VISIBLE
+
+                // Imposta il numero corretto sul bottone
+                button.text = playerNumber.toString()
+
+                // Associa il player number corretto al bottone per l'utilizzo in togglePlayerSelection
+                button.tag = playerNumber
+
+                // Incrementa il contatore
+                playerNumber++
+
+                // Aggiorna i parametri del layout per distribuire uniformemente
+                val layoutParams = button.layoutParams as ConstraintLayout.LayoutParams
+
+                when (secondRowCount) {
+                    2 -> {
+                        // Due bottoni distribuiti (posizioni 1 e 5)
+                        if (i == 0) {
+                            layoutParams.horizontalBias = 0.25f
+                        } else {
+                            layoutParams.horizontalBias = 0.75f
+                        }
+                    }
+                    3 -> {
+                        // Tre bottoni distribuiti (posizioni 1, 3, 5)
+                        layoutParams.horizontalBias = when (i) {
+                            0 -> 0.17f
+                            1 -> 0.5f
+                            else -> 0.83f
+                        }
+                    }
+                    4 -> {
+                        // Quattro bottoni distribuiti (posizioni 1, 2, 4, 5)
+                        layoutParams.horizontalBias = when (i) {
+                            0 -> 0.125f
+                            1 -> 0.375f
+                            2 -> 0.625f
+                            else -> 0.875f
+                        }
+                    }
+                    5 -> {
+                        // Cinque bottoni (layout originale - nessuna modifica necessaria)
+                    }
+                }
+
+                button.layoutParams = layoutParams
+            }
+        }
     }
 
     private fun showSettingsDialog() {
